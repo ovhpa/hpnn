@@ -1,0 +1,19 @@
+CC=gcc
+AR=ar
+RANLIB=ranlib
+# blas
+# openblas openMP version of BLAS
+BLAS_INC = -I/usr/include/openblas
+BLAS_LIB = -L/usr/lib64 -lopenblaso
+# tweak
+CFLAGS=-Wall -DHAVE_C99
+OPTFLAGS = -O2 -fopenmp -D_OMP -DPBLAS
+DBGFLAGS=-g -ggdb -DDEBUG
+GCFLAGS=`pkg-config --cflags glib-2.0`
+GLFLAGS=`pkg-config --libs glib-2.0`
+# context
+INCFLAGS = -I. -I./include $(BLAS_INC)
+INCDBGFLAGS = -I. -I./include
+LDFLAGS = $(BLAS_LIB)
+DBGLDFLAGS =
+LIBS = -lm

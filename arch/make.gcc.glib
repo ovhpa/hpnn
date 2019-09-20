@@ -1,0 +1,11 @@
+CC=gcc
+AR=ar
+RANLIB=ranlib
+# tweak
+CFLAGS=-Wall -DHAVE_C99
+OPTFLAGS=-O3 -fopt-info-optimized
+DBGFLAGS=-g -ggdb -DDEBUG
+# context
+INCFLAGS = -I. -I./include
+LDFLAGS =
+LIBS = -lm -lreadline -ldl

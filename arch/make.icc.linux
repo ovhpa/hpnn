@@ -1,0 +1,11 @@
+CC=icc -ip
+AR=ar
+RANLIB=ranlib
+# tweak
+CFLAGS=-Wall -std=c99 -DHAVE_C99
+OPTFLAGS=-O2
+DBGFLAGS=-g -debug all -ggdb -DDEBUG
+# context
+INCFLAGS = -I. -I./include
+LDFLAGS =
+LIBS = -lm
