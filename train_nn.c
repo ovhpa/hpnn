@@ -102,6 +102,7 @@ int main (int argc, char *argv[]){
 		fprintf(stderr,"FAILED to open kernel.tmp for WRITE!\n");
 		return 1;
 	}
+	_NN(kernel,dump)(neural,output);
 	fclose(output);	
 	/*dump config*/
 //	dump_conf(stdout,neural);

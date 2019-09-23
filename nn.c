@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
+#include <time.h>
 
 /* Artificial Neuron Network, abstract layer. */
 /* ------------ Hubert Okadome Valencia, 2019 */
@@ -181,18 +182,23 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	CHAR   *curr_dir;
 	DOUBLE    *tr_in;
 	DOUBLE   *tr_out;
-	CHAR  *tmp;
+	UINT file_number;
+	CHAR     **flist;
+	CHAR  *tmp,**ptr;
 	UINT is_ok;
+	UINT   idx;
+	UINT   jdx;
 	DOUBLE res;
 	/**/
 	curr_file=NULL;
 	curr_dir =NULL;
+	flist = NULL;
 	/**/
 	if(neural->type==NN_TYPE_UKN) return FALSE;
 	/*initialize momentum*/
 	switch (neural->type){
 	case NN_TYPE_ANN:
-		ann_momentum_init((_kernel *)neural->kernel);
+		if(neural->train==NN_TRAIN_BPM) ann_momentum_init((_kernel *)neural->kernel);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_PNN:
@@ -201,20 +207,52 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		fprintf(stdout,"NN type not ready!\n");
 	}
 	/*process sample files*/
-	OPEN_DIR(directory,neural->samples);
+	OPEN_DIR(directory,neural->tests);
 	if(directory==NULL){
 		fprintf(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
 		return FALSE;
 	}
-	STRCAT(curr_dir,neural->samples,"/");
+	STRCAT(curr_dir,neural->tests,"/");
+	/*count the number of file in directory*/
 	FILE_FROM_DIR(directory,curr_file);
+	file_number=0;
 	while(curr_file!=NULL){
 		if(curr_file[0]=='.') {
 			FREE(curr_file);
-			FILE_FROM_DIR(directory,curr_file);
+			FILE_FROM_DIR(directory,curr_file);/*NEXT*/
 			continue;
 		}
-		fprintf(stdout,"TRAINING FILE=%s\t",curr_file);
+		/*POSIX says char d_name[] has no fixed size*/
+		STRDUP(curr_file,tmp);
+		file_number++;
+		ALLOC(ptr,file_number,CHAR *);
+		for(idx=0;idx<(file_number-1);idx++){
+			ptr[idx]=flist[idx];
+		}
+		ptr[file_number-1]=tmp;
+		FREE(flist);
+		flist=ptr;
+		tmp=NULL;ptr=NULL;
+		FREE(curr_file);
+		FILE_FROM_DIR(directory,curr_file);/*NEXT*/
+	}
+	CLOSE_DIR(directory,is_ok);
+	if(is_ok){
+		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+	}
+	if(neural->seed==0) neural->seed=time(NULL);
+	srandom(neural->seed);
+	jdx=0;
+	while(jdx<file_number){
+		/*get a random number between 0 and file_number-1*/
+		idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
+		while(flist[idx]==NULL){
+			/*no good, get another random number*/
+			idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
+		}
+		STRDUP(flist[idx],curr_file);
+		FREE(flist[idx]);flist[idx]=NULL;jdx++;
+		fprintf(stdout,"TRAINING FILE: %s\t",curr_file);
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
@@ -225,6 +263,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 				res=ann_train_BPM((_kernel *)neural->kernel,tr_in,tr_out,0.2,0.00001);
 				break;
 			case NN_TRAIN_BP:
+				res=ann_train_BP((_kernel *)neural->kernel,tr_in,tr_out,0.000001);
 			case NN_TRAIN_CG:
 			default:
 				res=0.;
@@ -244,12 +283,8 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
-		FILE_FROM_DIR(directory,curr_file);
 	}
-	CLOSE_DIR(directory,is_ok);
-	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
-	}
+	FREE(flist);
 	return TRUE;
 }
 
@@ -260,13 +295,17 @@ void _NN(kernel,run)(nn_def *neural){
 	DOUBLE    *tr_in;
 	DOUBLE   *tr_out;
 	DOUBLE     probe;
-	CHAR  *tmp;
+	UINT file_number;
+	CHAR     **flist;
+	CHAR  *tmp,**ptr;
 	UINT is_ok;
 	UINT   idx;
+	UINT   jdx;
 	DOUBLE res;
 	/**/
 	curr_file=NULL;
 	curr_dir =NULL;
+	flist = NULL;
 	/**/
 	if(neural->type==NN_TYPE_UKN) return;
 	/*process sample files*/
@@ -276,15 +315,47 @@ void _NN(kernel,run)(nn_def *neural){
 		return;
 	}
 	STRCAT(curr_dir,neural->tests,"/");
+	/*count the number of file in directory*/
 	FILE_FROM_DIR(directory,curr_file);
+	file_number=0;
 	while(curr_file!=NULL){
-#define _K ((_kernel *)(neural->kernel))
 		if(curr_file[0]=='.') {
 			FREE(curr_file);
-			FILE_FROM_DIR(directory,curr_file);
+			FILE_FROM_DIR(directory,curr_file);/*NEXT*/
 			continue;
 		}
-		fprintf(stdout,"TESTING FILE=%s\t",curr_file);
+		/*POSIX says char d_name[] has no fixed size*/
+		STRDUP(curr_file,tmp);
+		file_number++;
+		ALLOC(ptr,file_number,CHAR *);
+		for(idx=0;idx<(file_number-1);idx++){
+			ptr[idx]=flist[idx];
+		}
+		ptr[file_number-1]=tmp;
+		FREE(flist);
+		flist=ptr;
+		tmp=NULL;ptr=NULL;
+		FREE(curr_file);
+		FILE_FROM_DIR(directory,curr_file);/*NEXT*/
+	}
+        CLOSE_DIR(directory,is_ok);
+	if(is_ok){
+		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+	}
+	if(neural->seed==0) neural->seed=time(NULL);
+	srandom(neural->seed);
+	jdx=0;
+	while(jdx<file_number){
+#define _K ((_kernel *)(neural->kernel))
+		/*get a random number between 0 and file_number-1*/
+		idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
+		while(flist[idx]==NULL){
+			/*no good, get another random number*/
+			idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
+		}
+		STRDUP(flist[idx],curr_file);
+		FREE(flist[idx]);flist[idx]=NULL;jdx++;
+		fprintf(stdout,"TESTING FILE: %s\t",curr_file);
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
@@ -318,12 +389,8 @@ void _NN(kernel,run)(nn_def *neural){
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
-		FILE_FROM_DIR(directory,curr_file);
 	}
-	CLOSE_DIR(directory,is_ok);
-	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
-	}
+	FREE(flist);
 }
 
 

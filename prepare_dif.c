@@ -25,7 +25,15 @@ void dump_help(){
 	fprintf(stdout,"rruff_directory: where dif and raw directory\n");
 	fprintf(stdout,"are located.\n");
 	fprintf(stdout,"-i n_in: number of input samples -MANDATORY!\n");
+	fprintf(stdout,"This is the interval number in which the XRD\n");
+	fprintf(stdout,"diffraction pattern will be interpolated NOT\n");
+	fprintf(stdout,"the number of input for neural network.  The\n");
+	fprintf(stdout,"difference is extra input is added to the NN\n");
+	fprintf(stdout,"for relative temperature (T/T0 ; T0=273.15).\n");
 	fprintf(stdout,"-i n_out: number of outputs -ALSO MANDATORY!\n");
+	fprintf(stdout,"It corresponds to  the neural network number\n");
+	fprintf(stdout,"of outputs and SHOULD BE 230, ie. the number\n");
+	fprintf(stdout,"of studied space groups to be found by NN...\n");
 	fprintf(stdout,"********************************************\n");
 	fprintf(stdout,"The default is that created the samples will\n");
 	fprintf(stdout,"be written to the 'samples' directory, which\n");
@@ -99,6 +107,7 @@ int main (int argc, char *argv[]){
 						dump_help();
 						return 1;
 					}
+					n_inputs+=1;/*temperature*/
 					goto end_loop;/*no combination (-ih) is allowed*/
 				case 'o':
 					tmp=&(argv[idx][jdx]);
@@ -193,6 +202,11 @@ fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",rruff_dir,n_inputs,n_output
 		dif=read_dif(tmp);
 		if(dif==NULL){
 			fprintf(stderr,"ERROR:  reading %s file! SKIP\n",curr_file);
+			FILE_FROM_DIR(directory,curr_file);
+			continue;
+		}
+		if(dif->lambda==0.710730){
+			fprintf(stderr,"ERROR:  file %s has wavelength of 0.710730! SKIP\n",curr_file);
 			FILE_FROM_DIR(directory,curr_file);
 			continue;
 		}

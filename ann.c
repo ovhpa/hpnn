@@ -1078,9 +1078,51 @@ for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 	return Ep-Epr;
 }
 
-
-
-
+/*--------------------------*/
+/* train ANN sample with BP */
+/*--------------------------*/
+DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta){
+/*typical values delta=0.000001*/
+	BOOL is_ok;
+	UINT   idx;
+	UINT  iter;
+	DOUBLE dEp;
+	DOUBLE probe;
+	/*copy input*/
+	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
+	/**/
+	ann_kernel_run(kernel);
+	dEp=0.;
+	for(idx=0;idx<kernel->n_outputs;idx++)
+		dEp+=(train_out[idx]-kernel->out[idx])*(train_out[idx]-kernel->out[idx]);
+	dEp*=0.5;
+	fprintf(stdout," init=%15.10f",dEp);
+	iter=0;
+	do{
+		dEp=ann_kernel_train(kernel,train_out);
+		is_ok=FALSE;
+		iter++;
+		is_ok=TRUE;
+		for(idx=0;idx<KERN.n_outputs;idx++){
+			probe=0.;
+			if(kernel->out[idx]>0.1) probe=1.0;
+			else if(kernel->out[idx]<-0.1) probe=-1.0;
+			else is_ok=FALSE;
+			if(train_out[idx]!=probe) is_ok=FALSE;
+		}
+		if(iter==1){
+			/*determine if we get a good answer at first try*/
+			if(is_ok==TRUE) fprintf(stdout," OK");
+			else fprintf(stdout," NO");
+		}
+		if(iter>10239) break;/*failsafe number of wrong iteration*/
+	}while((dEp > delta)||(!(is_ok==TRUE)));
+	fprintf(stdout," N_ITER=%8i",iter);
+	if(is_ok==TRUE) fprintf(stdout," SUCCESS!\n");
+	else fprintf(stdout," FAIL!\n");
+	fflush(stdout);
+	return dEp;
+}
 
 /*---------------------------*/
 /* train ANN sample with BPM */
@@ -1109,8 +1151,10 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		iter++;
 		is_ok=TRUE;
 		for(idx=0;idx<KERN.n_outputs;idx++){
+			probe=0.;
 			if(kernel->out[idx]>0.1) probe=1.0;
-			else probe=-1.0;
+			else if(kernel->out[idx]<-0.1) probe=-1.0;
+			else is_ok=FALSE;
 			if(train_out[idx]!=probe) is_ok=FALSE;
 		}
 		if(iter==1){

@@ -387,19 +387,16 @@ BOOL dif_2_sample(const _dif *dif,FILE *dest,UINT n_inputs,UINT n_outputs){
 	DOUBLE *samples;
 	/*------------*/
 	if((dif==NULL)||(dest==NULL)||(n_inputs==0)||(n_outputs==0)) return FALSE;
-	ALLOC(samples,n_inputs,DOUBLE);
-
+	ALLOC(samples,n_inputs-1,DOUBLE);
 	/*start writting*/
 	fprintf(dest,"[input] %i\n",n_inputs);
-	/*temperature input <- have to be relative ie. T/T0*/
 	/*integrate input*/
 	interval=(MAX_THETA-MIN_THETA)/(n_inputs-1);
 	max=MIN_THETA+interval;
 	jdx=0;
 	/*ignore values below MIN_THETA*/
 	while((DIF.raw._t[jdx]<MIN_THETA)&&(jdx<DIF.raw.n_sample)) jdx++;
-	/*starts sampling at 1 (temperature is idx=0)*/
-	for(idx=1;idx<n_inputs;idx++){
+	for(idx=0;idx<(n_inputs-1);idx++){
 		acc=0.;
 		while((DIF.raw._t[jdx]<max)&&(jdx<DIF.raw.n_sample)) {
 			acc+=DIF.raw._i[jdx];
@@ -413,9 +410,10 @@ BOOL dif_2_sample(const _dif *dif,FILE *dest,UINT n_inputs,UINT n_outputs){
 		FREE(samples);
 		return FALSE;/*this is NOT OK*/
 	}
-	/*now print, temperature have to be relative ie. T/T0*/
+	/*temperature have to be relative ie. T/T0*/
 	fprintf(dest,"%7.5f",DIF.temp/273.15);
-	for(idx=1;idx<n_inputs;idx++) {
+	/*now, the interpolated XRD is normed*/
+	for(idx=0;idx<(n_inputs-1);idx++) {
 		samples[idx]/=max_i;
 		fprintf(dest," %7.5f",samples[idx]);
 	}
