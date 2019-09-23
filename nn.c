@@ -207,12 +207,12 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		fprintf(stdout,"NN type not ready!\n");
 	}
 	/*process sample files*/
-	OPEN_DIR(directory,neural->tests);
+	OPEN_DIR(directory,neural->samples);
 	if(directory==NULL){
 		fprintf(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
 		return FALSE;
 	}
-	STRCAT(curr_dir,neural->tests,"/");
+	STRCAT(curr_dir,neural->samples,"/");
 	/*count the number of file in directory*/
 	FILE_FROM_DIR(directory,curr_file);
 	file_number=0;
