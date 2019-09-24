@@ -109,6 +109,7 @@ if [ -d "./rruff/tests" ]&>/dev/null; then
 fi
 mkdir -p ./rruff/tests
 echo "preparing samples"
+cp $PDIF ./rruff
 cd rruff
 ../pdif . -i 850 -o 230
 echo "preparing configuration files"
@@ -117,26 +118,33 @@ echo "[type] ANN" >> nn.conf
 echo "[init] generate" >> nn.conf
 echo "[seed] 0" >> nn.conf
 echo "[input] 851" >> nn.conf
-echo "[hidden] 460" >> nn.conf
+echo "[hidden] 230" >> nn.conf
 echo "[output] 230" >> nn.conf
 echo "[train] BPM" >> nn.conf
 echo "[sample_dir] ./samples" >> nn.conf
 echo "[test_dir] ./tests" >> nn.conf
 sed 's/generate/kernel.opt/g' nn.conf > nn2.conf
 #all done
+cd ..
 echo "training NN -- turn 0"
+cp $TRAIN ./rruff
+cd rruff
 #first round
 ../train_nn
+echo "Initial training done!"
+rm -f nn.conf
+mv nn2.conf nn.conf
 #next 10 rounds
 for idx in `seq 10`
 do
 	echo "training NN -- turn $idx"
-	../train_nn nn2.conf
+	../train_nn
 done
 echo "ANN should be trained enough for a rough test."
 echo "Please try ../run_nn - from rruff directory..."
-
-
+cp ./samples/* ./tests/
+../run_nn
+echo "All done!"
 
 
 
