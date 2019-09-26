@@ -4,11 +4,10 @@ RANLIB=ranlib
 # blas
 BLAS_INC = -I$MKLROOT/include -D_MKL
 BLAS_LIB = -liomp5 -lpthread -lm -ldl
-#BLAS_LIB =  -ltbb -lstdc++ -lpthread -lm -ldl
 # tweak
-CFLAGS=-Wall -std=gnu99 -DHAVE_C99
-OPTFLAGS=-O2 -mkl=parallel -qopenmp -D_OMP -DSBLAS -fma -qoverride-limits
-DBGFLAGS=-g -qopenmp -D_OMP -debug all -ggdb -DDEBUG
+CFLAGS=-Wall -std=c99 -DHAVE_C99
+OPTFLAGS=-O2 -mkl=parallel -qopenmp -D_OMP -DPBLAS
+DBGFLAGS=-g -debug all -ggdb -DDEBUG
 GCFLAGS=`pkg-config --cflags glib-2.0`
 GLFLAGS=`pkg-config --libs glib-2.0`
 # context

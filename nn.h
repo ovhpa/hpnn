@@ -28,6 +28,15 @@ typedef struct {
 } nn_def;
 
 #define _NN(a,b) nn_##a##_##b
+/*init*/
+void _NN(inc,verbose)();
+void _NN(toggle,dry)();
+int _NN(init,all)();
+void _NN(set,omp_threads)(UINT n);
+UINT _NN(get,omp_threads)();
+void _NN(set,omp_blas)(UINT n);
+UINT _NN(get,omp_blas)();
+
 /*ACCESS*/
 UINT _NN(get,n_inputs)(nn_def *neural);
 UINT _NN(get,n_hiddens)(nn_def *neural);

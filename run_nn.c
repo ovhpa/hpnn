@@ -55,7 +55,7 @@ int main (int argc, char *argv[]){
 						dump_help();
 						return 0;
 					case 'v':
-						ann_set_verbose();
+						_NN(inc,verbose)();
 						jdx++;
 						break;
 					default:

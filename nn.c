@@ -11,7 +11,77 @@
 #include "common.h"
 #include "ann.h"
 
+#if defined (PBLAS) || defined (SBLAS)
+#ifndef _MKL
+#include <cblas.h>
+#else /*_MKL*/
+#include <mkl.h>
+#include <mkl_cblas.h>
+#endif /*_MKL*/
+#endif /*PBLAS*/
+
+#ifdef _OMP
+#include <omp.h>
+#endif
+
 #include "nn.h"
+
+/*GLOBAL VARIABLES*/
+SHORT	nn_verbose =0;
+BOOL	nn_dry =FALSE;
+#ifdef _OMP
+UINT nn_num_threads=1;
+UINT nn_num_blas  = 1;
+#endif
+
+void _NN(inc,verbose)(){
+        nn_verbose++;
+        if(nn_verbose>0) fprintf(stdout,"# NN: increasing verbosity\n");
+}
+
+void _NN(toggle,dry)(){
+        nn_dry^=nn_dry;
+}
+
+int _NN(init,all)(){
+#ifdef _MKL
+        mkl_set_dynamic(0);
+        omp_set_nested(1);
+//	mkl_set_num_threads(nn_num_threads);
+	omp_set_num_threads(nn_num_threads);
+//	mkl_domain_set_num_threads(nn_num_blas, MKL_DOMAIN_BLAS);
+        omp_set_max_active_levels(2);
+        /*hyper-threading*/
+        fprintf(stdout,"MKL started.\n");
+#endif /*_MKL*/
+
+#ifdef _OMP
+        #pragma omp parallel default(shared) 
+        {
+		fprintf(stdout,"#");
+        }
+        fprintf(stdout,"\nANN started with %i threads.\n",nn_num_threads);
+#ifdef _MKL
+	fprintf(stdout,"and with %i BLAS threads.\n",nn_num_blas);
+#endif /*_MKL*/
+	fflush(stdout);
+#endif /*_OMP*/
+        return 0;
+}
+
+void _NN(set,omp_threads)(UINT n){
+	nn_num_threads=n;	
+}
+UINT _NN(get,omp_threads)(){
+	return nn_num_threads;
+}
+void _NN(set,omp_blas)(UINT n){
+        nn_num_blas=n;
+}
+UINT _NN(get,omp_blas)(){
+	return nn_num_blas;
+}
+
 
 UINT _NN(get,n_inputs)(nn_def *neural){
 	switch (neural->type){

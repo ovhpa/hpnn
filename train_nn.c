@@ -25,6 +25,10 @@ void dump_help(){
 	fprintf(stdout,"-h \tdisplay this help;\n");
 	fprintf(stdout,"-v \tincrease verbosity;\n");
 	fprintf(stdout,"-x \tdiscard results.\n");
+#ifdef _OMP
+	fprintf(stdout,"-O \tnumber of openMP threads.\n");
+	fprintf(stdout,"-B \tnumber of BLAS threads (MKL).\n");
+#endif
 	fprintf(stdout,"***********************************\n");
 	fprintf(stdout,"input:     neural network .def file\n");
 	fprintf(stdout,"contains the network definition and\n");
@@ -37,8 +41,10 @@ void dump_help(){
 	fprintf(stdout,"***********************************\n");
 }
 int main (int argc, char *argv[]){
-	UINT idx, jdx;
-	FILE  *output;
+	UINT  idx, jdx;
+	FILE   *output;
+	UINT  n_o, n_b;
+	CHAR *tmp,*ptr;
 	CHAR *nn_filename = NULL;
 	nn_def    *neural = NULL;
 /*parse arguments*/
@@ -57,13 +63,73 @@ int main (int argc, char *argv[]){
 						dump_help();
 						return 0;
 					case 'v':
-						ann_set_verbose();
+						_NN(inc,verbose)();
 						jdx++;
 						break;
 					case 'x':
-						ann_set_dry();
+						_NN(toggle,dry)();
 						jdx++;
 						break;
+#ifdef _OMP
+					case 'O':
+						tmp=&(argv[idx][jdx]);
+						if(!ISGRAPH(*(tmp+1))){
+							 /*we are having separated -O N*/
+							idx++;
+							tmp=&(argv[idx][0]);
+							SKIP_BLANK(tmp);
+							if(!ISDIGIT(*(tmp))){
+								fprintf(stderr,"syntax error: bad -O parameter!\n");
+								dump_help();
+								return 1;
+							}
+						}else{
+							/*we have -ON*/
+							if(!ISDIGIT(*(tmp+1))){
+								fprintf(stderr,"syntax error: bad -O parameter!\n");
+								dump_help();
+								return 1;
+							}
+							tmp++;
+						}
+						GET_UINT(n_o,tmp,ptr);
+						if(n_o==0){
+							fprintf(stderr,"syntax error: bad -O parameter!\n");
+							dump_help();
+							return 1;
+						}
+						_NN(set,omp_threads)(n_o);
+						goto end_loop;/*no combination is allowed*/
+					case 'B':
+						tmp=&(argv[idx][jdx]);
+						if(!ISGRAPH(*(tmp+1))){
+							/*we are having separated -B N*/
+							idx++;
+							tmp=&(argv[idx][0]);
+							SKIP_BLANK(tmp);
+							if(!ISDIGIT(*(tmp))){
+								fprintf(stderr,"syntax error: bad -B parameter!\n");
+								dump_help();
+								return 1;
+							}
+						}else{
+							/*we have -BN*/
+							if(!ISDIGIT(*(tmp+1))){
+								fprintf(stderr,"syntax error: bad -B parameter!\n");
+								dump_help();
+								return 1;
+							}
+							tmp++;
+						}
+						GET_UINT(n_b,tmp,ptr);
+						if(n_b==0){
+							fprintf(stderr,"syntax error: bad -B parameter!\n");
+							dump_help();
+							return 1;
+						}
+						_NN(set,omp_blas)(n_b);
+						goto end_loop;/*no combination is allowed*/
+#endif /*_OMP*/
 					default:
 						fprintf(stderr,"syntax error: unrecognized option!\n");
 						dump_help();
@@ -75,8 +141,12 @@ int main (int argc, char *argv[]){
 				STRDUP(argv[idx],nn_filename);
 				/*rest of the command line is ignored!*/
 			}
+end_loop:
+			jdx=0;
 		}
 	}
+	/*initialize ann*/
+	_NN(init,all)();
 	/*load configuration file*/
 	neural=read_conf(nn_filename);
 	if(neural==NULL) {

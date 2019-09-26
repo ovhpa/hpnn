@@ -38,10 +38,7 @@ typedef struct {
 	DOUBLE *out;		/*output vector*/
 	DOUBLE **dw;		/*weights momentum (when relevant)*/
 } _kernel;
-
-void ann_set_verbose();
-void ann_set_dry();
-int ann_init();
+/*functions*/
 _kernel *ann_load(CHAR *f_kernel);
 _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens);
 void ann_dump(_kernel *kernel,FILE *out);

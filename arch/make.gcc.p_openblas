@@ -4,10 +4,10 @@ RANLIB=ranlib
 # blas
 # openblas openMP version of BLAS
 BLAS_INC = -I/usr/include/openblas
-BLAS_LIB = -L/usr/lib64 -lopenblas
+BLAS_LIB = -L/usr/lib64 -lopenblaso
 # tweak
 CFLAGS=-Wall -DHAVE_C99
-OPTFLAGS = -O2 -fopenmp -D_OMP -DSBLAS
+OPTFLAGS = -O2 -fopenmp -D_OMP -DPBLAS
 DBGFLAGS=-g -ggdb -DDEBUG -Wno-unknown-pragmas
 GCFLAGS=`pkg-config --cflags glib-2.0`
 GLFLAGS=`pkg-config --libs glib-2.0`
