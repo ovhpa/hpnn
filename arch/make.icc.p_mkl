@@ -5,8 +5,8 @@ RANLIB=ranlib
 BLAS_INC = -I$MKLROOT/include -D_MKL
 BLAS_LIB = -liomp5 -lpthread -lm -ldl
 # tweak
-CFLAGS=-Wall -std=c99 -DHAVE_C99
-OPTFLAGS=-O2 -mkl=parallel -qopenmp -D_OMP -DPBLAS
+CFLAGS=-Wall -std=gnu99 -DHAVE_C99
+OPTFLAGS=-O3 -mkl=parallel -qopenmp -D_OMP -DPBLAS
 DBGFLAGS=-g -debug all -ggdb -DDEBUG
 GCFLAGS=`pkg-config --cflags glib-2.0`
 GLFLAGS=`pkg-config --libs glib-2.0`
@@ -16,3 +16,4 @@ INCDBGFLAGS = -I. -I./include
 LDFLAGS = $(BLAS_LIB)
 DBGLDFLAGS =
 LIBS = -lm
+CUDAOBJ =

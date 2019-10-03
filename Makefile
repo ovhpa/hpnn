@@ -4,11 +4,15 @@ CURR_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 VPATH = src:mod_src:obj:modules
 
-include arch/make.gcc.openblas
+#include arch/make.gcc.p_openblas
+#include arch/make.gcc.openblas
+#include arch/make.icc.mkl
+#include arch/make.icc.p_mkl
+include arch/make.gcc.cuda
 
-OBJ = ann.o nn.o file.o
+OBJ = $(CUDAOBJ) ann.o nn.o file.o
 GOBJ = ann.og nn.og file.og
-OBJ_DBG = ann.obj nn.obj file.obj
+OBJ_DBG = $(CUDAOBJDBG) ann.obj nn.obj file.obj
 GOBJ_DBG = ann.objg nn.objg file.objg
 
 
@@ -43,7 +47,7 @@ pdif_dbg: file_dif.obj
 
 
 .SUFFIXES:
-.SUFFIXES:      .c .cc .C .cpp .objg .obj .og .o .mod .dmod
+.SUFFIXES:      .c .cu .cc .C .cpp .objg .obj .og .o .mod .dmod
 
 .c.o :
 	$(CC) $(INCFLAGS) -o $@ -c $(CFLAGS) $(OPTFLAGS) $<
@@ -53,6 +57,11 @@ pdif_dbg: file_dif.obj
 	$(CC) $(INCDBGFLAGS) -o $@ -c $(CFLAGS) $(DBGFLAGS) $<
 .c.objg :
 	$(CC) $(INCDBGFLAGS) $(GCFLAGS) -o $@ -c $(CFLAGS) $(DBGFLAGS) $<
+.cu.o :
+	$(NVCC) $(NVINC) -o $@ -c $(NVFLAGS) $<
+.cu.obj :
+	$(NVCC) $(NVINC) -o $@ -c $(NVDBGFLAGS) $<
+
 
 
 .FORCE:

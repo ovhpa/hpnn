@@ -11,6 +11,11 @@
 #include <dirent.h>
 #endif //USE_GLIB
 #include <math.h>
+#ifdef _CUDA
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+#endif
+
 
 /* A header for the common useful C functions, and
  * most used defines.
@@ -47,6 +52,7 @@
 #define READLINE(fp,buffer) getline(&buffer,&_readline_len,fp)
 #define QUOTE(a) #a
 #define QUOTE2(a,b) TH_QUOTE(a ## b)
+#define TINY 1E-14
 /*USING GLIB?*/
 #ifdef USE_GLIB
 #define DIR_S GDir
@@ -114,7 +120,7 @@
 #define STR2ULL strtoull
 #define STR2D strtod
 #define ALLOC(pointer,size,type) do{\
-	pointer=calloc((size),sizeof(type));\
+	pointer=(type *)calloc((size),sizeof(type));\
 	if(pointer==NULL) {\
 		fprintf(stderr,"Allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
@@ -192,17 +198,15 @@
 #define CLOSE_DIR(dir,ok) do{\
 	ok=closedir(dir);\
 }while(0)
-
-
 #endif //USE_GLIB
+/**/
+
+
 /*report memory usage*/
 #define ALLOC_REPORT(pointer,size,type,mem) do{\
 	ALLOC(pointer,size,type);\
 	mem+=size*sizeof(type);\
 }while(0)
-
-
-
 
 /*useful*/
 //#define SKIP_BLANK(pointer) while(!ISGRAPH(*pointer)) pointer++
@@ -243,6 +247,122 @@
 		goto label;\
 	}\
 }while(0)
+
+
+/*CUDA*/
+#ifdef _CUDA
+/*ERROR*/
+#define CUBLAS_ERR_CASE(err) case err: fprintf(stderr,"CUBLAS ERROR: %s\t(function %s, line %i)\n",QUOTE(err),FUNCTION,__LINE__);break
+#define CUBLAS_ERR(err) do {\
+	if(err != CUBLAS_STATUS_SUCCESS) {\
+		switch(err) {\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_NOT_INITIALIZED);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_ALLOC_FAILED);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_INVALID_VALUE);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_ARCH_MISMATCH);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_MAPPING_ERROR);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_EXECUTION_FAILED);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_INTERNAL_ERROR);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_NOT_SUPPORTED);\
+		CUBLAS_ERR_CASE(CUBLAS_STATUS_LICENSE_ERROR);\
+		default:\
+			fprintf(stderr,"CUBLAS UNKNOWN ERROR!\t(value= %i, function %s, line %i)\n",err,FUNCTION,__LINE__);\
+		}\
+		exit(-1);\
+	}\
+}while(0)
+
+
+
+/*allocations*/
+#define CUDA_ALLOC(pointer,size,type) do{\
+	cudaError_t _err;\
+	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
+	if(_err!=cudaSuccess) {\
+		fprintf(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	if(_err!=cudaSuccess) {\
+		fprintf(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+/* previously "warning: dereferencing type-punned pointer will break strict-aliasing rules"
+#define CUDA_ALLOC(pointer,size,type) do{\
+	cudaError_t _err;\
+	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
+        if(_err!=cudaSuccess) {\
+                fprintf(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+                exit(-1);\
+        }\
+	_err=cudaMemset((void *)(pointer),0,size*sizeof(type));\
+	if(_err!=cudaSuccess) {\
+		fprintf(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+*/
+#define CUDA_ALLOC_REPORT(pointer,size,type,mem) do{\
+        CUDA_ALLOC(pointer,size,type);\
+        mem+=size*sizeof(type);\
+}while(0)
+#define CUDA_FREE(pointer) do{\
+	if(pointer!=NULL) cudaFree(pointer);\
+	pointer=NULL;\
+}while(0)
+/*sync*/
+#define CUDA_C2G_CP(cpu,gpu,size,type) do{\
+	cudaMemcpy(gpu,cpu,size*sizeof(type),cudaMemcpyHostToDevice);\
+}while(0)
+#define CUDA_G2C_CP(cpu,gpu,size,type) do{\
+	cudaMemcpy(cpu,gpu,size*sizeof(type),cudaMemcpyDeviceToHost);\
+}while(0)
+#define CUBLAS_SET_VECTOR(cpu_v,ldc,gpu_v,ldg,size,type) do{\
+	cublasStatus_t _err;\
+	_err=cublasSetVector(size,sizeof(type),cpu_v,ldc,gpu_v,ldg);\
+	if(_err != CUBLAS_STATUS_SUCCESS){\
+		fprintf(stderr,"CPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+#define CUBLAS_GET_VECTOR(cpu_v,ldc,gpu_v,ldg,size,type) do{\
+	cublasStatus_t _err;\
+	_err=cublasGetVector(size,sizeof(type),gpu_v,ldg,cpu_v,ldc);\
+	if(_err != CUBLAS_STATUS_SUCCESS){\
+		fprintf(stderr,"GPU to CPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+/*a lot harder due to painful column-major of CUBLAS*/
+#define CUBLAS_SET_MATRIX(cpu_m,gpu_m,cpu_row,cpu_col,type) do{\
+	cublasStatus_t _err;\
+	_err=cublasSetMatrix(cpu_col,cpu_row,sizeof(type),cpu_m,cpu_col,gpu_m,cpu_col);\
+	CUBLAS_ERR(_err);\
+}while(0)
+#define CUBLAS_GET_MATRIX(cpu_m,gpu_m,cpu_row,cpu_col,type) do{\
+	cublasStatus_t _err;\
+	_err=cublasGetMatrix(cpu_col,cpu_row,sizeof(type),gpu_m,cpu_col,cpu_m,cpu_col);\
+	if(_err != CUBLAS_STATUS_SUCCESS){\
+		fprintf(stderr,"GPU to CPU CUBLAS matrix transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+/*COPY*/
+#define CUDA_G2G_CP(src,dest,size) do{\
+	cudaError_t _err;\
+	_err=cudaMemcpy(dest,src,size,cudaMemcpyDeviceToDevice);\
+	if(_err!=cudaSuccess) {\
+		fprintf(stderr,"GPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+	cudaDeviceSynchronize();\
+}while(0)
+
+
+
+#endif /*_CUDA*/
+
 
 /*debug*/
 //#define _DEB_

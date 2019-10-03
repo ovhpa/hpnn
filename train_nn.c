@@ -176,5 +176,7 @@ end_loop:
 	fclose(output);	
 	/*dump config*/
 //	dump_conf(stdout,neural);
+	/*deinit*/
+	_NN(deinit,all)();
 	return 0;
 }

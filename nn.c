@@ -20,6 +20,11 @@
 #endif /*_MKL*/
 #endif /*PBLAS*/
 
+#ifdef _CUDA
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+#endif /*_CUDA*/
+
 #ifdef _OMP
 #include <omp.h>
 #endif
@@ -33,6 +38,10 @@ BOOL	nn_dry =FALSE;
 UINT nn_num_threads=1;
 UINT nn_num_blas  = 1;
 #endif
+#ifdef _CUDA
+cublasHandle_t cuda_handle;
+#endif
+
 
 void _NN(inc,verbose)(){
         nn_verbose++;
@@ -44,6 +53,19 @@ void _NN(toggle,dry)(){
 }
 
 int _NN(init,all)(){
+#ifdef _CUDA
+	cublasStatus_t err;
+	err=cublasCreate(&cuda_handle);
+	if(err!=CUBLAS_STATUS_SUCCESS){
+		fprintf(stderr,"CUDA error: can't create a CUDA context.\n");
+		exit(-1);
+	}
+	err=cublasSetPointerMode(cuda_handle,CUBLAS_POINTER_MODE_HOST);
+	if(err!=CUBLAS_STATUS_SUCCESS){
+		fprintf(stderr,"CUDA error: fail to set pointer mode.\n");
+		exit(-1);
+	}
+#endif
 #ifdef _MKL
         mkl_set_dynamic(0);
         omp_set_nested(1);
@@ -54,7 +76,6 @@ int _NN(init,all)(){
         /*hyper-threading*/
         fprintf(stdout,"MKL started.\n");
 #endif /*_MKL*/
-
 #ifdef _OMP
         #pragma omp parallel default(shared) 
         {
@@ -68,7 +89,18 @@ int _NN(init,all)(){
 #endif /*_OMP*/
         return 0;
 }
-
+int _NN(deinit,all)(){
+#ifdef _CUDA
+	cublasDestroy(cuda_handle);
+#endif /*_CUDA*/
+	return 0;
+}
+#ifdef _CUDA
+cublasHandle_t _NN(get,cuda_hande)(){
+	return cuda_handle;
+}
+#endif /*_CUDA*/
+#ifdef _OMP
 void _NN(set,omp_threads)(UINT n){
 	nn_num_threads=n;	
 }
@@ -81,7 +113,7 @@ void _NN(set,omp_blas)(UINT n){
 UINT _NN(get,omp_blas)(){
 	return nn_num_blas;
 }
-
+#endif /*_OMP*/
 
 UINT _NN(get,n_inputs)(nn_def *neural){
 	switch (neural->type){
@@ -431,7 +463,17 @@ void _NN(kernel,run)(nn_def *neural){
 		switch (neural->type){
 		case NN_TYPE_ANN:
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+#ifdef _CUDA
+			/*transfer the input to gpu*/
+			CUDA_C2G_CP(_K->in,_K->cuda_in,_K->n_inputs,DOUBLE);
+//			CUBLAS_SET_VECTOR(_K->in,1,_K->cuda_in,1,_K->n_inputs,DOUBLE);
+#endif
 			ann_kernel_run(_K);
+#ifdef _CUDA
+			/*transfer the output to cpu*/
+			CUDA_G2C_CP(_K->out,_K->cuda_out,_K->n_outputs,DOUBLE);
+//			CUBLAS_GET_VECTOR(_K->out,1,_K->cuda_out,1,_K->n_outputs,DOUBLE);
+#endif
 			res=0.;is_ok=TRUE;
 			for(idx=0;idx<_K->n_outputs;idx++){
 				res+=(tr_out[idx]-_K->out[idx])*(tr_out[idx]-_K->out[idx]);

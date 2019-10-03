@@ -71,6 +71,8 @@ int main (int argc, char *argv[]){
 			}
 		}
 	}
+        /*initialize ann*/
+        _NN(init,all)();
 	/*load configuration file*/
 	neural=read_conf(nn_filename);
 	if(neural==NULL) {
@@ -79,5 +81,7 @@ int main (int argc, char *argv[]){
 	}
 	/*setup done, run kernel*/
 	_NN(kernel,run)(neural);
+        /*deinit*/
+        _NN(deinit,all)();
 	return 0;
 }

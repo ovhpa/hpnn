@@ -25,18 +25,30 @@ typedef struct {
 //	_neuron *neurons;
 	UINT n_inputs;          /*number of inputs*/
 	DOUBLE *weights;	/*all weights for this layer*/
+#ifdef _CUDA
+	DOUBLE *cuda_w;		/*cuda mirror*/
+#endif
 } _layer;
 
 typedef struct {
 	CHAR *name;		/*ANN name*/
         UINT n_inputs;		/*number of inputs*/
         DOUBLE *in;		/*input vector*/
+#ifdef _CUDA
+	DOUBLE *cuda_in;	/*cuda mirror*/
+#endif
         UINT n_hiddens;		/*number of hidden layers*/
         _layer *hiddens;	/*hidden layers*/
 	UINT n_outputs;		/*number of outputs*/
         _layer output;		/*output layers*/
 	DOUBLE *out;		/*output vector*/
+#ifdef _CUDA
+	DOUBLE *cuda_out;	/*cuda mirror*/
+#endif
 	DOUBLE **dw;		/*weights momentum (when relevant)*/
+#ifdef _CUDA
+	DOUBLE **cuda_dw;	/*cuda mirror*/
+#endif
 } _kernel;
 /*functions*/
 _kernel *ann_load(CHAR *f_kernel);

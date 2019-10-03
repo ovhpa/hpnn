@@ -32,10 +32,16 @@ typedef struct {
 void _NN(inc,verbose)();
 void _NN(toggle,dry)();
 int _NN(init,all)();
+int _NN(deinit,all)();
+#ifdef _CUDA
+cublasHandle_t _NN(get,cuda_hande)();
+#endif /*_CUDA*/
+#ifdef _OMP
 void _NN(set,omp_threads)(UINT n);
 UINT _NN(get,omp_threads)();
 void _NN(set,omp_blas)(UINT n);
 UINT _NN(get,omp_blas)();
+#endif /*_OMP*/
 
 /*ACCESS*/
 UINT _NN(get,n_inputs)(nn_def *neural);
