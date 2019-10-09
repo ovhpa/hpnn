@@ -38,6 +38,12 @@ void dump_help(){
 int main (int argc, char *argv[]){
 	UINT idx,jdx;
 	nn_def *neural;
+#ifdef _CUDA
+        UINT n_s=1;
+#endif /*_CUDA*/
+#if defined (_OMP) || defined (_CUDA)
+        CHAR *tmp,*ptr;
+#endif
 	CHAR *nn_filename = NULL;
 /*parse arguments*/
 	if(argc<2) {
@@ -45,7 +51,8 @@ int main (int argc, char *argv[]){
 		STRDUP("./nn.conf",nn_filename);
 	}else{
 		/*find some switch, if any*/
-		for(idx=1;idx<argc;idx++){
+		idx=1;
+                while(idx<argc){
 			if(argv[idx][0]=='-'){
 				/*switch detected*/
 				jdx=1;
@@ -58,6 +65,37 @@ int main (int argc, char *argv[]){
 						_NN(inc,verbose)();
 						jdx++;
 						break;
+#ifdef _CUDA
+                                        case 'S':
+                                                tmp=&(argv[idx][jdx]);
+                                                if(!ISGRAPH(*(tmp+1))){
+                                                        /*we are having separated -S N*/
+                                                        idx++;
+                                                        tmp=&(argv[idx][0]);
+                                                        SKIP_BLANK(tmp);
+                                                        if(!ISDIGIT(*(tmp))){
+                                                                fprintf(stderr,"syntax error: bad -S parameter!\n");
+                                                                dump_help();
+                                                                return 1;
+                                                        }
+                                                }else{
+                                                        /*we have -SN*/
+                                                        if(!ISDIGIT(*(tmp+1))){
+                                                                fprintf(stderr,"syntax error: bad -S parameter!\n");
+                                                                dump_help();
+                                                                return 1;
+                                                        }
+                                                        tmp++;
+                                                }
+                                                GET_UINT(n_s,tmp,ptr);
+                                                if(n_s==0){
+                                                        fprintf(stderr,"syntax error: bad -S parameter!\n");
+                                                        dump_help();
+                                                        return 1;
+                                                }
+						if(n_s>1) _NN(set,cuda_streams)(n_s);
+                                                goto next_arg;/*no combination is allowed*/
+#endif /*_CUDA*/
 					default:
 						fprintf(stderr,"syntax error: unrecognized option!\n");
 						dump_help();
@@ -69,8 +107,11 @@ int main (int argc, char *argv[]){
 				STRDUP(argv[idx],nn_filename);
 				/*rest of the command line is ignored!*/
 			}
+next_arg:
+		idx++;
 		}
 	}
+	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
         /*initialize ann*/
         _NN(init,all)();
 	/*load configuration file*/

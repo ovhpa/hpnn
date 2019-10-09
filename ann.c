@@ -453,7 +453,20 @@ DOUBLE ann_dact(DOUBLE y){
 void ann_kernel_run(_kernel *kernel){
 	/*simple, one pass kernel*/
 #ifdef _CUDA
-	cuda_ann_forward_cublas(kernel,_NN(get,cuda_hande)());
+	cudastreams *cudas=_NN(get,cudas)();
+
+	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	CHK_ERR(intoGPU);
+	//fprintf(stdout,"#DBG_PROOF: %lu\n",cuda_array_dbg(_NN(get,cuda_handle)(),KERN.n_inputs,KERN.cuda_in));
+
+if(cudas->cuda_n_streams<2) cuda_ann_forward_cublas(kernel,_NN(get,cuda_handle)());
+else scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
+
+//	CUDA_G2C_CP(KERN.out,KERN.cuda_out,KERN.n_outputs,DOUBLE);
+	cudaMemcpy(KERN.out,KERN.cuda_out,KERN.n_outputs*sizeof(DOUBLE),cudaMemcpyDeviceToHost);
+
+	CHK_ERR(intoCPU);
+
 	return;
 #else /*_CUDA*/
 	/*NON-CUDA VERSION*/
@@ -545,7 +558,7 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 	/**/
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cuda_hande)());
+	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
 	CUDA_FREE(train_gpu);
 	return Ep;
 
@@ -1341,8 +1354,9 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	ann_kernel_run(kernel);
 	dEp=0.;
 #ifdef _CUDA
+cudaDeviceSynchronize();
 	cuda_ann_amb(tmp_gpu,train_gpu,KERN.cuda_out,KERN.n_outputs);//amb => tmp = (a - b)*(a - b)
-	CUBLAS_ERR(cublasDasum(_NN(get,cuda_hande)(),KERN.n_outputs,tmp_gpu,1,&dEp));
+	CUBLAS_ERR(cublasDasum(_NN(get,cuda_handle)(),KERN.n_outputs,tmp_gpu,1,&dEp));
 	dEp*=0.5;
 #else /*_CUDA*/
 	for(idx=0;idx<kernel->n_outputs;idx++)

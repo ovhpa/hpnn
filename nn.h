@@ -34,7 +34,9 @@ void _NN(toggle,dry)();
 int _NN(init,all)();
 int _NN(deinit,all)();
 #ifdef _CUDA
-cublasHandle_t _NN(get,cuda_hande)();
+cublasHandle_t _NN(get,cuda_handle)();
+cudastreams *_NN(get,cudas)();
+void _NN(set,cuda_streams)(UINT n_streams);
 #endif /*_CUDA*/
 #ifdef _OMP
 void _NN(set,omp_threads)(UINT n);

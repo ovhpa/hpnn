@@ -40,6 +40,7 @@ UINT nn_num_blas  = 1;
 #endif
 #ifdef _CUDA
 cublasHandle_t cuda_handle;
+cudastreams cudas;
 #endif
 
 
@@ -60,6 +61,7 @@ int _NN(init,all)(){
 		fprintf(stderr,"CUDA error: can't create a CUDA context.\n");
 		exit(-1);
 	}
+	cudas.cuda_handle=cuda_handle;
 	err=cublasSetPointerMode(cuda_handle,CUBLAS_POINTER_MODE_HOST);
 	if(err!=CUBLAS_STATUS_SUCCESS){
 		fprintf(stderr,"CUDA error: fail to set pointer mode.\n");
@@ -91,14 +93,39 @@ int _NN(init,all)(){
 }
 int _NN(deinit,all)(){
 #ifdef _CUDA
-	cublasDestroy(cuda_handle);
+	UINT idx;
+	if(cudas.cuda_n_streams>1)
+		for(idx=0;idx<cudas.cuda_n_streams;idx++)
+			cudaStreamDestroy(cudas.cuda_streams[idx]);
+	cublasDestroy(cudas.cuda_handle);
 #endif /*_CUDA*/
 	return 0;
 }
 #ifdef _CUDA
-cublasHandle_t _NN(get,cuda_hande)(){
-	return cuda_handle;
+cublasHandle_t _NN(get,cuda_handle)(){
+	return cudas.cuda_handle;
 }
+cudastreams *_NN(get,cudas)(){
+	return &cudas;
+}
+void _NN(set,cuda_streams)(UINT n_streams){
+UINT idx;
+	if(n_streams<2) {
+		cudas.cuda_n_streams=1;
+		cudas.cuda_streams=NULL;
+		return;
+	}
+	cudas.cuda_n_streams=n_streams;
+	ALLOC(cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
+	for(idx=0;idx<cudas.cuda_n_streams;idx++){
+		cudaStreamCreateWithFlags(&(cudas.cuda_streams[idx]),cudaStreamNonBlocking);
+//		cudaStreamCreate(&(cudas.cuda_streams[idx]));
+	}
+	fprintf(stdout,"ANN started with %i CUDA streams.\n",n_streams);
+	cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
+}
+
+
 #endif /*_CUDA*/
 #ifdef _OMP
 void _NN(set,omp_threads)(UINT n){
@@ -463,17 +490,7 @@ void _NN(kernel,run)(nn_def *neural){
 		switch (neural->type){
 		case NN_TYPE_ANN:
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
-#ifdef _CUDA
-			/*transfer the input to gpu*/
-			CUDA_C2G_CP(_K->in,_K->cuda_in,_K->n_inputs,DOUBLE);
-//			CUBLAS_SET_VECTOR(_K->in,1,_K->cuda_in,1,_K->n_inputs,DOUBLE);
-#endif
 			ann_kernel_run(_K);
-#ifdef _CUDA
-			/*transfer the output to cpu*/
-			CUDA_G2C_CP(_K->out,_K->cuda_out,_K->n_outputs,DOUBLE);
-//			CUBLAS_GET_VECTOR(_K->out,1,_K->cuda_out,1,_K->n_outputs,DOUBLE);
-#endif
 			res=0.;is_ok=TRUE;
 			for(idx=0;idx<_K->n_outputs;idx++){
 				res+=(tr_out[idx]-_K->out[idx])*(tr_out[idx]-_K->out[idx]);

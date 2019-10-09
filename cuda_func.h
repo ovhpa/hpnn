@@ -1,9 +1,12 @@
 #ifndef FUNC_H
 #define FUNC_H
 
-void cuda_ann_forward_cublas(_kernel *kernel,cublasHandle_t cublas_handle);
-double cuda_ann_train_cublas(_kernel *kernel,double *train,cublasHandle_t cublas_handle);
+double cuda_array_dbg(cublasHandle_t cublas_handle,int n,double *gpu_in);
 
+void cuda_ann_forward_cublas(_kernel *kernel,cublasHandle_t cublas_handle);
+void scuda_ann_forward_cublas(_kernel *kernel,cudastreams *cudas);
+
+double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas);
 
 void cuda_ann_act(double *out,int size);
 void cuda_ann_dact(double *in,double *out,int size);

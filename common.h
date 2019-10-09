@@ -271,6 +271,14 @@
 		exit(-1);\
 	}\
 }while(0)
+#define _Q(a) #a
+#define CHK_ERR(func) do{\
+        cudaError_t _itmp=cudaGetLastError();\
+        if(_itmp!=cudaSuccess){\
+                fprintf(stderr,"CUDA ERROR %i: %s in function %s!\n",_itmp,cudaGetErrorString(_itmp),_Q(func));\
+                exit(1);\
+        }\
+}while(0)
 
 
 
@@ -349,16 +357,20 @@
 	}\
 }while(0)
 /*COPY*/
-#define CUDA_G2G_CP(src,dest,size) do{\
+#define CUDA_G2G_CP(src,dest,size,type) do{\
 	cudaError_t _err;\
-	_err=cudaMemcpy(dest,src,size,cudaMemcpyDeviceToDevice);\
+	_err=cudaMemcpy(dest,src,size*sizeof(type),cudaMemcpyDeviceToDevice);\
 	if(_err!=cudaSuccess) {\
 		fprintf(stderr,"GPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
-	cudaDeviceSynchronize();\
 }while(0)
-
+/*streams*/
+typedef struct {
+	cublasHandle_t cuda_handle;
+        UINT        cuda_n_streams;
+        cudaStream_t *cuda_streams;
+} cudastreams;
 
 
 #endif /*_CUDA*/
