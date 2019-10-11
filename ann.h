@@ -49,6 +49,11 @@ typedef struct {
 #ifdef _CUDA
 	DOUBLE **cuda_dw;	/*cuda mirror*/
 #endif
+	UINT max_index;         /*maximum index number of any layer (including input)*/
+	DOUBLE *tmp_cpu;	/*temporary working directory (size of max_index)*/
+#ifdef _CUDA
+	DOUBLE *tmp_gpu;	/*cuda_mirror*/
+#endif
 } _kernel;
 /*functions*/
 _kernel *ann_load(CHAR *f_kernel);

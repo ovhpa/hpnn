@@ -7,18 +7,18 @@ BLAS_INC =
 BLAS_LIB = -lcublas -lcudart -lstdc++
 # tweak
 CFLAGS=-Wall -DHAVE_C99
-OPTFLAGS = -O2 -D_CUDA
+OPTFLAGS = -O2 -D_CUDA -D_CUBLAS
 DBGFLAGS=-g -ggdb -DDEBUG -Wno-unknown-pragmas -D_CUDA
 GCFLAGS=`pkg-config --cflags glib-2.0`
 GLFLAGS=`pkg-config --libs glib-2.0`
 # context
 INCFLAGS = -I. -I./include $(BLAS_INC) -I/usr/include/cuda
 INCDBGFLAGS = -I. -I./include -I/usr/include/cuda
-NVINC = -D_CUDA 
+NVINC = 
 LDFLAGS = $(BLAS_LIB)
 DBGLDFLAGS = $(BLAS_LIB)
-NVFLAGS = --use_fast_math -lineinfo 
-NVDBGFLAGS = -g -G --device-debug
+NVFLAGS = --use_fast_math -lineinfo -D_CUDA -D_CUBLAS 
+NVDBGFLAGS = -g -G --device-debug -D_CUDA
 LIBS = -lm
 CUDAOBJ = cuda_func.o
 CUDAOBJDBG = cuda_func.obj

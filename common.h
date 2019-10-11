@@ -272,6 +272,7 @@
 	}\
 }while(0)
 #define _Q(a) #a
+#ifdef   DEBUG
 #define CHK_ERR(func) do{\
         cudaError_t _itmp=cudaGetLastError();\
         if(_itmp!=cudaSuccess){\
@@ -279,7 +280,9 @@
                 exit(1);\
         }\
 }while(0)
-
+#else  /*DEBUG*/
+#define CHK_ERR(func)
+#endif /*DEBUG*/
 
 
 /*allocations*/

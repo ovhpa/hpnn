@@ -166,7 +166,6 @@ _kernel *ann_load(CHAR *f_kernel){
 	/*end of allocations*/
 fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
-#warning "CUBLAS uses the Painful column-order format: GPU and CPU kernel memory will differ!"
 	/*allocate everything in CUDA*/
 	allocate=0;
 	CUDA_ALLOC_REPORT(KERN.cuda_in,n_in,DOUBLE,allocate);
@@ -176,6 +175,11 @@ fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,parameter[idx]*parameter[idx-1],DOUBLE,allocate);
 	}
 	CUDA_ALLOC_REPORT(KERN.output.cuda_w,n_out*parameter[n_par-2],DOUBLE,allocate);
+	/*allocate a temporary working array buffer with a maximum dimension*/
+	KERN.max_index=n_in;
+	if(n_out>KERN.max_index) KERN.max_index=n_out;
+	for(idx=0;idx<n_hid;idx++) if(parameter[idx]>KERN.max_index) KERN.max_index=parameter[idx];
+	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
 fprintf(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 #endif
 fprintf(stdout,"n_input=%i ",n_in);
@@ -372,6 +376,11 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 	}
 	CUDA_ALLOC_REPORT(KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE,allocate);
+	/*allocate a temporary working array buffer with a maximum dimension*/
+	KERN.max_index=KERN.n_inputs;
+	if(KERN.n_outputs>KERN.max_index) KERN.max_index=KERN.n_outputs;
+	for(idx=0;idx<KERN.n_hiddens;idx++) if(KERN.hiddens[idx].n_neurons>KERN.max_index) KERN.max_index=KERN.hiddens[idx].n_neurons;
+	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
 fprintf(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 #endif
 	/*randomly fill hidden weights*/
@@ -462,8 +471,8 @@ void ann_kernel_run(_kernel *kernel){
 if(cudas->cuda_n_streams<2) cuda_ann_forward_cublas(kernel,_NN(get,cuda_handle)());
 else scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
 
-//	CUDA_G2C_CP(KERN.out,KERN.cuda_out,KERN.n_outputs,DOUBLE);
-	cudaMemcpy(KERN.out,KERN.cuda_out,KERN.n_outputs*sizeof(DOUBLE),cudaMemcpyDeviceToHost);
+	CUDA_G2C_CP(KERN.out,KERN.cuda_out,KERN.n_outputs,DOUBLE);
+//	cudaMemcpy(KERN.out,KERN.cuda_out,KERN.n_outputs*sizeof(DOUBLE),cudaMemcpyDeviceToHost);
 
 	CHK_ERR(intoCPU);
 

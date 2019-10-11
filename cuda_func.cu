@@ -6,8 +6,14 @@
 
 /*This is a CUDA area for functions*/
 
-#define THREADS_PER_BLOCK 128
+#ifdef _CUBLAS
+#warning "CUBLAS uses the Painful column-order format: GPU and CPU kernel memory will differ!"
+#endif
 
+#define _WP  32
+#define _TPW 32
+#define _TPB (_TPW*_WP)
+#define _KG(n) ((n+_TPB-1)/(_TPB)),_TPB
 
 __global__ 
 void dbg_print(int n, double *x){
@@ -143,81 +149,117 @@ void cuda_ann_forward_cublas(_kernel *kernel,cublasHandle_t cublas_handle){
         int M;
         int N;
         double *gpu_in;
-        double *gpu_out;
+#ifdef   _CUBLAS
 	double _alpha=1.0;
 	double _beta =0.0;
-        gpu_in=_K.cuda_in;/*no copy?*/
+#endif /*_CUBLAS*/
+#ifdef _TIMING
+cudaEvent_t start, stop;
+float time;
+int eventflags = cudaEventBlockingSync;
+cudaEventCreateWithFlags(&start,eventflags);
+cudaEventCreateWithFlags(&stop,eventflags);
+cudaEventRecord(start,0);
+#endif
+	CUDA_ALLOC(gpu_in,_K.max_index,DOUBLE);
+	CUDA_G2G_CP(_K.cuda_in,gpu_in,_K.n_inputs,DOUBLE);
 /*+++ I - hiddens +++*/
         for(idx=0;idx<_K.n_hiddens;idx++){
-                CUDA_ALLOC(gpu_out,_K.hiddens[idx].n_neurons,DOUBLE);
-                CHK_ERR(alloc_1);
                 /*GEMV + act*/
                 N=_K.hiddens[idx].n_neurons;
                 M=_K.hiddens[idx].n_inputs;
-		cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.hiddens[idx].cuda_w,M,gpu_in,1,&_beta,gpu_out,1);
+#ifdef   _CUBLAS
+		cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.hiddens[idx].cuda_w,M,gpu_in,1,&_beta,_K.tmp_gpu,1);
 		CHK_ERR(cublas_1);
-		sigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,gpu_out);
+		sigmoid<<<_KG(N)>>>(N,_K.tmp_gpu);
                 CHK_ERR(kernel_1);
-                if(idx>0) CUDA_FREE(gpu_in);/*do not free the original input*/
-                CHK_ERR(free_1);
-                gpu_in=gpu_out;
+#else  /*_CUBLAS*/
+		fw_mv_acc<<<_KG(N)>>>(M,N,_K.hiddens[idx].cuda_w,gpu_in,_K.tmp_gpu);
+		CHK_ERR(kernel_1);
+#endif /*_CUBLAS*/
+		CUDA_G2G_CP(_K.tmp_gpu,gpu_in,N,DOUBLE);
         }
-//M=_K.output.n_inputs;
-//dbg_print<<<(M+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(M,gpu_in);
 /*+++ II - output +++*/
         N=_K.output.n_neurons;
         M=_K.output.n_inputs;
+#ifdef   _CUBLAS
 	cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.output.cuda_w,M,gpu_in,1,&_beta,_K.cuda_out,1);
 	CHK_ERR(cublas_2);
-	sigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,_K.cuda_out);
+	sigmoid<<<_KG(N)>>>(N,_K.cuda_out);
         CHK_ERR(kernel_2);
-        CUDA_FREE(gpu_in);
-        CHK_ERR(free_2);
+#else  /*_CUBLAS*/
+	fw_mv_acc<<<_KG(N)>>>(M,N,_K.output.cuda_w,gpu_in,_K.cuda_out);
+	CHK_ERR(kernel_2);
+#endif /*_CUBLAS*/
+#ifdef _TIMING
+cudaEventRecord(stop,0);
+cudaEventSynchronize(stop);
+cudaEventElapsedTime(&time,start,stop);
+printf("cuda_ann_forward_cublas: time = %f\n",time);
+#endif
 //      cudaDeviceSynchronize();
 }
 void scuda_ann_forward_cublas(_kernel *kernel,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
-	int max,rem;
+	int rem;
 	double *gpu_in;
-	double *gpu_out;
-//	double *gpu_stream[cudas->cuda_n_streams];
+#ifdef _CUBLAS
         double _alpha=1.0;
         double _beta =0.0;
+#endif
+#ifdef _TIMING
+cudaEvent_t start, stop;
+float time;
+int eventflags = cudaEventBlockingSync;
+cudaEventCreateWithFlags(&start,eventflags);
+cudaEventCreateWithFlags(&stop,eventflags);
+cudaEventRecord(start,0);
+#endif
 /*+++ I - hiddens +++*/
-#define _GD 8
-#define _BD 512
-	/*get max*/
-	max=_K.output.n_neurons;
-	for(idx=0;idx<_K.n_hiddens;idx++)
-		if(_K.hiddens[idx].n_neurons>max) max=_K.hiddens[idx].n_neurons;
-	if(_K.n_inputs>max)
-		CUDA_ALLOC(gpu_in,_K.n_inputs,DOUBLE);
-	else
-		CUDA_ALLOC(gpu_in,max,DOUBLE);
+	CUDA_ALLOC(gpu_in,_K.max_index,DOUBLE);
 	CUDA_G2G_CP(_K.cuda_in,gpu_in,_K.n_inputs,DOUBLE);
-	CUDA_ALLOC(gpu_out,max,DOUBLE);
 	for(idx=0;idx<_K.n_hiddens;idx++){
 		N=_K.hiddens[idx].n_neurons;
 		M=_K.hiddens[idx].n_inputs;
 		red=N/cudas->cuda_n_streams;
 		rem=N%cudas->cuda_n_streams;
-		for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
-			fw_mv_acc<<<_GD,_BD,0,cudas->cuda_streams[jdx]>>>
-				(M,red,_K.hiddens[idx].cuda_w+jdx*M*red,gpu_in,gpu_out+jdx*red);
+#ifdef   _CUBLAS
+		for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+			cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+			cublasDgemv(cudas->cuda_handle,
+				CUBLAS_OP_T,M,red,&_alpha,_K.hiddens[idx].cuda_w+jdx*M*red,M,
+				gpu_in,1,&_beta,_K.tmp_gpu+jdx*red,1);
+			CHK_ERR(cublas_1);
+			sigmoid<<<_KG(red),0,cudas->cuda_streams[jdx]>>>(red,_K.tmp_gpu+jdx*red);
 			CHK_ERR(kernel_1);
 		}
-		if(rem>0){
-			/*the following _should_ force a sync*/
-			jdx=cudas->cuda_n_streams;
-			fw_mv_acc<<<(rem+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>
-				(M,rem,_K.hiddens[idx].cuda_w+jdx*M*red,gpu_in,gpu_out+jdx*red);
+		/*launch the last kernel*/
+		jdx=cudas->cuda_n_streams-1;/*necessary?*/
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		cublasDgemv(cudas->cuda_handle,
+			CUBLAS_OP_T,M,red+rem,&_alpha,_K.hiddens[idx].cuda_w+jdx*M*red,M,
+			gpu_in,1,&_beta,_K.tmp_gpu+jdx*red,1);
+		CHK_ERR(cublas_1);
+		sigmoid<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>(red+rem,_K.tmp_gpu+jdx*red);
+		CHK_ERR(kernel_1);
+		/*now wait for everyone*/
+		cudaDeviceSynchronize();
+#else  /*_CUBLAS*/
+		for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+			fw_mv_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+				(M,red,_K.hiddens[idx].cuda_w+jdx*M*red,gpu_in,_K.tmp_gpu+jdx*red);
 			CHK_ERR(kernel_1);
 		}
-		else cudaDeviceSynchronize();
-//cudaDeviceSynchronize();
-		/*now copy back gpu_out to gpu_in*/
-		CUDA_G2G_CP(gpu_out,gpu_in,N,DOUBLE);
+		jdx=cudas->cuda_n_streams-1;/*necessary?*/
+		fw_mv_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+			(M,red+rem,_K.hiddens[idx].cuda_w+jdx*M*red,gpu_in,_K.tmp_gpu+jdx*red);
+		CHK_ERR(kernel_1);
+		/*now wait for everyone*/
+		cudaDeviceSynchronize();
+#endif /*_CUBLAS*/
+		/*now copy back _K.tmp_gpu to gpu_in*/
+		CUDA_G2G_CP(_K.tmp_gpu,gpu_in,N,DOUBLE);
 		CHK_ERR(sync_1);
 	}
 //M=_K.output.n_inputs;
@@ -227,21 +269,46 @@ void scuda_ann_forward_cublas(_kernel *kernel,cudastreams *cudas){
 	M=_K.output.n_inputs;
 	red=N/cudas->cuda_n_streams;
 	rem=N%cudas->cuda_n_streams;
-	for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
-		fw_mv_acc<<<_GD,_BD,0,cudas->cuda_streams[jdx]>>>
+#ifdef   _CUBLAS
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		cublasDgemv(cudas->cuda_handle,
+			CUBLAS_OP_T,M,red,&_alpha,_K.output.cuda_w+jdx*M*red,M,
+			gpu_in,1,&_beta,_K.cuda_out+jdx*red,1);
+		CHK_ERR(cublas_2);
+		sigmoid<<<_KG(red),0,cudas->cuda_streams[jdx]>>>(red,_K.cuda_out+jdx*red);
+		CHK_ERR(kernel_2);
+	}
+	jdx=cudas->cuda_n_streams-1;/*necessary?*/
+	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+	cublasDgemv(cudas->cuda_handle,
+		CUBLAS_OP_T,M,red+rem,&_alpha,_K.output.cuda_w+jdx*M*red,M,
+		gpu_in,1,&_beta,_K.cuda_out+jdx*red,1);
+	CHK_ERR(cublas_2);
+	sigmoid<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>(red+rem,_K.cuda_out+jdx*red);
+	CHK_ERR(kernel_2);
+	/*now wait for everyone*/
+	cudaDeviceSynchronize();
+#else  /*_CUBLAS*/
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		fw_mv_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
 			(M,red,_K.output.cuda_w+jdx*M*red,gpu_in,_K.cuda_out+jdx*red);
 		CHK_ERR(kernel_2);
 	}
-	if(rem>0){
-		jdx=cudas->cuda_n_streams;
-		fw_mv_acc<<<(rem+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>
-			(M,rem,_K.output.cuda_w+jdx*M*red,gpu_in,_K.cuda_out+jdx*red);
-		CHK_ERR(kernel_2);
-	}else cudaDeviceSynchronize();
-//cudaDeviceSynchronize();
-	CHK_ERR(sync_2);
+	jdx=cudas->cuda_n_streams-1;/*necessary?*/
+	fw_mv_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+		(M,red+rem,_K.output.cuda_w+jdx*M*red,gpu_in,_K.cuda_out+jdx*red);
+	CHK_ERR(kernel_2);
+	/*now wait for everyone*/
+	cudaDeviceSynchronize();
+#endif /*_CUBLAS*/
 	CUDA_FREE(gpu_in);
-	CUDA_FREE(gpu_out);
+#ifdef _TIMING
+cudaEventRecord(stop,0);
+cudaEventSynchronize(stop);
+cudaEventElapsedTime(&time,start,stop);
+printf("scuda_ann_forward_cublas: streams = %i time = %f\n",cudas->cuda_n_streams,time);
+#endif
 }
 
 #define LEARN_RATE 0.01
@@ -270,9 +337,8 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 	N=_K.hiddens[0].n_neurons;
 	M=_K.hiddens[0].n_inputs;
 	cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.hiddens[0].cuda_w,M,_K.cuda_in,1,&_beta,hidden_vector_ptr[0],1);
-//	dbg_print<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,hidden_vector_ptr[0]);
 	CHK_ERR(cublas_1);
-	sigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,hidden_vector_ptr[0]);
+	sigmoid<<<_KG(N)>>>(N,hidden_vector_ptr[0]);
 	CHK_ERR(kernel_1);
 /*^^^ hidden to hidden (if any)*/
 	for(idx=1;idx<_K.n_hiddens;idx++){
@@ -280,7 +346,7 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 		M=_K.hiddens[idx].n_inputs;
 		CUBLAS_ERR(cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.hiddens[idx].cuda_w,M,hidden_vector_ptr[idx-1],1,&_beta,hidden_vector_ptr[idx],1));
 		CHK_ERR(cublas_2);
-		sigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,hidden_vector_ptr[idx]);
+		sigmoid<<<_KG(N)>>>(N,hidden_vector_ptr[idx]);
 		CHK_ERR(kernel_2);
 	}
 /*^^^ hidden to output*/
@@ -288,11 +354,11 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 	M=_K.output.n_inputs;
 	CUBLAS_ERR(cublasDgemv(cublas_handle,CUBLAS_OP_T,M,N,&_alpha,_K.output.cuda_w,M,hidden_vector_ptr[_K.n_hiddens-1],1,&_beta,_K.cuda_out,1));
 	CHK_ERR(cublas_3);
-	sigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,_K.cuda_out);
+	sigmoid<<<_KG(N)>>>(N,_K.cuda_out);
 	CHK_ERR(kernel_3);
 	/*all done, calculate a preliminary error*/
 	N=_K.n_outputs;
-	amb<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,tmp_gpu,train,_K.cuda_out);
+	amb<<<_KG(N)>>>(N,tmp_gpu,train,_K.cuda_out);
 	CHK_ERR(kernel_4);
 	cublasDasum(cublas_handle,N,tmp_gpu,1,&Ep);
 	CHK_ERR(cublas_4);
@@ -302,9 +368,9 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 /*+++ II - DELTAS +++*/
 /*^^^ output*/
 	N=_K.n_outputs;
-	_dsigmoid<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,_K.cuda_out,delta_ptr[_K.n_hiddens]);
+	_dsigmoid<<<_KG(N)>>>(N,_K.cuda_out,delta_ptr[_K.n_hiddens]);
 	CHK_ERR(kernel_5);
-	mul_diff<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,train,_K.cuda_out,delta_ptr[_K.n_hiddens]);
+	mul_diff<<<_KG(N)>>>(N,train,_K.cuda_out,delta_ptr[_K.n_hiddens]);
 	CHK_ERR(kernel_6);
 /*^^^ output to hidden*/
 	/*! transposed (of the transposed might be transposed)*/
@@ -312,10 +378,8 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 	M=_K.output.n_inputs;
 	cublasDgemv(cublas_handle,CUBLAS_OP_N,M,N,&_alpha,_K.output.cuda_w,M,delta_ptr[_K.n_hiddens],1,&_beta,delta_ptr[_K.n_hiddens-1],1);
 	CHK_ERR(cublas_5);
-	dsigmoid<<<(M+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(M,hidden_vector_ptr[_K.n_hiddens-1],delta_ptr[_K.n_hiddens-1]);
+	dsigmoid<<<_KG(M)>>>(M,hidden_vector_ptr[_K.n_hiddens-1],delta_ptr[_K.n_hiddens-1]);
 	CHK_ERR(kernel_7);
-//cudaDeviceSynchronize();printf("GPU\n");
-//dbg_print<<<(M+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(M,delta_ptr[_K.n_hiddens-1]);
 /*^^^ hidden to hidden (if any)*/
 	if(_K.n_hiddens>1){
 		for(idx=(_K.n_hiddens-2);idx>0;idx--){
@@ -324,7 +388,7 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 			M=_K.hiddens[idx+1].n_inputs;
 			cublasDgemv(cublas_handle,CUBLAS_OP_N,M,N,&_alpha,_K.hiddens[idx+1].cuda_w,M,delta_ptr[idx+1],1,&_beta,delta_ptr[idx],1);
 			CHK_ERR(cublas_6);
-			dsigmoid<<<(M+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(M,hidden_vector_ptr[idx],delta_ptr[idx]);
+			dsigmoid<<<_KG(M)>>>(M,hidden_vector_ptr[idx],delta_ptr[idx]);
 			CHK_ERR(kernel_8);
 		}
 		/*add zero*/
@@ -333,7 +397,7 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 		M=_K.hiddens[1].n_inputs;
 		cublasDgemv(cublas_handle,CUBLAS_OP_N,M,N,&_alpha,_K.hiddens[1].cuda_w,M,delta_ptr[1],1,&_beta,delta_ptr[0],1);
 		CHK_ERR(cublas_7);
-		dsigmoid<<<(M+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(M,hidden_vector_ptr[0],delta_ptr[0]);
+		dsigmoid<<<_KG(M)>>>(M,hidden_vector_ptr[0],delta_ptr[0]);
 		CHK_ERR(kernel_9);
 	}
 /*+++ III - back propagation +++*/
@@ -360,7 +424,7 @@ double cuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 	/*>>> update cuda_out <<<*/
 if(cudas->cuda_n_streams>1) scuda_ann_forward_cublas(kernel,cudas);
 else cuda_ann_forward_cublas(kernel,cublas_handle);
-	amb<<<(N+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK,THREADS_PER_BLOCK>>>(N,tmp_gpu,train,_K.cuda_out);
+	amb<<<_KG(N)>>>(N,tmp_gpu,train,_K.cuda_out);
 	CHK_ERR(kernel_10);
 	cublasDasum(cublas_handle,N,tmp_gpu,1,&Epr);
 	CHK_ERR(cublas_11);
