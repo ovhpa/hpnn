@@ -79,10 +79,6 @@ int _NN(init,all)(){
         fprintf(stdout,"MKL started.\n");
 #endif /*_MKL*/
 #ifdef _OMP
-        #pragma omp parallel default(shared) 
-        {
-		fprintf(stdout,"#");
-        }
         fprintf(stdout,"\nANN started with %i threads.\n",nn_num_threads);
 #ifdef _MKL
 	fprintf(stdout,"and with %i BLAS threads.\n",nn_num_blas);
@@ -408,7 +404,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 			/*can't happen*/
 			res=0.;
 		}
-		if(res==0.) fprintf(stdout,"#");
+//		if(res==0.) fprintf(stdout,"#");
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);

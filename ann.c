@@ -1,3 +1,26 @@
+/* High Performance Neural Networks  -- OVHPA 2019
+ * mail: hubert.valencia _at_ imass.nagoya-u.ac.jp
+ * ann.c:  contains the C / OpenMP implementations
+ * of HPNN's ANN neural network routines.
+*/
+
+/*
+This file is part of HPNN library.
+
+    HPNN is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    HPNN is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -468,8 +491,8 @@ void ann_kernel_run(_kernel *kernel){
 	CHK_ERR(intoGPU);
 	//fprintf(stdout,"#DBG_PROOF: %lu\n",cuda_array_dbg(_NN(get,cuda_handle)(),KERN.n_inputs,KERN.cuda_in));
 
-if(cudas->cuda_n_streams<2) cuda_ann_forward_cublas(kernel,_NN(get,cuda_handle)());
-else scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
+if(cudas->cuda_n_streams<2) cuda_ann_forward_cublas(kernel,cudas->cuda_handle);
+else scuda_ann_forward_cublas(kernel,cudas);
 
 	CUDA_G2C_CP(KERN.out,KERN.cuda_out,KERN.n_outputs,DOUBLE);
 //	cudaMemcpy(KERN.out,KERN.cuda_out,KERN.n_outputs*sizeof(DOUBLE),cudaMemcpyDeviceToHost);
@@ -564,10 +587,13 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 
 	DOUBLE Ep=0.;
 	DOUBLE *train_gpu;
+	cudastreams *cudas=_NN(get,cudas)();
 	/**/
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
+if(cudas->cuda_n_streams>1) Ep=scuda_ann_train_cublas(kernel,train_gpu,cudas);
+else Ep=cuda_ann_train_cublas(kernel,train_gpu,cudas);
+//	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
 	CUDA_FREE(train_gpu);
 	return Ep;
 

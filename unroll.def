@@ -139,7 +139,7 @@ if (nn>abs(end-init)) {for(ix=init;ix<end;ix++) {OP_ ##op (ix);}\
 	}\
 }while(0)
 #else //__INTEL_COMPILER
-#define UNROLL_FOR(init,end,nn,op,ix) PRAGMA(unroll nn);\
+#define UNROLL_FOR(init,end,nn,op,ix) PRAGMA(unroll(nn));\
 	for(ix=init;ix<end;ix++) OP_ ##op (ix)
 #endif //__INTEL_COMPILER
 // parallel version:
