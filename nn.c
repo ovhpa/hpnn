@@ -93,6 +93,10 @@ int _NN(deinit,all)(){
 	if(cudas.cuda_n_streams>1)
 		for(idx=0;idx<cudas.cuda_n_streams;idx++)
 			cudaStreamDestroy(cudas.cuda_streams[idx]);
+	else {
+		free(cudas.cuda_streams);
+		cudas.cuda_streams=NULL;
+	}
 	cublasDestroy(cudas.cuda_handle);
 #endif /*_CUDA*/
 	return 0;
@@ -108,14 +112,14 @@ void _NN(set,cuda_streams)(UINT n_streams){
 UINT idx;
 	if(n_streams<2) {
 		cudas.cuda_n_streams=1;
-		cudas.cuda_streams=NULL;
-		return;
-	}
-	cudas.cuda_n_streams=n_streams;
-	ALLOC(cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
-	for(idx=0;idx<cudas.cuda_n_streams;idx++){
-		cudaStreamCreateWithFlags(&(cudas.cuda_streams[idx]),cudaStreamNonBlocking);
-//		cudaStreamCreate(&(cudas.cuda_streams[idx]));
+		ALLOC(cudas.cuda_streams,sizeof(cudaStream_t),cudaStream_t);
+		cudas.cuda_streams[0]=NULL;
+	}else{
+		cudas.cuda_n_streams=n_streams;
+		ALLOC(cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
+		for(idx=0;idx<cudas.cuda_n_streams;idx++){
+			cudaStreamCreateWithFlags(&(cudas.cuda_streams[idx]),cudaStreamNonBlocking);
+		}
 	}
 	fprintf(stdout,"ANN started with %i CUDA streams.\n",n_streams);
 	cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);

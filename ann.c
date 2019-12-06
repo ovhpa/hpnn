@@ -591,8 +591,11 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 	/**/
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-if(cudas->cuda_n_streams>1) Ep=scuda_ann_train_cublas(kernel,train_gpu,cudas);
-else Ep=cuda_ann_train_cublas(kernel,train_gpu,cudas);
+	Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
+/*
+if(cudas->cuda_n_streams>1) Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
+else Ep=(DOUBLE)cuda_ann_train_cublas(kernel,train_gpu,cudas);
+*/
 //	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
 	CUDA_FREE(train_gpu);
 	return Ep;
@@ -1373,27 +1376,23 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	DOUBLE probe;
 #ifdef _CUDA
 	DOUBLE *train_gpu;
-	DOUBLE *tmp_gpu;
 #endif /*_CUDA*/
 	/*copy input*/
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 #ifdef _CUDA
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
-//	CUBLAS_SET_VECTOR(KERN.in,1,KERN.cuda_in,1,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-//	CUBLAS_SET_VECTOR(train_out,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-	CUDA_ALLOC(tmp_gpu,KERN.n_outputs,DOUBLE);
 #endif	
 	/**/
-	ann_kernel_run(kernel);
 	dEp=0.;
 #ifdef _CUDA
-cudaDeviceSynchronize();
-	cuda_ann_amb(tmp_gpu,train_gpu,KERN.cuda_out,KERN.n_outputs);//amb => tmp = (a - b)*(a - b)
-	CUBLAS_ERR(cublasDasum(_NN(get,cuda_handle)(),KERN.n_outputs,tmp_gpu,1,&dEp));
-	dEp*=0.5;
+	scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
+	cudaDeviceSynchronize();
+	dEp=cuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+	cudaDeviceSynchronize();/*TODO: check if necessary*/
 #else /*_CUDA*/
+	ann_kernel_run(kernel);
 	for(idx=0;idx<kernel->n_outputs;idx++)
 		dEp+=(train_out[idx]-kernel->out[idx])*(train_out[idx]-kernel->out[idx]);
 	dEp*=0.5;
@@ -1401,10 +1400,15 @@ cudaDeviceSynchronize();
 	fprintf(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
-		dEp=ann_kernel_train(kernel,train_out);
 #ifdef _CUDA
+		dEp=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
+		cudaDeviceSynchronize();/*TODO: check if necessary*/
 		/*we have to sync cuda_out -> out*/
 		CUDA_G2C_CP(kernel->out,kernel->cuda_out,KERN.n_outputs,DOUBLE);
+		cudaDeviceSynchronize();/*TODO: check if necessary*/
+		fprintf(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+#else
+		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
 		is_ok=FALSE;
 		iter++;
@@ -1429,7 +1433,6 @@ cudaDeviceSynchronize();
 	fflush(stdout);
 #ifdef _CUDA
 	CUDA_FREE(train_gpu);
-	CUDA_FREE(tmp_gpu);
 #endif /*_CUDA*/
 	return dEp;
 }
