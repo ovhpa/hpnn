@@ -171,21 +171,23 @@ _kernel *ann_load(CHAR *f_kernel){
 	KERN.n_outputs=n_out;
 	ALLOC_REPORT(KERN.in,n_in,DOUBLE,allocate);
 	ALLOC_REPORT(KERN.hiddens,n_hid,_layer,allocate);
-	ALLOC_REPORT(KERN.out,n_out,DOUBLE,allocate);
 	/*first hidden layer*/
 	KERN.hiddens[0].n_neurons=parameter[0];
 	KERN.hiddens[0].n_inputs=n_in;
 	ALLOC_REPORT(KERN.hiddens[0].weights,n_in*KERN.hiddens[0].n_neurons,DOUBLE,allocate);
+	ALLOC_REPORT(KERN.hiddens[0].vec,KERN.hiddens[0].n_neurons,DOUBLE,allocate);
 	/*remaining hidden layers*/
 	for(idx=1;idx<n_hid;idx++){
 		KERN.hiddens[idx].n_neurons=parameter[idx];
 		KERN.hiddens[idx].n_inputs=parameter[idx-1];
 		ALLOC_REPORT(KERN.hiddens[idx].weights,parameter[idx]*parameter[idx-1],DOUBLE,allocate);
+		ALLOC_REPORT(KERN.hiddens[idx].vec,parameter[idx],DOUBLE,allocate);
 	}
 	/*output*/
 	KERN.output.n_neurons=n_out;
 	KERN.output.n_inputs=parameter[n_par-2];
 	ALLOC_REPORT(KERN.output.weights,n_out*parameter[n_par-2],DOUBLE,allocate);
+	ALLOC_REPORT(KERN.output.vec,n_out,DOUBLE,allocate);
 	/*end of allocations*/
 fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
@@ -343,10 +345,8 @@ do{
 	/*sync kernel to CUDA*/
 	for(idx=0;idx<n_hid;idx++){
 		CUDA_C2G_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-//	CUBLAS_SET_MATRIX(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,DOUBLE);
 	}
 	CUDA_C2G_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
-//	CUBLAS_SET_MATRIX(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons,KERN.output.n_inputs,DOUBLE);
 #endif
 	/*end*/
 	FREE(line);
@@ -375,21 +375,23 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	KERN.n_outputs=n_outputs;
 	ALLOC_REPORT(KERN.in,n_inputs,DOUBLE,allocate);
 	ALLOC_REPORT(KERN.hiddens,n_hiddens,_layer,allocate);
-	ALLOC_REPORT(KERN.out,n_outputs,DOUBLE,allocate);
 	/*first layer*/
 	KERN.hiddens[0].n_inputs=n_inputs;
 	KERN.hiddens[0].n_neurons=hiddens[0];
 	ALLOC_REPORT(KERN.hiddens[0].weights,n_inputs*hiddens[0],DOUBLE,allocate);
+	ALLOC_REPORT(KERN.hiddens[0].vec,hiddens[0],DOUBLE,allocate);
 	/*remaining hidden layers*/
 	for(idx=1;idx<n_hiddens;idx++){
 		KERN.hiddens[idx].n_neurons=hiddens[idx];
 		KERN.hiddens[idx].n_inputs=hiddens[idx-1];
 		ALLOC_REPORT(KERN.hiddens[idx].weights,hiddens[idx]*hiddens[idx-1],DOUBLE,allocate);
+		ALLOC_REPORT(KERN.hiddens[idx].vec,hiddens[idx],DOUBLE,allocate);
 	}
 	/*output*/
 	KERN.output.n_neurons=n_outputs;
 	KERN.output.n_inputs=hiddens[n_hiddens-1];
 	ALLOC_REPORT(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE,allocate);
+	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
 	fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
@@ -424,16 +426,11 @@ fprintf(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
         /*sync kernel to CUDA*/
         for(idx=0;idx<KERN.n_hiddens;idx++){
 		CUDA_C2G_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-//CUBLAS_SET_MATRIX(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,DOUBLE);
         }
 	CUDA_C2G_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
-//CUBLAS_SET_MATRIX(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons,KERN.output.n_inputs,DOUBLE);
 #endif
 	return kernel;
 }
-
-
-
 void ann_dump(_kernel *kernel,FILE *out){
 	UINT idx;
 	UINT jdx;
@@ -443,10 +440,8 @@ void ann_dump(_kernel *kernel,FILE *out){
 #ifdef _CUDA
 	for(idx=0;idx<KERN.n_hiddens;idx++){
 		CUDA_G2C_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-//		CUBLAS_GET_MATRIX(KERN.hiddens[0].weights,KERN.hiddens[0].cuda_w,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,DOUBLE);
 	}
 	CUDA_G2C_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
-//	CUBLAS_GET_MATRIX(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons,KERN.output.n_inputs,DOUBLE);
 #endif /*_CUDA*/
 	fprintf(out,"[name] %s\n",KERN.name);
 	fprintf(out,"[param] %i",KERN.n_inputs);
@@ -488,35 +483,57 @@ void ann_kernel_run(_kernel *kernel){
 	/*simple, one pass kernel*/
 #ifdef _CUDA
 	cudastreams *cudas=_NN(get,cudas)();
-
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CHK_ERR(intoGPU);
 	//fprintf(stdout,"#DBG_PROOF: %lu\n",cuda_array_dbg(_NN(get,cuda_handle)(),KERN.n_inputs,KERN.cuda_in));
 	scuda_ann_forward_cublas(kernel,cudas);
-
-	CUDA_G2C_CP(KERN.out,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
-
+	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 	CHK_ERR(intoCPU);
-
 	return;
 #else /*_CUDA*/
 	/*NON-CUDA VERSION*/
 	UINT idx;
-	DOUBLE  *in , *out;
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
 #endif
 	UINT jdx;
 	/*simple, one pass kernel*/
-	ALLOC(in,KERN.n_inputs,DOUBLE);
-	ARRAY_CP(KERN.in,in,KERN.n_inputs);
-/*+++ I - hiddens +++*/
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		ALLOC(out,KERN.hiddens[idx].n_neurons,DOUBLE);
+/*+++ I - input +++*/
+#ifdef PBLAS
+	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,
+		1.0,KERN.hiddens[0].weights,KERN.hiddens[0].n_inputs,KERN.in,1,0.,KERN.hiddens[0].vec,1);
+#define OP_ACT(ix) KERN.hiddens[0].vec[ix]=ann_act(KERN.hiddens[0].vec[ix])
+	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+#elif defined(SBLAS)
+	/*move the parallel mv into a series of vv*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
+_HT;
+		KERN.hiddens[0].vec[jdx]=cblas_ddot(
+		KERN.hiddens[0].n_inputs,
+		&(KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
+		1,
+		KERN.in,
+		1);
+		KERN.hiddens[0].vec[jdx]=ann_act(KERN.hiddens[0].vec[jdx]);
+	}
+#else /*no PBLAS no SBLAS*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
+		KERN.hiddens[0].vec[jdx]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[0].vec[jdx]+=KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]*KERN.in[ix]
+		UNROLL_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+		KERN.hiddens[0].vec[jdx]=ann_act(KERN.hiddens[0].vec[jdx]);
+	}
+#endif /*PBLAS*/
+/*+++ II - hiddens +++*/
+	for(idx=1;idx<KERN.n_hiddens;idx++){
 #ifdef PBLAS
 		cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,
-			1.0,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs,in,1,0.,out,1);
-#define OP_ACT(ix) out[ix]=ann_act(out[ix])
+			1.0,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs,KERN.hiddens[idx-1].vec,1,0.,KERN.hiddens[idx].vec,1);
+#define OP_ACT(ix) KERN.hiddens[idx].vec[ix]=ann_act(KERN.hiddens[idx].vec[ix])
 		UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
 #elif defined(SBLAS)
@@ -524,31 +541,31 @@ void ann_kernel_run(_kernel *kernel){
 #pragma omp parallel for private(jdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 _HT;
-			out[jdx]=cblas_ddot(
+			KERN.hiddens[idx].vec[jdx]=cblas_ddot(
 			KERN.hiddens[idx].n_inputs,
 			&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
 			1,
-			in,
+			KERN.hiddens[idx-1].vec,
 			1);
-			out[jdx]=ann_act(out[jdx]);
+			KERN.hiddens[idx].vec[jdx]=ann_act(KERN.hiddens[idx].vec[jdx]);
 		}
 #else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-#define OP_WI(ix) out[jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*in[ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,WI,kdx);
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
+			KERN.hiddens[idx].vec[jdx]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[idx].vec[jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*KERN.hiddens[idx-1].vec[ix]
+			UNROLL_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,WI,kdx);
 #undef OP_WI
-	out[jdx]=ann_act(out[jdx]);
-}
+			KERN.hiddens[idx].vec[jdx]=ann_act(KERN.hiddens[idx].vec[jdx]);
+		}
 #endif /*PBLAS*/
-		FREE(in);
-		in=out;out=NULL;
 	}
-/*+++ II - output +++*/
+/*+++ III - output +++*/
 #ifdef PBLAS
 	/*serial dgemv (no thread support here)*/
 	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.output.n_neurons,KERN.output.n_inputs,
-		1.0,KERN.output.weights,KERN.output.n_inputs,in,1,0.,KERN.out,1);
-#define OP_ACT(ix) KERN.out[ix]=ann_act(KERN.out[ix])
+		1.0,KERN.output.weights,KERN.output.n_inputs,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec,1);
+#define OP_ACT(ix) KERN.output.vec[ix]=ann_act(KERN.output.vec[ix])
 	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
 #elif defined(SBLAS)
@@ -556,24 +573,24 @@ for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 #pragma omp parallel for private(jdx) _NT
 	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
 _HT;
-		KERN.out[jdx]=cblas_ddot(
+		KERN.output.vec[jdx]=cblas_ddot(
 		KERN.output.n_inputs,
 		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]),
 		1,
-		in,
+		KERN.hiddens[KERN.n_hiddens-1].vec,
 		1);
-		KERN.out[jdx]=ann_act(KERN.out[jdx]);
+		KERN.output.vec[jdx]=ann_act(KERN.output.vec[jdx]);
 	}
-#else /*no PBLAS no CBLAS*/
-for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-	KERN.out[jdx]=0.;/*TRAP*/
-#define OP_WI(ix) KERN.out[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*in[ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,WI,kdx);
+#else /*no PBLAS no SBLAS*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
+		KERN.output.vec[jdx]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.output.vec[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+		UNROLL_FOR(0,KERN.output.n_inputs,ANN_UNROLL,WI,kdx);
 #undef OP_WI
-	KERN.out[jdx]=ann_act(KERN.out[jdx]);
-}
+		KERN.output.vec[jdx]=ann_act(KERN.output.vec[jdx]);
+	}
 #endif /*PBLAS*/
-	FREE(in);
 #endif /*_CUDA*/
 	/*done*/
 }
@@ -583,7 +600,6 @@ for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #define LEARN_RATE 0.01
 #ifdef _CUDA
-
 	DOUBLE Ep=0.;
 	DOUBLE *train_gpu;
 	cudastreams *cudas=_NN(get,cudas)();
@@ -591,14 +607,8 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
 	Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
-/*
-if(cudas->cuda_n_streams>1) Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
-else Ep=(DOUBLE)cuda_ann_train_cublas(kernel,train_gpu,cudas);
-*/
-//	Ep=cuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
 	CUDA_FREE(train_gpu);
 	return Ep;
-
 #else /*_CUDA*/
         UINT idx;
 #if !defined (PBLAS) && !defined (SBLAS)
@@ -607,143 +617,32 @@ else Ep=(DOUBLE)cuda_ann_train_cublas(kernel,train_gpu,cudas);
         UINT jdx;
         DOUBLE Ep=0.;
         DOUBLE Epr=0.;
-        DOUBLE **hidden_vector_ptr;
         DOUBLE **delta_ptr;
-#ifdef DEBUG
-#define DBG_TR(name,vec,n) do{\
-	UINT _ix;\
-	DOUBLE _dbg=0.;\
-	for(_ix=0;_ix<(n);_ix++) _dbg+=(vec)[_ix];\
-	fprintf(stdout,"#DBG: %s trace=%lf\n",QUOTE(name),_dbg);\
-}while(0)
-#else
-#define DBG_TR(name,vec,n) 
-#endif
         /*keep a track of mem*/
         UINT64 allocate=0.;
-/*+++ I - forward +++*/
-	ALLOC_REPORT(hidden_vector_ptr,KERN.n_hiddens,DOUBLE *,allocate);
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		ALLOC_REPORT(hidden_vector_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-	}
 	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
 	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-//fprintf(stdout,"TRAINING MEM ALLOC: %lu (bytes)\n",allocate);
-/*^^^ input to hidden*/
-#ifdef PBLAS
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,
-		1.0,KERN.hiddens[0].weights,KERN.hiddens[0].n_inputs,KERN.in,1,0.,hidden_vector_ptr[0],1);
-#define OP_ACT(ix) hidden_vector_ptr[0][ix]=ann_act(hidden_vector_ptr[0][ix])
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-	DBG_TR(k1,hidden_vector_ptr[0],KERN.hiddens[0].n_neurons);
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-_HT;
-		hidden_vector_ptr[0][jdx]=cblas_ddot(
-		KERN.hiddens[0].n_inputs,
-		&(KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1,
-		KERN.in,
-		1);
-		hidden_vector_ptr[0][jdx]=ann_act(hidden_vector_ptr[0][jdx]);
-	}
-	DBG_TR(k1,hidden_vector_ptr[0],KERN.hiddens[0].n_neurons);
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-#define OP_WI(ix) hidden_vector_ptr[0][jdx]+=KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]*KERN.in[ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,WI,kdx);
-#undef OP_WI
-	hidden_vector_ptr[0][jdx]=ann_act(hidden_vector_ptr[0][jdx]);
-}
-#endif /*PBLAS*/
-/*^^^ hidden to hidden (if any)*/
-	for(idx=1;idx<KERN.n_hiddens;idx++){
-#ifdef PBLAS
-		cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,
-			1.0,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs,hidden_vector_ptr[idx-1],1,0.,hidden_vector_ptr[idx],1);
-#define OP_ACT(ix) hidden_vector_ptr[idx][ix]=ann_act(hidden_vector_ptr[idx][ix])
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-	DBG_TR(k2,hidden_vector_ptr[idx],KERN.hiddens[idx].n_neurons);
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-_HT;
-		hidden_vector_ptr[idx][jdx]=cblas_ddot(
-		KERN.hiddens[idx].n_inputs,
-		&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-		1,
-		&(hidden_vector_ptr[idx-1][0]),
-		1);
-		hidden_vector_ptr[idx][jdx]=ann_act(hidden_vector_ptr[idx][jdx]);
-	}
-	DBG_TR(k2,hidden_vector_ptr[idx],KERN.hiddens[idx].n_neurons);
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-#define OP_WH(ix) hidden_vector_ptr[idx][jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*hidden_vector_ptr[idx-1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,WH,kdx);
-#undef OP_WH
-	hidden_vector_ptr[idx][jdx]=ann_act(hidden_vector_ptr[idx][jdx]);
-}
-#endif /*PBLAS*/
-	}
-/*^^^ hidden to output*/
-#ifdef PBLAS
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.output.n_neurons,KERN.output.n_inputs,
-		1.0,KERN.output.weights,KERN.output.n_inputs,hidden_vector_ptr[KERN.n_hiddens-1],1,0.,KERN.out,1);
-#define OP_ACT(ix) KERN.out[ix]=ann_act(KERN.out[ix])
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-	DBG_TR(k3,KERN.out,KERN.output.n_neurons);
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-_HT;
-		KERN.out[jdx]=cblas_ddot(
-		KERN.output.n_inputs,
-		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]),
-		1,
-		&(hidden_vector_ptr[KERN.n_hiddens-1][0]),
-		1);
-		KERN.out[jdx]=ann_act(KERN.out[jdx]);
-	}
-	DBG_TR(k3,KERN.out,KERN.output.n_neurons);
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-#define OP_WH(ix) KERN.out[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*hidden_vector_ptr[KERN.n_hiddens-1][ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,WH,kdx);
-#undef OP_WH
-	KERN.out[jdx]=ann_act(KERN.out[jdx]);
-}
-#endif /*PBLAS*/
-	/*all done, calculate a preliminary error*/
+/*+++ I - forward is _supposed_ to be done already +++*/
 	Ep=0.;
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.out[idx])*(train[idx]-KERN.out[idx]);
+	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Ep*=0.5;
 //	fprintf(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 /*^^^ output*/
-#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.out[ix])*ann_dact(KERN.out[ix])
+#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
 	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,DELTA,idx);
 #undef OP_DELTA
-	DBG_TR(d1,delta_ptr[KERN.n_hiddens],KERN.output.n_neurons);
 /*^^^ output to hidden*/
 #ifdef PBLAS
 	/*! transposed*/
 	cblas_dgemv(CblasRowMajor,CblasTrans,KERN.output.n_neurons,KERN.output.n_inputs,
 	1.0,KERN.output.weights,KERN.output.n_inputs,delta_ptr[KERN.n_hiddens],1,0.,delta_ptr[KERN.n_hiddens-1],1);
-#define OP_DACT(ix) delta_ptr[KERN.n_hiddens-1][ix]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][ix])
+#define OP_DACT(ix) delta_ptr[KERN.n_hiddens-1][ix]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[ix])
 	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
-	DBG_TR(d2,delta_ptr[KERN.n_hiddens-1],KERN.output.n_inputs);
 #elif defined(SBLAS)
 	/*move the mv into a series of vv*/
 #pragma omp parallel for private(jdx) _NT
@@ -756,16 +655,16 @@ _HT;
 		KERN.output.n_inputs,
 		&(delta_ptr[KERN.n_hiddens][0]),
 		1);
-		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][jdx]);
+		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 		}
-	DBG_TR(d2,delta_ptr[KERN.n_hiddens-1],KERN.output.n_inputs);
 #else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
+		UNROLL_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][jdx]);
-}
+		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
+	}
 #endif /*PBLAS*/
 /*^^^ hidden to hidden (if any)*/
 	if(KERN.n_hiddens>1){
@@ -774,19 +673,17 @@ for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 			/*! transposed*/
 			cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[idx+1].n_neurons,KERN.hiddens[idx+1].n_inputs,
 			1.0,KERN.hiddens[idx+1].weights,KERN.hiddens[idx+1].n_inputs,delta_ptr[idx+1],1,0.,delta_ptr[idx],1);
-#define OP_DACT(ix) delta_ptr[idx][ix]*=ann_dact(hidden_vector_ptr[idx][ix])
+#define OP_DACT(ix) delta_ptr[idx][ix]*=ann_dact(KERN.hiddens[idx].vec[ix])
 			UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
-			DBG_TR(d3,delta_ptr[idx],KERN.hiddens[idx].n_neurons);
 		}
 		/*add zero*/
 		/*! transposed*/
 		cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[1].n_neurons,KERN.hiddens[1].n_inputs,
 		1.0,KERN.hiddens[1].weights,KERN.hiddens[1].n_inputs,delta_ptr[1],1,0.,delta_ptr[0],1);
-#define OP_DACT(ix) delta_ptr[0][ix]*=ann_dact(hidden_vector_ptr[0][ix])
+#define OP_DACT(ix) delta_ptr[0][ix]*=ann_dact(KERN.hiddens[0].vec[ix])
 		UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
-		DBG_TR(d4,delta_ptr[0],KERN.hiddens[0].n_neurons);
 #elif defined(SBLAS)
 		for(idx=(KERN.n_hiddens-2);idx>0;idx--){
 		/*move the mv into a series of vv*/
@@ -800,55 +697,47 @@ _HT;
 				KERN.hiddens[idx+1].n_inputs,
 				&(delta_ptr[idx+1][0]),
 				1);
-				delta_ptr[idx][jdx]*=ann_dact(hidden_vector_ptr[idx][jdx]);
+				delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
 			}
-			DBG_TR(d3,delta_ptr[idx],KERN.hiddens[idx].n_neurons);
 		}
 		/*add zero*/
 #pragma omp parallel for private(jdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 _HT;
 			/*since the matrix is transposed incX is the matrix stride!*/
-/*
-			delta_ptr[0][jdx]=cblas_ddot(
-			KERN.hiddens[1].n_inputs,
-			&(KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,0,jdx)]),
-			KERN.hiddens[1].n_inputs,
-			&(delta_ptr[1][0]),
-			1);
-*/
 			delta_ptr[0][jdx]=cblas_ddot(
 			KERN.hiddens[1].n_neurons,
 			&(KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,0,jdx)]),
 			KERN.hiddens[1].n_inputs,
 			&(delta_ptr[1][0]),
 			1);
-			delta_ptr[0][jdx]*=ann_dact(hidden_vector_ptr[0][jdx]);
+			delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
 		}
-		DBG_TR(d4,delta_ptr[0],KERN.hiddens[0].n_neurons);
 #else /*no PBLAS no SBLAS*/
 		for(idx=(KERN.n_hiddens-2);idx>0;idx--){
-for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
+#pragma omp parallel for private(jdx) _NT
+			for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[idx][jdx]+=KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,ix,jdx)]*delta_ptr[idx+1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
+				UNROLL_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[idx][jdx]*=ann_dact(hidden_vector_ptr[idx][jdx]);
-}
+				delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
+			}
 		}
 		/*add zero*/
-for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[0][jdx]+=KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,ix,jdx)]*delta_ptr[1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
+			UNROLL_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[0][jdx]*=ann_dact(hidden_vector_ptr[0][jdx]);
-}
+			delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
+		}
 #endif /*PBLAS*/
 	}
 /*+++ III - back propagation +++*/
 /*^^^ output*/
 #ifdef PBLAS
 	cblas_dger(CblasRowMajor,KERN.output.n_neurons,KERN.output.n_inputs,LEARN_RATE,delta_ptr[KERN.n_hiddens],
-	1,hidden_vector_ptr[KERN.n_hiddens-1],1,KERN.output.weights,KERN.output.n_inputs);
+	1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.output.weights,KERN.output.n_inputs);
 #elif defined(SBLAS)
 	/*move the ger into a series of axpy*/
 #pragma omp parallel for private(idx) _NT
@@ -857,25 +746,25 @@ _HT;
 		cblas_daxpy(
 		KERN.output.n_inputs,
 		delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
-		&(hidden_vector_ptr[KERN.n_hiddens-1][0]),
+		&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),
 		1,
 		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,0)]),
 		1);
 	}
 #else /*no PBLAS no SBLAS*/
-for(idx=0;idx<KERN.output.n_neurons;idx++){
+#pragma omp parallel for private(jdx) _NT
+	for(idx=0;idx<KERN.output.n_neurons;idx++){
 #define OP_DH(ix) KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,ix)]+=\
-	LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*hidden_vector_ptr[KERN.n_hiddens-1][ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DH,jdx);
+	LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+		UNROLL_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DH,jdx);
 #undef OP_DH
-}
+	}
 #endif /*PBLAS*/
 /*^^^ hiddens*/
 #ifdef PBLAS
-/*serial*/
 	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
 		cblas_dger(CblasRowMajor,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,LEARN_RATE,delta_ptr[idx],
-		1,hidden_vector_ptr[idx-1],1,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs);
+		1,KERN.hiddens[idx-1].vec,1,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs);
 	}
 	/*add zero*/
 	cblas_dger(CblasRowMajor,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,LEARN_RATE,delta_ptr[0],
@@ -889,7 +778,7 @@ _HT;
 			cblas_daxpy(
 			KERN.hiddens[idx].n_inputs,
 			delta_ptr[idx][jdx]*LEARN_RATE,
-			&(hidden_vector_ptr[idx-1][0]),
+			&(KERN.hiddens[idx-1].vec[0]),
 			1,
 			&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
 			1);
@@ -907,31 +796,28 @@ _HT;
 		1);
 	}
 #else /*no PBLAS no SBLAS*/
-for(idx=(KERN.n_hiddens-1);idx>0;idx--){
+#pragma omp parallel for private(jdx) _NT
+	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]+=\
-	LEARN_RATE*delta_ptr[idx][jdx]*hidden_vector_ptr[idx-1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,DH,kdx);
+	LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[ix]
+		UNROLL_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,DH,kdx);
 #undef OP_DH
-}
+	}
 	/*add zero*/
-for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
 #define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,DI,kdx);
+		UNROLL_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,DI,kdx);
 #undef OP_DI
-}
+	}
 #endif /*PBLAS*/
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
 #pragma omp parallel for private(idx) reduction(+:Epr) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.out[idx])*(train[idx]-KERN.out[idx]);
+	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Epr*=0.5;
 //	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		FREE(hidden_vector_ptr[idx]);
-		hidden_vector_ptr[idx]=NULL;
-	}
-	FREE(hidden_vector_ptr);
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
 		delta_ptr[idx]=NULL;
@@ -981,127 +867,27 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 #endif
 	DOUBLE Ep=0.;
 	DOUBLE Epr=0.;
-	DOUBLE **hidden_vector_ptr;
 	DOUBLE **delta_ptr;
 	/*keep a track of mem*/
 	UINT64 allocate=0.;
 #ifdef _CUDA
 	idx=0;
-
-
-
-
-
-
-
-
+	/*TODO: DO IT!*/
 	return Ep-Epr;
 #else /*_CUDA*/
-/*+++ I - forward +++*/
-	ALLOC_REPORT(hidden_vector_ptr,KERN.n_hiddens,DOUBLE *,allocate);
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		ALLOC_REPORT(hidden_vector_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-	}
 	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
 	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-//fprintf(stdout,"TRAINING MEM ALLOC: %lu (bytes)\n",allocate);
-/*^^^ input to hidden*/
-#ifdef PBLAS
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,
-		1.0,KERN.hiddens[0].weights,KERN.hiddens[0].n_inputs,KERN.in,1,0.,hidden_vector_ptr[0],1);
-#define OP_ACT(ix) hidden_vector_ptr[0][ix]=ann_act(hidden_vector_ptr[0][ix])
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-_HT;
-		hidden_vector_ptr[0][jdx]=cblas_ddot(
-		KERN.hiddens[0].n_inputs,
-		&(KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1,
-		KERN.in,
-		1);
-		hidden_vector_ptr[0][jdx]=ann_act(hidden_vector_ptr[0][jdx]);
-	}
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-#define OP_WI(ix) hidden_vector_ptr[0][jdx]+=KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]*KERN.in[ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,WI,kdx);
-#undef OP_WI
-	hidden_vector_ptr[0][jdx]=ann_act(hidden_vector_ptr[0][jdx]);
-}
-#endif /*PBLAS*/
-/*^^^ hidden to hidden (if any)*/
-	for(idx=1;idx<KERN.n_hiddens;idx++){
-#ifdef PBLAS
-		cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,
-			1.0,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs,hidden_vector_ptr[idx-1],1,0.,hidden_vector_ptr[idx],1);
-#define OP_ACT(ix) hidden_vector_ptr[idx][ix]=ann_act(hidden_vector_ptr[idx][ix])
-		UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-#elif defined(SBLAS)
-		/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-_HT;
-			hidden_vector_ptr[idx][jdx]=cblas_ddot(
-			KERN.hiddens[idx].n_inputs,
-			&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1,
-			hidden_vector_ptr[idx-1],
-			1);
-			hidden_vector_ptr[idx][jdx]=ann_act(hidden_vector_ptr[idx][jdx]);
-		}
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-#define OP_WH(ix) hidden_vector_ptr[idx][jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*hidden_vector_ptr[idx-1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,WH,kdx);
-#undef OP_WH
-	hidden_vector_ptr[idx][jdx]=ann_act(hidden_vector_ptr[idx][jdx]);
-}
-#endif /*PBLAS*/
-	}
-/*^^^ hidden to output*/
-#ifdef PBLAS
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.output.n_neurons,KERN.output.n_inputs,
-		1.0,KERN.output.weights,KERN.output.n_inputs,hidden_vector_ptr[KERN.n_hiddens-1],1,0.,KERN.out,1);
-#define OP_ACT(ix) KERN.out[ix]=ann_act(KERN.out[ix])
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,ACT,jdx);
-#undef OP_ACT
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-_HT;
-		KERN.out[jdx]=cblas_ddot(
-		KERN.output.n_inputs,
-		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]),
-		1,
-		hidden_vector_ptr[KERN.n_hiddens-1],
-		1);
-		KERN.out[jdx]=ann_act(KERN.out[jdx]);
-	}
-#else /*no PBLAS no SBLAS*/
-for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-	KERN.out[jdx]=0.;/*TRAP*/
-#define OP_WH(ix) KERN.out[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*hidden_vector_ptr[KERN.n_hiddens-1][ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,WH,kdx);
-#undef OP_WH
-	KERN.out[jdx]=ann_act(KERN.out[jdx]);
-}
-#endif /*PBLAS*/
-	/*all done, calculate a preliminary error*/
+/*+++ I - forward is _supposed_ to be done already +++*/
+	Ep=0.;
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.out[idx])*(train[idx]-KERN.out[idx]);
+	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Ep*=0.5;
 //	fprintf(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 /*^^^ output*/
-#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.out[ix])*ann_dact(KERN.out[ix])
+#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
 	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,DELTA,idx);
 #undef OP_DELTA
 /*^^^ output to hidden*/
@@ -1109,7 +895,7 @@ for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
 	/*! transposed*/
 	cblas_dgemv(CblasRowMajor,CblasTrans,KERN.output.n_neurons,KERN.output.n_inputs,
 	1.0,KERN.output.weights,KERN.output.n_inputs,delta_ptr[KERN.n_hiddens],1,0.,delta_ptr[KERN.n_hiddens-1],1);
-#define OP_DACT(ix) delta_ptr[KERN.n_hiddens-1][ix]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][ix])
+#define OP_DACT(ix) delta_ptr[KERN.n_hiddens-1][ix]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[ix])
 	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
 #elif defined(SBLAS)
@@ -1124,14 +910,14 @@ _HT;
 		KERN.output.n_inputs,
 		delta_ptr[KERN.n_hiddens],
 		1);
-		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][jdx]);
+		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 	}
 #else /*no PBLAS no SBLAS*/
 for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
 	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(hidden_vector_ptr[KERN.n_hiddens-1][jdx]);
+	delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 }
 #endif /*PBLAS*/
 /*^^^ hidden to hidden (if any)*/
@@ -1141,7 +927,7 @@ for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 			/*! transposed*/
 			cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[idx+1].n_neurons,KERN.hiddens[idx+1].n_inputs,
 			1.0,KERN.hiddens[idx+1].weights,KERN.hiddens[idx+1].n_inputs,delta_ptr[idx+1],1,0.,delta_ptr[idx],1);
-#define OP_DACT(ix) delta_ptr[idx][ix]*=ann_dact(hidden_vector_ptr[idx][ix])
+#define OP_DACT(ix) delta_ptr[idx][ix]*=ann_dact(KERN.hiddens[idx].vec[ix])
 			UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
 		}
@@ -1149,7 +935,7 @@ for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 		/*! transposed*/
 		cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[1].n_neurons,KERN.hiddens[1].n_inputs,
 		1.0,KERN.hiddens[1].weights,KERN.hiddens[1].n_inputs,delta_ptr[1],1,0.,delta_ptr[0],1);
-#define OP_DACT(ix) delta_ptr[0][ix]*=ann_dact(hidden_vector_ptr[0][ix])
+#define OP_DACT(ix) delta_ptr[0][ix]*=ann_dact(KERN.hiddens[0].vec[ix])
 		UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
 #elif defined(SBLAS)
@@ -1165,7 +951,7 @@ _HT;
 				KERN.hiddens[idx+1].n_inputs,
 				delta_ptr[idx+1],
 				1);
-				delta_ptr[idx][jdx]*=ann_dact(hidden_vector_ptr[idx][jdx]);
+				delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
 			}
 		}
 		/*add zero*/
@@ -1180,7 +966,7 @@ _HT;
 			KERN.hiddens[1].n_inputs,
 			delta_ptr[1],
 			1);
-			delta_ptr[0][jdx]*=ann_dact(hidden_vector_ptr[0][jdx]);
+			delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
 		}
 #else /*no PBLAS no SBLAS*/
 		for(idx=(KERN.n_hiddens-2);idx>1;idx--){
@@ -1188,7 +974,7 @@ for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[idx][jdx]+=KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,ix,jdx)]*delta_ptr[idx+1][ix]
 	UNROLL_OMP_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[idx][jdx]*=ann_dact(hidden_vector_ptr[idx][jdx]);
+	delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
 }
 		}
 		/*add zero*/
@@ -1196,7 +982,7 @@ for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[0][jdx]+=KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,ix,jdx)]*delta_ptr[1][ix]
 	UNROLL_OMP_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
-	delta_ptr[0][jdx]*=ann_dact(hidden_vector_ptr[0][jdx]);
+	delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
 }
 #endif /*PBLAS*/
 	}
@@ -1205,7 +991,7 @@ for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 #ifdef PBLAS
 	/*unfortunately dger output can't be scaled*/
 	cblas_dger(CblasRowMajor,KERN.output.n_neurons,KERN.output.n_inputs,LEARN_RATE,delta_ptr[KERN.n_hiddens],
-	1,hidden_vector_ptr[KERN.n_hiddens-1],1,KERN.dw[KERN.n_hiddens],KERN.output.n_inputs);
+	1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens],KERN.output.n_inputs);
 	cblas_daxpy(KERN.output.n_inputs*KERN.output.n_neurons,1.0,KERN.dw[KERN.n_hiddens],1,KERN.output.weights,1);
 	cblas_dscal(KERN.output.n_inputs*KERN.output.n_neurons,alpha,KERN.dw[KERN.n_hiddens],1);
 #elif defined(SBLAS)
@@ -1217,7 +1003,7 @@ _HT;
 		cblas_daxpy(
 		KERN.output.n_inputs,
 		delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
-		&(hidden_vector_ptr[KERN.n_hiddens-1][0]),
+		&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),
 		1,
 		&(KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs]),
 		1);
@@ -1240,7 +1026,7 @@ _HT;
 #pragma omp parallel for private(idx) _NT
 	for(idx=0;idx<KERN.output.n_neurons;idx++){
 		for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
-			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*hidden_vector_ptr[KERN.n_hiddens-1][jdx];
+			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
 			KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,jdx)]+=KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx];
 			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]*=alpha;
 		}
@@ -1251,7 +1037,7 @@ _HT;
 /*serial*/
 	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
 		cblas_dger(CblasRowMajor,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,LEARN_RATE,delta_ptr[idx],
-		1,hidden_vector_ptr[idx-1],1,KERN.dw[idx],KERN.hiddens[idx].n_inputs);
+		1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx],KERN.hiddens[idx].n_inputs);
 		cblas_daxpy(KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,1.0,KERN.dw[idx],1,KERN.hiddens[idx].weights,1);
 		cblas_dscal(KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,alpha,KERN.dw[idx],1);
 	}
@@ -1270,7 +1056,7 @@ _HT;
 			cblas_daxpy(
 			KERN.hiddens[idx].n_inputs,
 			delta_ptr[idx][jdx]*LEARN_RATE,
-			hidden_vector_ptr[idx-1],
+			KERN.hiddens[idx-1].vec,
 			1,
 			&(KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
 			1);
@@ -1323,7 +1109,7 @@ _HT;
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 			for(kdx=0;kdx<KERN.hiddens[idx].n_inputs;kdx++){
 				KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]+=
-					LEARN_RATE*delta_ptr[idx][jdx]*hidden_vector_ptr[idx-1][kdx];
+					LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[kdx];
 				KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]+=
 					KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)];
 				KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]*=alpha;
@@ -1344,15 +1130,10 @@ _HT;
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
 #pragma omp parallel for private(idx) reduction(+:Epr) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.out[idx])*(train[idx]-KERN.out[idx]);
+	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Epr*=0.5;
 //	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ IV - cleanup +++*/
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		FREE(hidden_vector_ptr[idx]);
-		hidden_vector_ptr[idx]=NULL;
-	}
-	FREE(hidden_vector_ptr);
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
 		delta_ptr[idx]=NULL;
@@ -1382,18 +1163,14 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-#endif	
-	/**/
-	dEp=0.;
-#ifdef _CUDA
 	scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
 	cudaDeviceSynchronize();
 	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
-//	cudaDeviceSynchronize();/*TODO: check if necessary*/
 #else /*_CUDA*/
-	ann_kernel_run(kernel);
+	dEp=0.;
+	ann_kernel_run(kernel);/*also FILL vec*/
 	for(idx=0;idx<kernel->n_outputs;idx++)
-		dEp+=(train_out[idx]-kernel->out[idx])*(train_out[idx]-kernel->out[idx]);
+		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
 #endif /*_CUDA*/
 	fprintf(stdout," init=%15.10f",dEp);
@@ -1402,19 +1179,18 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 #ifdef _CUDA
 		dEp=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
-		CUDA_G2C_CP(kernel->out,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();
 //		fprintf(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
-		is_ok=FALSE;
 		iter++;
 		is_ok=TRUE;
 		for(idx=0;idx<KERN.n_outputs;idx++){
 			probe=0.;
-			if(kernel->out[idx]>0.1) probe=1.0;
-			else if(kernel->out[idx]<-0.1) probe=-1.0;
+			if(kernel->output.vec[idx]>0.1) probe=1.0;
+			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
 			else is_ok=FALSE;
 			if(train_out[idx]!=probe) is_ok=FALSE;
 		}
@@ -1449,10 +1225,10 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 	/**/
 	ann_raz_momentum(kernel);
-	ann_kernel_run(kernel);
+	ann_kernel_run(kernel);/*also FILL vec*/
 	dEp=0.;
 	for(idx=0;idx<kernel->n_outputs;idx++)
-		dEp+=(train_out[idx]-kernel->out[idx])*(train_out[idx]-kernel->out[idx]);
+		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
 	fprintf(stdout," init=%15.10f",dEp);
 	iter=0;
@@ -1463,8 +1239,8 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		is_ok=TRUE;
 		for(idx=0;idx<KERN.n_outputs;idx++){
 			probe=0.;
-			if(kernel->out[idx]>0.1) probe=1.0;
-			else if(kernel->out[idx]<-0.1) probe=-1.0;
+			if(kernel->output.vec[idx]>0.1) probe=1.0;
+			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
 			else is_ok=FALSE;
 			if(train_out[idx]!=probe) is_ok=FALSE;
 		}
@@ -1481,9 +1257,4 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	fflush(stdout);
 	return dEp;
 }
-
-
-
-
-
 

@@ -69,7 +69,9 @@ int _NN(init,all)(){
 	}
 #endif
 #ifdef _MKL
+#if defined (PBLAS) || defined (SBLAS)
         mkl_set_dynamic(0);
+#endif
         omp_set_nested(1);
 //	mkl_set_num_threads(nn_num_threads);
 	omp_set_num_threads(nn_num_threads);
@@ -493,8 +495,8 @@ void _NN(kernel,run)(nn_def *neural){
 			ann_kernel_run(_K);
 			res=0.;is_ok=TRUE;
 			for(idx=0;idx<_K->n_outputs;idx++){
-				res+=(tr_out[idx]-_K->out[idx])*(tr_out[idx]-_K->out[idx]);
-				if(_K->out[idx]>0.1) probe=1.0;
+				res+=(tr_out[idx]-_K->output.vec[idx])*(tr_out[idx]-_K->output.vec[idx]);
+				if(_K->output.vec[idx]>0.1) probe=1.0;
 				else probe=-1.0;
 				if(tr_out[idx]!=probe) is_ok=FALSE;
 

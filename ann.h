@@ -17,6 +17,7 @@ typedef struct {
         UINT n_neurons;         /*number of neurons*/
 	UINT n_inputs;          /*number of inputs*/
 	DOUBLE *weights;	/*all weights for this layer*/
+	DOUBLE *vec;		/*temporary results*/
 #ifdef _CUDA
 	DOUBLE *cuda_w;		/*cuda mirror*/
 	DOUBLE *cuda_v;		/*NEW: store intermediary results*/
@@ -34,7 +35,6 @@ typedef struct {
         _layer *hiddens;	/*hidden layers*/
 	UINT n_outputs;		/*number of outputs*/
         _layer output;		/*output layers*/
-	DOUBLE *out;		/*output vector -- for CUDA exists in output.cuda_v*/
 	DOUBLE **dw;		/*weights momentum (when relevant)*/
 #ifdef _CUDA
 	DOUBLE **cuda_dw;	/*cuda mirror*/
