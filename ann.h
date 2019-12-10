@@ -13,20 +13,13 @@
         fprintf(stdout,"#DBG: acc=%.15f\n",acc);\
 }while(0)
 
-
-/*deprecated?*/
-typedef struct {
-	UCHAR tag;		/*activation*/
-	DOUBLE *weights;	/*weights*/
-} _neuron;
-
 typedef struct {
         UINT n_neurons;         /*number of neurons*/
-//	_neuron *neurons;
 	UINT n_inputs;          /*number of inputs*/
 	DOUBLE *weights;	/*all weights for this layer*/
 #ifdef _CUDA
 	DOUBLE *cuda_w;		/*cuda mirror*/
+	DOUBLE *cuda_v;		/*NEW: store intermediary results*/
 #endif
 } _layer;
 
@@ -41,10 +34,7 @@ typedef struct {
         _layer *hiddens;	/*hidden layers*/
 	UINT n_outputs;		/*number of outputs*/
         _layer output;		/*output layers*/
-	DOUBLE *out;		/*output vector*/
-#ifdef _CUDA
-	DOUBLE *cuda_out;	/*cuda mirror*/
-#endif
+	DOUBLE *out;		/*output vector -- for CUDA exists in output.cuda_v*/
 	DOUBLE **dw;		/*weights momentum (when relevant)*/
 #ifdef _CUDA
 	DOUBLE **cuda_dw;	/*cuda mirror*/

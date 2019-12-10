@@ -192,12 +192,13 @@ fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 	/*allocate everything in CUDA*/
 	allocate=0;
 	CUDA_ALLOC_REPORT(KERN.cuda_in,n_in,DOUBLE,allocate);
-	CUDA_ALLOC_REPORT(KERN.cuda_out,n_out,DOUBLE,allocate);
 	CUDA_ALLOC_REPORT(KERN.hiddens[0].cuda_w,n_in*KERN.hiddens[0].n_neurons,DOUBLE,allocate);
 	for(idx=1;idx<n_hid;idx++){
 		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,parameter[idx]*parameter[idx-1],DOUBLE,allocate);
+		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_v,parameter[idx],DOUBLE,allocate);
 	}
 	CUDA_ALLOC_REPORT(KERN.output.cuda_w,n_out*parameter[n_par-2],DOUBLE,allocate);
+	CUDA_ALLOC_REPORT(KERN.output.cuda_v,n_out,DOUBLE,allocate);
 	/*allocate a temporary working array buffer with a maximum dimension*/
 	KERN.max_index=n_in;
 	if(n_out>KERN.max_index) KERN.max_index=n_out;
@@ -394,11 +395,12 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	/*allocate everything in CUDA*/
 	allocate=0;
 	CUDA_ALLOC_REPORT(KERN.cuda_in,KERN.n_inputs,DOUBLE,allocate);
-	CUDA_ALLOC_REPORT(KERN.cuda_out,KERN.n_outputs,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++){
 		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
+		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_v,KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 	}
 	CUDA_ALLOC_REPORT(KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE,allocate);
+	CUDA_ALLOC_REPORT(KERN.output.cuda_v,KERN.output.n_neurons,DOUBLE,allocate);
 	/*allocate a temporary working array buffer with a maximum dimension*/
 	KERN.max_index=KERN.n_inputs;
 	if(KERN.n_outputs>KERN.max_index) KERN.max_index=KERN.n_outputs;
@@ -490,12 +492,9 @@ void ann_kernel_run(_kernel *kernel){
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CHK_ERR(intoGPU);
 	//fprintf(stdout,"#DBG_PROOF: %lu\n",cuda_array_dbg(_NN(get,cuda_handle)(),KERN.n_inputs,KERN.cuda_in));
+	scuda_ann_forward_cublas(kernel,cudas);
 
-if(cudas->cuda_n_streams<2) cuda_ann_forward_cublas(kernel,cudas->cuda_handle);
-else scuda_ann_forward_cublas(kernel,cudas);
-
-	CUDA_G2C_CP(KERN.out,KERN.cuda_out,KERN.n_outputs,DOUBLE);
-//	cudaMemcpy(KERN.out,KERN.cuda_out,KERN.n_outputs*sizeof(DOUBLE),cudaMemcpyDeviceToHost);
+	CUDA_G2C_CP(KERN.out,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 
 	CHK_ERR(intoCPU);
 
@@ -1389,8 +1388,8 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 #ifdef _CUDA
 	scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
 	cudaDeviceSynchronize();
-	dEp=cuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
-	cudaDeviceSynchronize();/*TODO: check if necessary*/
+	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+//	cudaDeviceSynchronize();/*TODO: check if necessary*/
 #else /*_CUDA*/
 	ann_kernel_run(kernel);
 	for(idx=0;idx<kernel->n_outputs;idx++)
@@ -1402,11 +1401,10 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	do{
 #ifdef _CUDA
 		dEp=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
-		cudaDeviceSynchronize();/*TODO: check if necessary*/
-		/*we have to sync cuda_out -> out*/
-		CUDA_G2C_CP(kernel->out,kernel->cuda_out,KERN.n_outputs,DOUBLE);
-		cudaDeviceSynchronize();/*TODO: check if necessary*/
-		fprintf(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+		/*we have to sync output.cuda_v -> out*/
+		CUDA_G2C_CP(kernel->out,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+		cudaDeviceSynchronize();
+//		fprintf(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
