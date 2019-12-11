@@ -798,10 +798,12 @@ _HT;
 #else /*no PBLAS no SBLAS*/
 #pragma omp parallel for private(jdx) _NT
 	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
+		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]+=\
 	LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[ix]
-		UNROLL_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,DH,kdx);
+			UNROLL_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,DH,kdx);
 #undef OP_DH
+		}
 	}
 	/*add zero*/
 #pragma omp parallel for private(jdx) _NT
