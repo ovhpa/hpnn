@@ -519,7 +519,7 @@ _HT;
 		KERN.hiddens[0].vec[jdx]=ann_act(KERN.hiddens[0].vec[jdx]);
 	}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
 		KERN.hiddens[0].vec[jdx]=0.;/*TRAP*/
 #define OP_WI(ix) KERN.hiddens[0].vec[jdx]+=KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]*KERN.in[ix]
@@ -550,7 +550,7 @@ _HT;
 			KERN.hiddens[idx].vec[jdx]=ann_act(KERN.hiddens[idx].vec[jdx]);
 		}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 			KERN.hiddens[idx].vec[jdx]=0.;/*TRAP*/
 #define OP_WI(ix) KERN.hiddens[idx].vec[jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*KERN.hiddens[idx-1].vec[ix]
@@ -582,7 +582,7 @@ _HT;
 		KERN.output.vec[jdx]=ann_act(KERN.output.vec[jdx]);
 	}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
 		KERN.output.vec[jdx]=0.;/*TRAP*/
 #define OP_WI(ix) KERN.output.vec[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
@@ -658,7 +658,7 @@ _HT;
 		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 		}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 	for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
 		UNROLL_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
@@ -715,7 +715,7 @@ _HT;
 		}
 #else /*no PBLAS no SBLAS*/
 		for(idx=(KERN.n_hiddens-2);idx>0;idx--){
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 			for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[idx][jdx]+=KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,ix,jdx)]*delta_ptr[idx+1][ix]
 				UNROLL_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
@@ -724,7 +724,7 @@ _HT;
 			}
 		}
 		/*add zero*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[0][jdx]+=KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,ix,jdx)]*delta_ptr[1][ix]
 			UNROLL_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
@@ -752,7 +752,7 @@ _HT;
 		1);
 	}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(idx,jdx) _NT
 	for(idx=0;idx<KERN.output.n_neurons;idx++){
 #define OP_DH(ix) KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,ix)]+=\
 	LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
@@ -796,8 +796,8 @@ _HT;
 		1);
 	}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx) _NT
 	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
+#pragma omp parallel for private(jdx,kdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]+=\
 	LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[ix]
@@ -806,7 +806,7 @@ _HT;
 		}
 	}
 	/*add zero*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
 #define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[ix]
 		UNROLL_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,DI,kdx);
@@ -915,9 +915,10 @@ _HT;
 		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 	}
 #else /*no PBLAS no SBLAS*/
+#pragma omp parallel for private(jdx,kdx) _NT
 for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
+	UNROLL_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
 	delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 }
@@ -972,17 +973,19 @@ _HT;
 		}
 #else /*no PBLAS no SBLAS*/
 		for(idx=(KERN.n_hiddens-2);idx>1;idx--){
+#pragma omp parallel for private(jdx,kdx) _NT
 for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[idx][jdx]+=KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,ix,jdx)]*delta_ptr[idx+1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
+	UNROLL_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
 	delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
 }
 		}
 		/*add zero*/
+#pragma omp parallel for private(jdx,kdx) _NT
 for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
 #define OP_WD(ix) delta_ptr[0][jdx]+=KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,ix,jdx)]*delta_ptr[1][ix]
-	UNROLL_OMP_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
+	UNROLL_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
 #undef OP_WD
 	delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
 }
@@ -1025,7 +1028,7 @@ _HT;
 		1);
 	}
 #else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(idx) _NT
+#pragma omp parallel for private(idx,jdx) _NT
 	for(idx=0;idx<KERN.output.n_neurons;idx++){
 		for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
 			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
@@ -1107,7 +1110,7 @@ _HT;
 	}
 #else /*no PBLAS no SBLAS*/
 	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
 			for(kdx=0;kdx<KERN.hiddens[idx].n_inputs;kdx++){
 				KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]+=
