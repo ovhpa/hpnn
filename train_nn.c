@@ -194,26 +194,26 @@ next_arg:
 	/*load configuration file*/
 	neural=read_conf(nn_filename);
 	if(neural==NULL) {
-		fprintf(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
+		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
 		return 1;
 	}
 	/*setup done save a temporary kernel*/
 	output=fopen("kernel.tmp","w");
 	if(output==NULL){
-		fprintf(stderr,"FAILED to open kernel.tmp for WRITE!\n");
+		_OUT(stderr,"FAILED to open kernel.tmp for WRITE!\n");
 		return 1;
 	}
 	_NN(kernel,dump)(neural,output);
 	fclose(output);
 	/*perform training*/
 	if(!_NN(kernel,train)(neural)){
-		fprintf(stderr,"FAILED to train kernel!\n");
+		_OUT(stderr,"FAILED to train kernel!\n");
 		return 1;
 	}
 	/*save the trained kernel*/
 	output=fopen("kernel.opt","w");
 	if(output==NULL){
-		fprintf(stderr,"FAILED to open kernel.tmp for WRITE!\n");
+		_OUT(stderr,"FAILED to open kernel.tmp for WRITE!\n");
 		return 1;
 	}
 	_NN(kernel,dump)(neural,output);

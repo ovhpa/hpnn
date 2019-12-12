@@ -28,6 +28,10 @@ This file is part of HPNN library.
 #include <math.h>
 #include <time.h>
 
+#ifdef _MPI
+#include <mpi.h>
+#endif
+
 #if defined (PBLAS) || defined (SBLAS)
 #ifndef _MKL
 #include <cblas.h>
@@ -94,13 +98,13 @@ _kernel *ann_load(CHAR *f_kernel){
 	/**/
 	fp=fopen(f_kernel,"r");
 	if(!fp){
-		fprintf(stderr,"Error opening kernel file: %s\n",f_kernel);
+		_OUT(stderr,"Error opening kernel file: %s\n",f_kernel);
 		return NULL;
 	}
 	READLINE(fp,line);/*line 1: name (SKIP)*/
 	ptr=STRFIND("[name]",line);
 	if(ptr==NULL){
-		fprintf(stderr,"ANN kernel ERROR: kernel file should start with [name] keyword!\n");
+		_OUT(stderr,"ANN kernel ERROR: kernel file should start with [name] keyword!\n");
 		goto FAIL;
 	}
 	ptr+=6;SKIP_BLANK(ptr);
@@ -119,7 +123,7 @@ _kernel *ann_load(CHAR *f_kernel){
 			ptr=&(line[0]);SKIP_BLANK(ptr);
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				fprintf(stderr,"ANN kernel ERROR: malformed parameter line!\n");
+				_OUT(stderr,"ANN kernel ERROR: malformed parameter line!\n");
 				goto FAIL;
 			}
 			/*now we need to get each parameters*/
@@ -134,7 +138,7 @@ _kernel *ann_load(CHAR *f_kernel){
 			/*there is n_par-2 hidden layers and 1 output*/
 			n_par--;
 			if(n_par<2){
-				fprintf(stderr,"ANN kernel ERROR: parameter line has too few parameters!\n");
+				_OUT(stderr,"ANN kernel ERROR: parameter line has too few parameters!\n");
 				goto FAIL;
 			}
 			n_hid=n_par-1;
@@ -150,7 +154,7 @@ _kernel *ann_load(CHAR *f_kernel){
 				ptr=ptr2+1;SKIP_BLANK(ptr);
 			}
 			if(jdx==0){
-				fprintf(stderr,"ANN kernel ERROR: zero in parameter line!\n");
+				_OUT(stderr,"ANN kernel ERROR: zero in parameter line!\n");
 				goto FAIL;
 			}
 			n_out=parameter[n_par-1];
@@ -160,7 +164,7 @@ _kernel *ann_load(CHAR *f_kernel){
 		READLINE(fp,line);
 	}while(!feof(fp));
 	if(n_in==0) {
-		fprintf(stderr,"ANN kernel ERROR: missing parameter line!\n");
+		_OUT(stderr,"ANN kernel ERROR: missing parameter line!\n");
 		goto FAIL;
 	}
 	/*allocate everything*/
@@ -189,7 +193,7 @@ _kernel *ann_load(CHAR *f_kernel){
 	ALLOC_REPORT(KERN.output.weights,n_out*parameter[n_par-2],DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_out,DOUBLE,allocate);
 	/*end of allocations*/
-fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
+_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
 	allocate=0;
@@ -206,11 +210,11 @@ fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 	if(n_out>KERN.max_index) KERN.max_index=n_out;
 	for(idx=0;idx<n_hid;idx++) if(parameter[idx]>KERN.max_index) KERN.max_index=parameter[idx];
 	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
-fprintf(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
+_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 #endif
-fprintf(stdout,"n_input=%i ",n_in);
-for(jdx=0;jdx<n_par-1;jdx++) fprintf(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
-fprintf(stdout,"n_output=%i\n",n_out);
+_OUT(stdout,"n_input=%i ",n_in);
+for(jdx=0;jdx<n_par-1;jdx++) _OUT(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
+_OUT(stdout,"n_output=%i\n",n_out);
 	FREE(parameter);
 	/*getting weights when available*/
 	rewind(fp);
@@ -221,12 +225,12 @@ fprintf(stdout,"n_output=%i\n",n_out);
 //			[hidden X] Y -> hidden layer X has Y neurons
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				fprintf(stderr,"ANN kernel ERROR: malformed hidden layer definition\n");
+				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer definition\n");
 				goto FAIL;
 			}
 			GET_UINT(idx,ptr,ptr2);/*this is hidden index*/
 			if((ptr2==NULL)||(idx<1)) {
-				fprintf(stderr,"ANN kernel ERROR: malformed hidden layer index definition\n");
+				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer index definition\n");
 				goto FAIL;
 			}
 			idx--;/*start counting from 1*/
@@ -235,7 +239,7 @@ fprintf(stdout,"n_output=%i\n",n_out);
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			GET_UINT(jdx,ptr,ptr2);
 			if(jdx!=KERN.hiddens[idx].n_neurons){
-				fprintf(stderr,"ANN kernel ERROR: inconsistent neuron number - layer %i n_neurons=%i (expected %i)\n",
+				_OUT(stderr,"ANN kernel ERROR: inconsistent neuron number - layer %i n_neurons=%i (expected %i)\n",
 					idx+1,jdx,KERN.hiddens[idx].n_neurons);
 				goto FAIL;
 			}
@@ -245,27 +249,27 @@ jdx=0;
 do{
 	ptr=STRFIND("[neuron",line);
 	if(ptr==NULL){
-		fprintf(stderr,"ANN kernel ERROR: neuron definition missing! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		_OUT(stderr,"ANN kernel ERROR: neuron definition missing! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 	if(!ISDIGIT(*ptr)) {
-		fprintf(stderr,"ANN kernel ERROR: missing neuron number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		_OUT(stderr,"ANN kernel ERROR: missing neuron number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is neuron number*/
 	if(n_par<1) {
-		fprintf(stderr,"ANN kernel ERROR: neuron number<1 (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		_OUT(stderr,"ANN kernel ERROR: neuron number<1 (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	ptr=ptr2+1;SKIP_BLANK(ptr);
 	if(!ISDIGIT(*ptr)) {
-		fprintf(stderr,"ANN kernel ERROR: neuron has no input number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		_OUT(stderr,"ANN kernel ERROR: neuron has no input number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
-		fprintf(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		_OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	READLINE(fp,line);/*weights line*/
@@ -288,13 +292,13 @@ do{
 		if(ptr!=NULL){
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				fprintf(stderr,"ANN kernel ERROR: malformed output layer definition\n");
+				_OUT(stderr,"ANN kernel ERROR: malformed output layer definition\n");
 				goto FAIL;
 			}
 			/*check neuron number for consistency*/
 			GET_UINT(idx,ptr,ptr2);/*this is the number of output*/
 			if((ptr2==NULL)||(idx!=KERN.output.n_neurons)) {
-				fprintf(stderr,"ANN kernel ERROR: inconsistent neuron number for output - n_neurons=%i (expected %i)\n",
+				_OUT(stderr,"ANN kernel ERROR: inconsistent neuron number for output - n_neurons=%i (expected %i)\n",
 					idx,KERN.output.n_neurons);
 				goto FAIL;
 			}
@@ -304,27 +308,27 @@ jdx=0;
 do{
         ptr=STRFIND("[neuron",line);
         if(ptr==NULL){
-                fprintf(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
+                _OUT(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
                 goto FAIL;
         }
         while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
         if(!ISDIGIT(*ptr)) {
-                fprintf(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
+                _OUT(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
                 goto FAIL;
         }
         GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
         if(n_par<1) {
-                fprintf(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
+                _OUT(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
                 goto FAIL;
         }
         ptr=ptr2+1;SKIP_BLANK(ptr);
         if(!ISDIGIT(*ptr)) {
-                fprintf(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
+                _OUT(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
                 goto FAIL;
         }
         GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
         if(n_par<1) {
-                fprintf(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
+                _OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
                 goto FAIL;
         }
         READLINE(fp,line);
@@ -392,7 +396,7 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	KERN.output.n_inputs=hiddens[n_hiddens-1];
 	ALLOC_REPORT(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
-	fprintf(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
+	_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
 	allocate=0;
@@ -408,7 +412,7 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	if(KERN.n_outputs>KERN.max_index) KERN.max_index=KERN.n_outputs;
 	for(idx=0;idx<KERN.n_hiddens;idx++) if(KERN.hiddens[idx].n_neurons>KERN.max_index) KERN.max_index=KERN.hiddens[idx].n_neurons;
 	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
-fprintf(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
+_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 #endif
 	/*randomly fill hidden weights*/
 	for(idx=0;idx<n_hiddens;idx++){
@@ -443,28 +447,28 @@ void ann_dump(_kernel *kernel,FILE *out){
 	}
 	CUDA_G2C_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
 #endif /*_CUDA*/
-	fprintf(out,"[name] %s\n",KERN.name);
-	fprintf(out,"[param] %i",KERN.n_inputs);
-	for(idx=0;idx<KERN.n_hiddens;idx++) fprintf(out," %i",KERN.hiddens[idx].n_neurons);
-	fprintf(out," %i\n",KERN.output.n_neurons);
-	fprintf(out,"[input] %i\n",KERN.n_inputs);
+	_OUT(out,"[name] %s\n",KERN.name);
+	_OUT(out,"[param] %i",KERN.n_inputs);
+	for(idx=0;idx<KERN.n_hiddens;idx++) _OUT(out," %i",KERN.hiddens[idx].n_neurons);
+	_OUT(out," %i\n",KERN.output.n_neurons);
+	_OUT(out,"[input] %i\n",KERN.n_inputs);
 	for(idx=0;idx<KERN.n_hiddens;idx++) {
-		fprintf(out,"[hidden %i] %i\n",idx+1,KERN.hiddens[idx].n_neurons);
+		_OUT(out,"[hidden %i] %i\n",idx+1,KERN.hiddens[idx].n_neurons);
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-			fprintf(out,"[neuron %i] %i\n",jdx+1,KERN.hiddens[idx].n_inputs);
-			fprintf(out,"%17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]);
+			_OUT(out,"[neuron %i] %i\n",jdx+1,KERN.hiddens[idx].n_inputs);
+			_OUT(out,"%17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]);
 			for(kdx=1;kdx<KERN.hiddens[idx].n_inputs;kdx++)
-				fprintf(out," %17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]);
-			fprintf(out,"\n");
+				_OUT(out," %17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]);
+			_OUT(out,"\n");
 		}
 	}
-	fprintf(out,"[output] %i\n",KERN.n_outputs);
+	_OUT(out,"[output] %i\n",KERN.n_outputs);
 	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-		fprintf(out,"[neuron %i] %i\n",jdx+1,KERN.output.n_inputs);
-		fprintf(out,"%17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]);
+		_OUT(out,"[neuron %i] %i\n",jdx+1,KERN.output.n_inputs);
+		_OUT(out,"%17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]);
 		for(kdx=1;kdx<KERN.output.n_inputs;kdx++)
-			fprintf(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
-		fprintf(out,"\n");
+			_OUT(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
+		_OUT(out,"\n");
 	}
 }
 /*----------------------------*/
@@ -485,112 +489,351 @@ void ann_kernel_run(_kernel *kernel){
 	cudastreams *cudas=_NN(get,cudas)();
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CHK_ERR(intoGPU);
-	//fprintf(stdout,"#DBG_PROOF: %lu\n",cuda_array_dbg(_NN(get,cuda_handle)(),KERN.n_inputs,KERN.cuda_in));
 	scuda_ann_forward_cublas(kernel,cudas);
 	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 	CHK_ERR(intoCPU);
 	return;
 #else /*_CUDA*/
 	/*NON-CUDA VERSION*/
-	UINT idx;
+	UINT idx,jdx,M,N;
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
 #endif
-	UINT jdx;
+#ifdef _MPI
+	int n_streams,stream;
+	UINT mdx,red,rem;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#endif /*_MPI*/
 	/*simple, one pass kernel*/
 /*+++ I - input +++*/
+	N=KERN.hiddens[0].n_neurons;
+	M=KERN.hiddens[0].n_inputs;
 #ifdef PBLAS
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,
-		1.0,KERN.hiddens[0].weights,KERN.hiddens[0].n_inputs,KERN.in,1,0.,KERN.hiddens[0].vec,1);
-#define OP_ACT(ix) KERN.hiddens[0].vec[ix]=ann_act(KERN.hiddens[0].vec[ix])
-	UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,ACT,jdx);
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
+			cblas_dgemv(CblasRowMajor,CblasNoTrans,red,M,
+				1.0,KERN.hiddens[0].weights+mdx*M*red,M,KERN.in,1,0.,KERN.hiddens[0].vec+mdx*red,1);
+#define OP_ACT(ix) KERN.hiddens[0].vec[ix+mdx*red]=ann_act(KERN.hiddens[0].vec[ix+mdx*red])
+			UNROLL_OMP_FOR(0,red,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+	/*do the remaining ops without MPI*/
+	if(rem>0){
+		cblas_dgemv(CblasRowMajor,CblasNoTrans,rem,M,
+			1.0,KERN.hiddens[0].weights+mdx*M*red,M,KERN.in,1,0.,KERN.hiddens[0].vec+mdx*red,1);
+#define OP_ACT(ix) KERN.hiddens[0].vec[ix+mdx*red]=ann_act(KERN.hiddens[0].vec[ix+mdx*red])
+		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+	}
+#else /*_MPI*/
+	cblas_dgemv(CblasRowMajor,CblasNoTrans,N,M,1.0,KERN.hiddens[0].weights,M,KERN.in,1,0.,KERN.hiddens[0].vec,1);
+#define OP_ACT(ix) KERN.hiddens[0].vec[ix]=ann_act(KERN.hiddens[0].vec[ix])
+	UNROLL_OMP_FOR(0,N,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+//DMP_DBG(KERN.hiddens[0].vec,N);
+#endif /*_MPI*/
 #elif defined(SBLAS)
 	/*move the parallel mv into a series of vv*/
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
+			for(jdx=0;jdx<red;jdx++){
+_HT;
+				KERN.hiddens[0].vec[jdx+mdx*red]=cblas_ddot(
+				M,&(KERN.hiddens[0].weights[M*(jdx+mdx*red)]),1,KERN.in,1);
+				KERN.hiddens[0].vec[jdx+mdx*red]=ann_act(KERN.hiddens[0].vec[jdx+mdx*red]);
+			}
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<rem;jdx++){
+_HT;
+		KERN.hiddens[0].vec[jdx+mdx*red]=cblas_ddot(
+		M,&(KERN.hiddens[0].weights[M*(jdx+mdx*red)]),1,KERN.in,1);
+		KERN.hiddens[0].vec[jdx+mdx*red]=ann_act(KERN.hiddens[0].vec[jdx+mdx*red]);
+	}
+}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<N;jdx++){
 _HT;
 		KERN.hiddens[0].vec[jdx]=cblas_ddot(
-		KERN.hiddens[0].n_inputs,
-		&(KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1,
-		KERN.in,
-		1);
+		M,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx,0)]),1,KERN.in,1);
 		KERN.hiddens[0].vec[jdx]=ann_act(KERN.hiddens[0].vec[jdx]);
 	}
+#endif /*_MPI*/
 #else /*no PBLAS no SBLAS*/
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx,kdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
+			for(jdx=0;jdx<red;jdx++){
+				KERN.hiddens[0].vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[0].vec[jdx+mdx*red]+=KERN.hiddens[0].weights[M*(jdx+mdx*red)+ix]*KERN.in[ix]
+				UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+				KERN.hiddens[0].vec[jdx+mdx*red]=ann_act(KERN.hiddens[0].vec[jdx+mdx*red]);
+			}
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+if(rem>0){
+#pragma omp parallel for private(jdx,kdx) _NT
+	for(jdx=0;jdx<rem;jdx++){
+		KERN.hiddens[0].vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[0].vec[jdx+mdx*red]+=KERN.hiddens[0].weights[M*(jdx+mdx*red)+ix]*KERN.in[ix]
+		UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+		KERN.hiddens[0].vec[jdx+mdx*red]=ann_act(KERN.hiddens[0].vec[jdx+mdx*red]);
+	}
+}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx,kdx) _NT
+	for(jdx=0;jdx<N;jdx++){
 		KERN.hiddens[0].vec[jdx]=0.;/*TRAP*/
-#define OP_WI(ix) KERN.hiddens[0].vec[jdx]+=KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,ix)]*KERN.in[ix]
-		UNROLL_FOR(0,KERN.hiddens[0].n_inputs,ANN_UNROLL,WI,kdx);
+#define OP_WI(ix) KERN.hiddens[0].vec[jdx]+=KERN.hiddens[0].weights[_2D_IDX(M,jdx,ix)]*KERN.in[ix]
+		UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 		KERN.hiddens[0].vec[jdx]=ann_act(KERN.hiddens[0].vec[jdx]);
 	}
+#endif /*_MPI*/
 #endif /*PBLAS*/
 /*+++ II - hiddens +++*/
 	for(idx=1;idx<KERN.n_hiddens;idx++){
+		N=KERN.hiddens[idx].n_neurons;
+		M=KERN.hiddens[idx].n_inputs;
 #ifdef PBLAS
-		cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,
-			1.0,KERN.hiddens[idx].weights,KERN.hiddens[idx].n_inputs,KERN.hiddens[idx-1].vec,1,0.,KERN.hiddens[idx].vec,1);
-#define OP_ACT(ix) KERN.hiddens[idx].vec[ix]=ann_act(KERN.hiddens[idx].vec[ix])
-		UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,ACT,jdx);
+#ifdef _MPI
+		red=N/n_streams;
+		rem=N%n_streams;
+		for(mdx=0;mdx<n_streams;mdx++){
+			if(stream==mdx){
+				/*TASK SPECIFIC*/
+				cblas_dgemv(CblasRowMajor,CblasNoTrans,red,M,
+				1.0,KERN.hiddens[idx].weights+mdx*M*red,M,KERN.hiddens[idx-1].vec,1,0.,KERN.hiddens[idx].vec+mdx*red,1);
+#define OP_ACT(ix) KERN.hiddens[idx].vec[ix+mdx*red]=ann_act(KERN.hiddens[idx].vec[ix+mdx*red])
+				UNROLL_OMP_FOR(0,red,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
+			}
+		}
+		MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+		if(rem>0){
+			cblas_dgemv(CblasRowMajor,CblasNoTrans,rem,M,
+			1.0,KERN.hiddens[idx].weights+mdx*M*red,M,KERN.hiddens[idx-1].vec,1,0.,KERN.hiddens[idx].vec+mdx*red,1);
+#define OP_ACT(ix) KERN.hiddens[idx].vec[ix+mdx*red]=ann_act(KERN.hiddens[idx].vec[ix+mdx*red])
+			UNROLL_OMP_FOR(0,rem,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+		}
+#else /*_MPI*/
+		cblas_dgemv(CblasRowMajor,CblasNoTrans,N,M,
+			1.0,KERN.hiddens[idx].weights,M,KERN.hiddens[idx-1].vec,1,0.,KERN.hiddens[idx].vec,1);
+#define OP_ACT(ix) KERN.hiddens[idx].vec[ix]=ann_act(KERN.hiddens[idx].vec[ix])
+		UNROLL_OMP_FOR(0,N,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+#endif /*_MPI*/
 #elif defined(SBLAS)
 		/*move the parallel mv into a series of vv*/
+#ifdef _MPI
+		red=N/n_streams;
+		rem=N%n_streams;
+		for(mdx=0;mdx<n_streams;mdx++){
+			if(stream==mdx){
+				/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
+				for(jdx=0;jdx<red;jdx++){
+_HT;
+					KERN.hiddens[idx].vec[jdx+mdx*red]=cblas_ddot(
+					M,&(KERN.hiddens[idx].weights[M*(jdx+mdx*red)]),1,KERN.hiddens[idx-1].vec,1);
+					KERN.hiddens[idx].vec[jdx+mdx*red]=ann_act(KERN.hiddens[idx].vec[jdx+mdx*red]);
+				}
+			}
+		}
+		MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+		if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+			for(jdx=0;jdx<rem;jdx++){
+_HT;
+				KERN.hiddens[idx].vec[jdx+mdx*red]=cblas_ddot(
+				M,&(KERN.hiddens[idx].weights[M*(jdx+mdx*red)]),1,KERN.hiddens[idx-1].vec,1);
+				KERN.hiddens[idx].vec[jdx+mdx*red]=ann_act(KERN.hiddens[idx].vec[jdx+mdx*red]);
+			}
+		}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<N;jdx++){
 _HT;
 			KERN.hiddens[idx].vec[jdx]=cblas_ddot(
-			KERN.hiddens[idx].n_inputs,
-			&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1,
-			KERN.hiddens[idx-1].vec,
-			1);
+			M,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx,0)]),1,KERN.hiddens[idx-1].vec,1);
 			KERN.hiddens[idx].vec[jdx]=ann_act(KERN.hiddens[idx].vec[jdx]);
 		}
+#endif /*_MPI*/
 #else /*no PBLAS no SBLAS*/
+#ifdef _MPI
+		red=N/n_streams;
+		rem=N%n_streams;
+		for(mdx=0;mdx<n_streams;mdx++){
+			if(stream==mdx){
+				/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx,kdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
+				for(jdx=0;jdx<red;jdx++){
+					KERN.hiddens[idx].vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[idx].vec[jdx+mdx*red]+=KERN.hiddens[idx].weights[M*(jdx+mdx*red)+ix]*KERN.hiddens[idx-1].vec[ix]
+					UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+					KERN.hiddens[idx].vec[jdx+mdx*red]=ann_act(KERN.hiddens[idx].vec[jdx+mdx*red]);
+				}
+			}
+		}
+		MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+		if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+			for(jdx=0;jdx<rem;jdx++){
+				KERN.hiddens[idx].vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.hiddens[idx].vec[jdx+mdx*red]+=KERN.hiddens[idx].weights[M*(jdx+mdx*red)+ix]*KERN.hiddens[idx-1].vec[ix]
+				UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+				KERN.hiddens[idx].vec[jdx+mdx*red]=ann_act(KERN.hiddens[idx].vec[jdx+mdx*red]);
+			}
+		}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx,kdx) _NT
+		for(jdx=0;jdx<N;jdx++){
 			KERN.hiddens[idx].vec[jdx]=0.;/*TRAP*/
-#define OP_WI(ix) KERN.hiddens[idx].vec[jdx]+=KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]*KERN.hiddens[idx-1].vec[ix]
-			UNROLL_FOR(0,KERN.hiddens[idx].n_inputs,ANN_UNROLL,WI,kdx);
+#define OP_WI(ix) KERN.hiddens[idx].vec[jdx]+=KERN.hiddens[idx].weights[_2D_IDX(M,jdx,ix)]*KERN.hiddens[idx-1].vec[ix]
+			UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 			KERN.hiddens[idx].vec[jdx]=ann_act(KERN.hiddens[idx].vec[jdx]);
 		}
+#endif /*_MPI*/
 #endif /*PBLAS*/
 	}
 /*+++ III - output +++*/
+	N=KERN.output.n_neurons;
+	M=KERN.output.n_inputs;
 #ifdef PBLAS
-	/*serial dgemv (no thread support here)*/
-	cblas_dgemv(CblasRowMajor,CblasNoTrans,KERN.output.n_neurons,KERN.output.n_inputs,
-		1.0,KERN.output.weights,KERN.output.n_inputs,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec,1);
-#define OP_ACT(ix) KERN.output.vec[ix]=ann_act(KERN.output.vec[ix])
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,ACT,jdx);
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
+			cblas_dgemv(CblasRowMajor,CblasNoTrans,red,M,
+			1.0,KERN.output.weights+mdx*M*red,M,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec+mdx*red,1);
+#define OP_ACT(ix) KERN.output.vec[ix+mdx*red]=ann_act(KERN.output.vec[ix+mdx*red])
+			UNROLL_OMP_FOR(0,red,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+		cblas_dgemv(CblasRowMajor,CblasNoTrans,rem,M,
+		1.0,KERN.output.weights+mdx*M*red,M,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec+mdx*red,1);
+#define OP_ACT(ix) KERN.output.vec[ix+mdx*red]=ann_act(KERN.output.vec[ix+mdx*red])
+		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+	}
+#else /*_MPI*/
+	/*serial dgemv (no thread support here)*/
+	cblas_dgemv(CblasRowMajor,CblasNoTrans,N,M,
+		1.0,KERN.output.weights,M,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec,1);
+#define OP_ACT(ix) KERN.output.vec[ix]=ann_act(KERN.output.vec[ix])
+	UNROLL_OMP_FOR(0,N,ANN_UNROLL,ACT,jdx);
+#undef OP_ACT
+#endif /*_MPI*/
 #elif defined(SBLAS)
 	/*move the mv into a series of vv*/
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
+			for(jdx=0;jdx<red;jdx++){
+_HT;
+				KERN.output.vec[jdx+mdx*red]=cblas_ddot(
+				M,&(KERN.output.weights[M*(jdx+mdx*red)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
+				KERN.output.vec[jdx+mdx*red]=ann_act(KERN.output.vec[jdx+mdx*red]);
+			}
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<rem;jdx++){
+_HT;
+			KERN.output.vec[jdx+mdx*red]=cblas_ddot(
+			M,&(KERN.output.weights[M*(jdx+mdx*red)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
+			KERN.output.vec[jdx+mdx*red]=ann_act(KERN.output.vec[jdx+mdx*red]);
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<N;jdx++){
 _HT;
 		KERN.output.vec[jdx]=cblas_ddot(
-		KERN.output.n_inputs,
-		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]),
-		1,
-		KERN.hiddens[KERN.n_hiddens-1].vec,
-		1);
+		M,&(KERN.output.weights[_2D_IDX(M,jdx,0)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
 		KERN.output.vec[jdx]=ann_act(KERN.output.vec[jdx]);
 	}
+#endif /*_MPI*/
 #else /*no PBLAS no SBLAS*/
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+	for(mdx=0;mdx<n_streams;mdx++){
+		if(stream==mdx){
+			/*TASK SPECIFIC*/
 #pragma omp parallel for private(jdx,kdx) _NT
-	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
+			for(jdx=0;jdx<red;jdx++){
+				KERN.output.vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.output.vec[jdx+mdx*red]+=KERN.output.weights[M*(jdx+mdx*red)+ix]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+				UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+				KERN.output.vec[jdx+mdx*red]=ann_act(KERN.output.vec[jdx+mdx*red]);
+			}
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(jdx,kdx) _NT
+		for(jdx=0;jdx<rem;jdx++){
+			KERN.output.vec[jdx+mdx*red]=0.;/*TRAP*/
+#define OP_WI(ix) KERN.output.vec[jdx+mdx*red]+=KERN.output.weights[M*(jdx+mdx*red)+ix]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+			UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
+#undef OP_WI
+			KERN.output.vec[jdx+mdx*red]=ann_act(KERN.output.vec[jdx+mdx*red]);
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx,kdx) _NT
+	for(jdx=0;jdx<N;jdx++){
 		KERN.output.vec[jdx]=0.;/*TRAP*/
-#define OP_WI(ix) KERN.output.vec[jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,ix)]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
-		UNROLL_FOR(0,KERN.output.n_inputs,ANN_UNROLL,WI,kdx);
+#define OP_WI(ix) KERN.output.vec[jdx]+=KERN.output.weights[_2D_IDX(M,jdx,ix)]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+		UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 		KERN.output.vec[jdx]=ann_act(KERN.output.vec[jdx]);
 	}
+#endif /*_MPI*/
 #endif /*PBLAS*/
+#ifdef _MPI
+	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
+#endif
 #endif /*_CUDA*/
 	/*done*/
 }
@@ -629,7 +872,7 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Ep*=0.5;
-//	fprintf(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
+//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 /*^^^ output*/
 #define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
@@ -818,7 +1061,7 @@ _HT;
 #pragma omp parallel for private(idx) reduction(+:Epr) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Epr*=0.5;
-//	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
+//	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
@@ -840,7 +1083,7 @@ void ann_momentum_init(_kernel *kernel){
 	for(idx=0;idx<KERN.n_hiddens;idx++){
 		ALLOC_REPORT(KERN.dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 	}
-	fprintf(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+	_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 }
 void ann_raz_momentum(_kernel *kernel){
 	UINT idx;
@@ -886,7 +1129,7 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Ep*=0.5;
-//	fprintf(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
+//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 /*^^^ output*/
 #define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
@@ -1137,7 +1380,7 @@ _HT;
 #pragma omp parallel for private(idx) reduction(+:Epr) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Epr*=0.5;
-//	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
+//	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ IV - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
@@ -1178,7 +1421,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
 #endif /*_CUDA*/
-	fprintf(stdout," init=%15.10f",dEp);
+	_OUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
 #ifdef _CUDA
@@ -1186,7 +1429,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();
-//		fprintf(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+//		_OUT(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
@@ -1201,14 +1444,14 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		}
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
-			if(is_ok==TRUE) fprintf(stdout," OK");
-			else fprintf(stdout," NO");
+			if(is_ok==TRUE) _OUT(stdout," OK");
+			else _OUT(stdout," NO");
 		}
 		if(iter>10239) break;/*failsafe number of wrong iteration*/
 	}while((dEp > delta)||(!(is_ok==TRUE)));
-	fprintf(stdout," N_ITER=%8i",iter);
-	if(is_ok==TRUE) fprintf(stdout," SUCCESS!\n");
-	else fprintf(stdout," FAIL!\n");
+	_OUT(stdout," N_ITER=%8i",iter);
+	if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
+	else _OUT(stdout," FAIL!\n");
 	fflush(stdout);
 #ifdef _CUDA
 	CUDA_FREE(train_gpu);
@@ -1235,7 +1478,7 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	for(idx=0;idx<kernel->n_outputs;idx++)
 		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
-	fprintf(stdout," init=%15.10f",dEp);
+	_OUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
@@ -1251,14 +1494,14 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		}
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
-			if(is_ok==TRUE) fprintf(stdout," OK");
-			else fprintf(stdout," NO");
+			if(is_ok==TRUE) _OUT(stdout," OK");
+			else _OUT(stdout," NO");
 		}
 		if(iter>10239) break;/*failsafe number of wrong iteration*/	
 	}while((dEp > delta)||(!(is_ok==TRUE)));
-	fprintf(stdout," N_ITER=%8i",iter);
-	if(is_ok==TRUE) fprintf(stdout," SUCCESS!\n");
-	else fprintf(stdout," FAIL!\n");
+	_OUT(stdout," N_ITER=%8i",iter);
+	if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
+	else _OUT(stdout," FAIL!\n");
 	fflush(stdout);
 	return dEp;
 }

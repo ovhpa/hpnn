@@ -4,11 +4,15 @@ CURR_DIR:=$(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 VPATH = src:mod_src:obj:modules
 
+#include arch/make.mpicc.p_openblas
+#include arch/make.mpicc.openblas
 #include arch/make.gcc.p_openblas
 #include arch/make.gcc.openblas
+include arch/make.mpicc.p_mkl
+#include arch/make.mpicc.mkl
 #include arch/make.icc.mkl
 #include arch/make.icc.p_mkl
-include arch/make.gcc.cuda
+#include arch/make.gcc.cuda
 
 OBJ = $(CUDAOBJ) ann.o nn.o file.o
 GOBJ = ann.og nn.og file.og

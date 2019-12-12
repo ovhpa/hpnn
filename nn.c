@@ -11,6 +11,10 @@
 #include "common.h"
 #include "ann.h"
 
+#ifdef _MPI
+#include <mpi.h>
+#endif
+
 #if defined (PBLAS) || defined (SBLAS)
 #ifndef _MKL
 #include <cblas.h>
@@ -46,7 +50,7 @@ cudastreams cudas;
 
 void _NN(inc,verbose)(){
         nn_verbose++;
-        if(nn_verbose>0) fprintf(stdout,"# NN: increasing verbosity\n");
+        if(nn_verbose>0) _OUT(stdout,"# NN: increasing verbosity\n");
 }
 
 void _NN(toggle,dry)(){
@@ -58,16 +62,29 @@ int _NN(init,all)(){
 	cublasStatus_t err;
 	err=cublasCreate(&cuda_handle);
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		fprintf(stderr,"CUDA error: can't create a CUDA context.\n");
+		_OUT(stderr,"CUDA error: can't create a CUDA context.\n");
 		exit(-1);
 	}
 	cudas.cuda_handle=cuda_handle;
 	err=cublasSetPointerMode(cuda_handle,CUBLAS_POINTER_MODE_HOST);
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		fprintf(stderr,"CUDA error: fail to set pointer mode.\n");
+		_OUT(stderr,"CUDA error: fail to set pointer mode.\n");
 		exit(-1);
 	}
 #endif
+#ifdef _MPI
+	int n_streams;
+	MPI_Init(NULL, NULL);
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	if(n_streams<2) {
+		_OUT(stdout,"#WARNING: libhpnn was compiled with MPI,\n");
+		_OUT(stdout,"but only one task is used, which may not\n");
+		_OUT(stdout,"be what you intended and is inefficient.\n");
+		_OUT(stdout,"Please switch to serial version of hpnn,\n");
+		_OUT(stdout,"or use several parallel tasks with -np X\n");
+		_OUT(stdout,"option of mpirun.               -- OVHPA\n");
+	}
+#endif /*_MPI*/
 #ifdef _MKL
 #if defined (PBLAS) || defined (SBLAS)
         mkl_set_dynamic(0);
@@ -78,12 +95,12 @@ int _NN(init,all)(){
 //	mkl_domain_set_num_threads(nn_num_blas, MKL_DOMAIN_BLAS);
         omp_set_max_active_levels(2);
         /*hyper-threading*/
-        fprintf(stdout,"MKL started.\n");
+        _OUT(stdout,"MKL started.\n");
 #endif /*_MKL*/
 #ifdef _OMP
-        fprintf(stdout,"\nANN started with %i threads.\n",nn_num_threads);
+        _OUT(stdout,"\nANN started with %i threads.\n",nn_num_threads);
 #ifdef _MKL
-	fprintf(stdout,"and with %i BLAS threads.\n",nn_num_blas);
+	_OUT(stdout,"and with %i BLAS threads.\n",nn_num_blas);
 #endif /*_MKL*/
 	fflush(stdout);
 #endif /*_OMP*/
@@ -101,6 +118,9 @@ int _NN(deinit,all)(){
 	}
 	cublasDestroy(cudas.cuda_handle);
 #endif /*_CUDA*/
+#ifdef _MPI
+	MPI_Finalize();
+#endif
 	return 0;
 }
 #ifdef _CUDA
@@ -123,7 +143,7 @@ UINT idx;
 			cudaStreamCreateWithFlags(&(cudas.cuda_streams[idx]),cudaStreamNonBlocking);
 		}
 	}
-	fprintf(stdout,"ANN started with %i CUDA streams.\n",n_streams);
+	_OUT(stdout,"ANN started with %i CUDA streams.\n",n_streams);
 	cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
 }
 
@@ -245,7 +265,7 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 	if(fp==NULL) return FALSE;
 	READLINE(fp,line);
 	if(line==NULL){
-		fprintf(stderr,"NN ERROR: sample %s read failed!\n",filename);
+		_OUT(stderr,"NN ERROR: sample %s read failed!\n",filename);
 		return FALSE;
 	}
 	do{
@@ -254,12 +274,12 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 			/*read inputs*/
 			ptr+=7;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				fprintf(stderr,"NN ERROR: sample %s input read failed!\n",filename);
+				_OUT(stderr,"NN ERROR: sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			GET_UINT(n_in,ptr,ptr2);
 			if(n_in==0){
-				fprintf(stderr,"NN ERROR: sample %s input read failed!\n",filename);
+				_OUT(stderr,"NN ERROR: sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			READLINE(fp,line);/*line immediately after should contain input*/
@@ -277,12 +297,12 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 			/*read outputs*/
 			ptr+=8;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				fprintf(stderr,"NN ERROR: sample %s output read failed!\n",filename);
+				_OUT(stderr,"NN ERROR: sample %s output read failed!\n",filename);
 				goto FAIL;
 			}
 			GET_UINT(n_out,ptr,ptr2);
 			if(n_out==0){
-				fprintf(stderr,"NN ERROR: sample %s input read failed!\n",filename);
+				_OUT(stderr,"NN ERROR: sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			READLINE(fp,line);/*line immediately after should contain input*/
@@ -335,12 +355,12 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	case NN_TYPE_PNN:
 	case NN_TYPE_UKN:
 	default:
-		fprintf(stdout,"NN type not ready!\n");
+		_OUT(stdout,"NN type not ready!\n");
 	}
 	/*process sample files*/
 	OPEN_DIR(directory,neural->samples);
 	if(directory==NULL){
-		fprintf(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
+		_OUT(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
 		return FALSE;
 	}
 	STRCAT(curr_dir,neural->samples,"/");
@@ -369,7 +389,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	}
 	CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+		_OUT(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
 	}
 	if(neural->seed==0) neural->seed=time(NULL);
 	srandom(neural->seed);
@@ -383,7 +403,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		fprintf(stdout,"TRAINING FILE: %s\t",curr_file);
+		_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
@@ -410,7 +430,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 			/*can't happen*/
 			res=0.;
 		}
-//		if(res==0.) fprintf(stdout,"#");
+//		if(res==0.) _OUT(stdout,"#");
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
@@ -442,7 +462,7 @@ void _NN(kernel,run)(nn_def *neural){
 	/*process sample files*/
 	OPEN_DIR(directory,neural->tests);
 	if(directory==NULL){
-		fprintf(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
+		_OUT(stderr,"NN ERROR: can't open sample directory: %s\n",neural->samples);
 		return;
 	}
 	STRCAT(curr_dir,neural->tests,"/");
@@ -471,7 +491,7 @@ void _NN(kernel,run)(nn_def *neural){
 	}
         CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+		_OUT(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
 	}
 	if(neural->seed==0) neural->seed=time(NULL);
 	srandom(neural->seed);
@@ -486,7 +506,7 @@ void _NN(kernel,run)(nn_def *neural){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		fprintf(stdout,"TESTING FILE: %s\t",curr_file);
+		_OUT(stdout,"TESTING FILE: %s\t",curr_file);
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
@@ -502,9 +522,9 @@ void _NN(kernel,run)(nn_def *neural){
 
 			}
 			res*=0.5;
-			fprintf(stdout," init=%15.10f",res);
-			if(is_ok==TRUE) fprintf(stdout," SUCCESS!\n");
-			else fprintf(stdout," FAIL!\n");
+			_OUT(stdout," init=%15.10f",res);
+			if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
+			else _OUT(stdout," FAIL!\n");
 			fflush(stdout);
 			break;
 #undef _K

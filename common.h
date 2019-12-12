@@ -15,7 +15,9 @@
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
 #endif
-
+#ifdef _MPI
+#include <mpi.h>
+#endif
 
 /* A header for the common useful C functions, and
  * most used defines.
@@ -53,6 +55,20 @@
 #define QUOTE(a) #a
 #define QUOTE2(a,b) TH_QUOTE(a ## b)
 #define TINY 1E-14
+/*outputs*/
+#ifdef _MPI
+#define _OUT(_file,...) do{\
+        int _rank;\
+        MPI_Comm_rank(MPI_COMM_WORLD,&_rank);\
+        if(_rank==0) fprintf((_file), __VA_ARGS__);\
+}while(0)
+#else /*_MPI*/
+#define _OUT(_file,...) do{\
+         fprintf((_file), __VA_ARGS__);\
+}while(0)
+#endif /*_MPI*/
+
+
 /*USING GLIB?*/
 #ifdef USE_GLIB
 #define DIR_S GDir
@@ -72,7 +88,7 @@
 #define ALLOC(pointer,size,type) do{\
 	pointer=g_malloc0((size)*sizeof(type));\
 	if(pointer==NULL) {\
-		fprintf(stderr,"Allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"Allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -122,7 +138,7 @@
 #define ALLOC(pointer,size,type) do{\
 	pointer=(type *)calloc((size),sizeof(type));\
 	if(pointer==NULL) {\
-		fprintf(stderr,"Allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"Allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -236,23 +252,22 @@
 
 #define ASSERTPTR(pointer,retval) do{\
 	if(pointer==NULL){\
-		fprintf(stderr,"Error: pointer return NULL (function %s, line %i):\n%s=NULL\n",FUNCTION,__LINE__,QUOTE(pointer));\
+		_OUT(stderr,"Error: pointer return NULL (function %s, line %i):\n%s=NULL\n",FUNCTION,__LINE__,QUOTE(pointer));\
 		return retval;\
 	}\
 }while(0)
 
 #define ASSERT_GOTO(pointer,label) do{\
 	if(pointer==NULL){\
-		fprintf(stderr,"Error: pointer return NULL (function %s, line %i):\n%s=NULL\n",FUNCTION,__LINE__,QUOTE(pointer));\
+		_OUT(stderr,"Error: pointer return NULL (function %s, line %i):\n%s=NULL\n",FUNCTION,__LINE__,QUOTE(pointer));\
 		goto label;\
 	}\
 }while(0)
 
-
 /*CUDA*/
 #ifdef _CUDA
 /*ERROR*/
-#define CUBLAS_ERR_CASE(err) case err: fprintf(stderr,"CUBLAS ERROR: %s\t(function %s, line %i)\n",QUOTE(err),FUNCTION,__LINE__);break
+#define CUBLAS_ERR_CASE(err) case err: _OUT(stderr,"CUBLAS ERROR: %s\t(function %s, line %i)\n",QUOTE(err),FUNCTION,__LINE__);break
 #define CUBLAS_ERR(err) do {\
 	if(err != CUBLAS_STATUS_SUCCESS) {\
 		switch(err) {\
@@ -266,7 +281,7 @@
 		CUBLAS_ERR_CASE(CUBLAS_STATUS_NOT_SUPPORTED);\
 		CUBLAS_ERR_CASE(CUBLAS_STATUS_LICENSE_ERROR);\
 		default:\
-			fprintf(stderr,"CUBLAS UNKNOWN ERROR!\t(value= %i, function %s, line %i)\n",err,FUNCTION,__LINE__);\
+			_OUT(stderr,"CUBLAS UNKNOWN ERROR!\t(value= %i, function %s, line %i)\n",err,FUNCTION,__LINE__);\
 		}\
 		exit(-1);\
 	}\
@@ -276,7 +291,7 @@
 #define CHK_ERR(func) do{\
         cudaError_t _itmp=cudaGetLastError();\
         if(_itmp!=cudaSuccess){\
-                fprintf(stderr,"CUDA ERROR %i: %s in function %s!\n",_itmp,cudaGetErrorString(_itmp),_Q(func));\
+                _OUT(stderr,"CUDA ERROR %i: %s in function %s!\n",_itmp,cudaGetErrorString(_itmp),_Q(func));\
                 exit(1);\
         }\
 }while(0)
@@ -290,12 +305,12 @@
 	cudaError_t _err;\
 	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
 	if(_err!=cudaSuccess) {\
-		fprintf(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
 	if(_err!=cudaSuccess) {\
-		fprintf(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -304,12 +319,12 @@
 	cudaError_t _err;\
 	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
         if(_err!=cudaSuccess) {\
-                fprintf(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
+                _OUT(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
                 exit(-1);\
         }\
 	_err=cudaMemset((void *)(pointer),0,size*sizeof(type));\
 	if(_err!=cudaSuccess) {\
-		fprintf(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -333,7 +348,7 @@
 	cublasStatus_t _err;\
 	_err=cublasSetVector(size,sizeof(type),cpu_v,ldc,gpu_v,ldg);\
 	if(_err != CUBLAS_STATUS_SUCCESS){\
-		fprintf(stderr,"CPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"CPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -341,7 +356,7 @@
 	cublasStatus_t _err;\
 	_err=cublasGetVector(size,sizeof(type),gpu_v,ldg,cpu_v,ldc);\
 	if(_err != CUBLAS_STATUS_SUCCESS){\
-		fprintf(stderr,"GPU to CPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"GPU to CPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -355,7 +370,7 @@
 	cublasStatus_t _err;\
 	_err=cublasGetMatrix(cpu_col,cpu_row,sizeof(type),gpu_m,cpu_col,cpu_m,cpu_col);\
 	if(_err != CUBLAS_STATUS_SUCCESS){\
-		fprintf(stderr,"GPU to CPU CUBLAS matrix transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"GPU to CPU CUBLAS matrix transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
@@ -364,7 +379,7 @@
 	cudaError_t _err;\
 	_err=cudaMemcpy(dest,src,size*sizeof(type),cudaMemcpyDeviceToDevice);\
 	if(_err!=cudaSuccess) {\
-		fprintf(stderr,"GPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"GPU to GPU transfer error (function %s, line %i)\n",FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)

@@ -2,7 +2,7 @@ CC=icc -ipo
 AR=ar
 RANLIB=ranlib
 # blas
-BLAS_INC = -I$MKLROOT/include -D_MKL
+BLAS_INC = -I$(MKLROOT)/include -D_MKL
 BLAS_LIB = -liomp5 -lpthread -lm -ldl
 #BLAS_LIB =  -ltbb -lstdc++ -lpthread -lm -ldl
 # tweak
