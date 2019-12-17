@@ -95,10 +95,27 @@ _kernel *ann_load(CHAR *f_kernel){
 	n_par=0;
 	kernel=NULL;
 	parameter=NULL;
+	/*mpi*/
+#ifdef _MPI
+	int bailout=0;
+	UINT N,M,ndx;
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#define MPI_BAIL_SEND for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD)
+#define MPI_BAIL_RECV MPI_Recv(&bailout,1,MPI_INT,0,10,MPI_COMM_WORLD,MPI_STATUS_IGNORE)
+#else /*_MPI*/
+#define MPI_BAIL_SEND 
+#define MPI_BAIL_RECV
+#endif /*_MPI*/
 	/**/
+#ifdef _MPI
+if(stream==0) {
+#endif /*_MPI*/
 	fp=fopen(f_kernel,"r");
 	if(!fp){
 		_OUT(stderr,"Error opening kernel file: %s\n",f_kernel);
+		MPI_BAIL_SEND;
 		return NULL;
 	}
 	READLINE(fp,line);/*line 1: name (SKIP)*/
@@ -193,6 +210,9 @@ _kernel *ann_load(CHAR *f_kernel){
 	ALLOC_REPORT(KERN.output.weights,n_out*parameter[n_par-2],DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_out,DOUBLE,allocate);
 	/*end of allocations*/
+#ifdef _MPI
+_OUT(stdout,"For each MPI thread, ");
+#endif /*_MPI*/
 _OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
@@ -215,7 +235,9 @@ _OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 _OUT(stdout,"n_input=%i ",n_in);
 for(jdx=0;jdx<n_par-1;jdx++) _OUT(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
 _OUT(stdout,"n_output=%i\n",n_out);
+#ifndef _MPI
 	FREE(parameter);
+#endif /*_MPI*/
 	/*getting weights when available*/
 	rewind(fp);
 	/*1- find [hidden]*/
@@ -355,8 +377,61 @@ do{
 	/*end*/
 	FREE(line);
 	fclose(fp);
+#ifdef _MPI
+	for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD);
+}/*end of master load*/
+else{/*slaves*/
+	MPI_BAIL_RECV;
+	if(bailout) return NULL;/*try to fail nicely*/
+}
+/*master -> slaves*/
+MPI_Bcast(&n_in,1,MPI_INT,0,MPI_COMM_WORLD);
+MPI_Bcast(&n_hid,1,MPI_INT,0,MPI_COMM_WORLD);
+MPI_Bcast(&n_out,1,MPI_INT,0,MPI_COMM_WORLD);
+MPI_Bcast(&n_par,1,MPI_INT,0,MPI_COMM_WORLD);
+if(stream!=0) ALLOC(parameter,n_par-1,UINT);
+MPI_Bcast(parameter,n_par-1,MPI_INT,0,MPI_COMM_WORLD);
+if(stream!=0){/*slaves*/
+	/*allocate everything - NO NEED to report*/
+	ALLOC(kernel,1,_kernel);
+	KERN.name=name;name=NULL;
+	KERN.n_inputs=n_in;
+	KERN.n_hiddens=n_hid;
+	KERN.n_outputs=n_out;
+	ALLOC(KERN.in,n_in,DOUBLE);
+	ALLOC(KERN.hiddens,n_hid,_layer);
+	/*first hidden layer*/
+	KERN.hiddens[0].n_neurons=parameter[0];
+	KERN.hiddens[0].n_inputs=n_in;
+	ALLOC(KERN.hiddens[0].weights,n_in*KERN.hiddens[0].n_neurons,DOUBLE);
+	ALLOC(KERN.hiddens[0].vec,KERN.hiddens[0].n_neurons,DOUBLE);
+	/*remaining hidden layers*/
+	for(idx=1;idx<n_hid;idx++){
+		KERN.hiddens[idx].n_neurons=parameter[idx];
+		KERN.hiddens[idx].n_inputs=parameter[idx-1];
+		ALLOC(KERN.hiddens[idx].weights,parameter[idx]*parameter[idx-1],DOUBLE);
+		ALLOC(KERN.hiddens[idx].vec,parameter[idx],DOUBLE);
+	}
+	/*output*/
+	KERN.output.n_neurons=n_out;
+	KERN.output.n_inputs=parameter[n_par-2];
+	ALLOC(KERN.output.weights,n_out*parameter[n_par-2],DOUBLE);
+	ALLOC(KERN.output.vec,n_out,DOUBLE);
+	/*end of allocations*/
+}
+FREE(parameter);
+for(idx=0;idx<n_hid;idx++){
+	N=KERN.hiddens[idx].n_neurons;
+	M=KERN.hiddens[idx].n_inputs;
+	MPI_Bcast(KERN.hiddens[idx].weights,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+}
+N=KERN.output.n_neurons;
+M=KERN.output.n_inputs;
+MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
+#endif /*_MPI*/
 	return kernel;
 load_kernel_fail:
+	MPI_BAIL_SEND;
 	FREE(parameter);
 	FREE(line);
 	fclose(fp);
@@ -368,7 +443,16 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	UINT64 allocate;
 	UINT   idx, jdx;
 	DOUBLE temp_rnd;
-	/*this generation should _NOT_ be performed in parallel*/
+#ifdef _MPI
+	UINT N,M;
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#endif /*_MPI*/
+#ifdef _MPI
+if(stream==0){/*master kernel generation*/
+#endif /*_MPI*/
+	/*this generation should _NOT_ be performed in parallel (random seed consistency)*/
 	allocate=0.;
 	if(*seed==0) *seed=time(NULL);
 	srandom(*seed);
@@ -433,6 +517,44 @@ _OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
         }
 	CUDA_C2G_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
 #endif
+#ifdef _MPI
+}/*end of master-only*/
+/*master -> slave(s)*/
+if(stream!=0){/*slave(s)*/
+	/*allocation - NO NEED TO REPORT*/
+	ALLOC(kernel,1,_kernel);
+	KERN.n_inputs=n_inputs;
+	KERN.n_hiddens=n_hiddens;
+	KERN.n_outputs=n_outputs;
+	ALLOC(KERN.in,n_inputs,DOUBLE);
+	ALLOC(KERN.hiddens,n_hiddens,_layer);
+	/*first layer*/
+	KERN.hiddens[0].n_inputs=n_inputs;
+	KERN.hiddens[0].n_neurons=hiddens[0];
+	ALLOC(KERN.hiddens[0].weights,n_inputs*hiddens[0],DOUBLE);
+	ALLOC(KERN.hiddens[0].vec,hiddens[0],DOUBLE);
+	/*remaining hidden layers*/
+	for(idx=1;idx<n_hiddens;idx++){
+		KERN.hiddens[idx].n_neurons=hiddens[idx];
+		KERN.hiddens[idx].n_inputs=hiddens[idx-1];
+		ALLOC(KERN.hiddens[idx].weights,hiddens[idx]*hiddens[idx-1],DOUBLE);
+		ALLOC(KERN.hiddens[idx].vec,hiddens[idx],DOUBLE);
+	}
+	/*output*/
+	KERN.output.n_neurons=n_outputs;
+	KERN.output.n_inputs=hiddens[n_hiddens-1];
+	ALLOC(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE);
+	ALLOC(KERN.output.vec,n_outputs,DOUBLE);
+}
+for(idx=0;idx<n_hiddens;idx++){
+	N=KERN.hiddens[idx].n_neurons;
+	M=KERN.hiddens[idx].n_inputs;
+	MPI_Bcast(KERN.hiddens[idx].weights,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+}
+N=KERN.output.n_neurons;
+M=KERN.output.n_inputs;
+MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
+#endif /*_MPI*/
 	return kernel;
 }
 void ann_dump(_kernel *kernel,FILE *out){
@@ -781,7 +903,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
 #endif
 #endif /*_CUDA*/
 	/*done*/
@@ -824,9 +946,26 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 /*+++ I - forward is _supposed_ to be done already +++*/
 	Ep=0.;
+#ifdef _MPI
+	N=KERN.n_outputs;
+	red=N/n_streams;
+	rem=N%n_streams;
+#pragma omp parallel for private(idx) reduction(+:Ep) _NT
+	for(idx=0;idx<red;idx++)
+			Ep+=(train[idx+stream*red]-KERN.output.vec[idx+stream*red])
+			   *(train[idx+stream*red]-KERN.output.vec[idx+stream*red]);
+	MPI_Allreduce(MPI_IN_PLACE,&Ep,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	if(rem>0) {
+		for(idx=0;idx<rem;idx++) 
+			Ep+=(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red])
+			   *(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red]);
+	}
+	Ep*=0.5;
+#else /*_MPI*/
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Ep*=0.5;
+#endif /*_MPI*/
 //	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 /*^^^ output*/
@@ -840,12 +979,12 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #undef OP_DELTA
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,delta_ptr[KERN.n_hiddens],red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
-#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix+stream*red]=\
-	(train[ix+stream*red]-KERN.output.vec[ix+stream*red])*ann_dact(KERN.output.vec[ix+stream*red])
+#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix+n_streams*red]=\
+	(train[ix+n_streams*red]-KERN.output.vec[ix+n_streams*red])*ann_dact(KERN.output.vec[ix+n_streams*red])
 		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,DELTA,idx);
 #undef OP_DELTA
 	}
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #else /*_MPI*/
 #define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,DELTA,idx);
@@ -942,7 +1081,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 /*^^^ hidden to hidden (if any)*/
 	if(KERN.n_hiddens>1){
@@ -1037,7 +1176,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-			MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//			MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 		}
 		/*add zero*/
@@ -1063,7 +1202,7 @@ _HT;
 			UNROLL_OMP_FOR(0,rem,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
 		}
-		MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
+//		MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
 #else /*_MPI*/
 		cblas_dgemv(CblasRowMajor,CblasTrans,N,M,
 		1.0,KERN.hiddens[1].weights,M,delta_ptr[1],1,0.,delta_ptr[0],1);
@@ -1132,7 +1271,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 	}
 /*+++ III - back propagation +++*/
@@ -1168,7 +1307,7 @@ _HT;
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
 #pragma omp parallel for private(idx) _NT
-		for(idx=0;idx<KERN.output.n_neurons;idx++){
+		for(idx=0;idx<rem;idx++){
 _HT;
 			cblas_daxpy(
 			M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*LEARN_RATE,
@@ -1216,7 +1355,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 /*^^^ hiddens*/
 	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
@@ -1298,7 +1437,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 	}
 	/*add zero*/
@@ -1313,7 +1452,7 @@ _HT;
 	cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.hiddens[0].weights+stream*M*red,M);
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
-		cblas_dger(CblasRowMajor,red,M,
+		cblas_dger(CblasRowMajor,rem,M,
 			LEARN_RATE,delta_ptr[0]+n_streams*red,1,
 			KERN.in,1,
 			KERN.hiddens[0].weights+n_streams*M*red,M);
@@ -1368,13 +1507,30 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
+#ifdef _MPI
+	N=KERN.n_outputs;
+	red=N/n_streams;
+	rem=N%n_streams;
+#pragma omp parallel for private(idx) reduction(+:Epr) _NT
+	for(idx=0;idx<red;idx++)
+			Epr+=(train[idx+stream*red]-KERN.output.vec[idx+stream*red])
+			    *(train[idx+stream*red]-KERN.output.vec[idx+stream*red]);
+	MPI_Allreduce(MPI_IN_PLACE,&Epr,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	if(rem>0) {
+		for(idx=0;idx<rem;idx++) 
+			Epr+=(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red])
+			    *(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red]);
+	}
+	Epr*=0.5;
+#else /*_MPI*/
 #pragma omp parallel for private(idx) reduction(+:Epr) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 	Epr*=0.5;
+#endif /*_MPI*/
 //	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){

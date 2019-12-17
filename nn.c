@@ -84,6 +84,7 @@ int _NN(init,all)(){
 		_OUT(stdout,"or use several parallel tasks with -np X\n");
 		_OUT(stdout,"option of mpirun.               -- OVHPA\n");
 	}
+	_OUT(stdout,"MPI started %i tasks.\n",n_streams);
 #endif /*_MPI*/
 #ifdef _MKL
 #if defined (PBLAS) || defined (SBLAS)
@@ -98,9 +99,9 @@ int _NN(init,all)(){
         _OUT(stdout,"MKL started.\n");
 #endif /*_MKL*/
 #ifdef _OMP
-        _OUT(stdout,"\nANN started with %i threads.\n",nn_num_threads);
+        _OUT(stdout,"ANN started with %i OMP threads.\n",nn_num_threads);
 #ifdef _MKL
-	_OUT(stdout,"and with %i BLAS threads.\n",nn_num_blas);
+	_OUT(stdout,"and with %i BLAS MKL threads.\n",nn_num_blas);
 #endif /*_MKL*/
 	fflush(stdout);
 #endif /*_OMP*/
