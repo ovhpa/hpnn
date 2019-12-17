@@ -789,11 +789,6 @@ _HT;
 /*------------------------*/
 /*+++ back-propagation +++*/
 /*------------------------*/
-#define _DUMP(vec,n) do{\
-	double _sum=0.;\
-	for(int _ii=0;_ii<n;_ii++) _sum+=vec[_ii];\
-	_OUT(stdout,"DBG_SUM = %.15f\n",_sum);\
-}while(0)
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #define LEARN_RATE 0.01
 #ifdef _CUDA
@@ -1139,7 +1134,6 @@ _HT;
 #ifdef _MPI
 	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
-//	_DUMP(delta_ptr[0],M);
 	}
 /*+++ III - back propagation +++*/
 /*^^^ output*/
@@ -1230,7 +1224,7 @@ _HT;
 		M=KERN.hiddens[idx].n_inputs;
 #ifdef _MPI
 		red=N/n_streams;
-		rem=N/n_streams;
+		rem=N%n_streams;
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
@@ -1240,7 +1234,7 @@ _HT;
 		KERN.hiddens[idx].weights+stream*M*red,M);
 		MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
 		if(rem>0){
-			cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+			cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,
 				delta_ptr[idx]+n_streams*red,1,
 				KERN.hiddens[idx-1].vec,1,
 				KERN.hiddens[idx].weights+n_streams*M*red,M);
