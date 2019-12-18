@@ -561,6 +561,12 @@ void ann_dump(_kernel *kernel,FILE *out){
 	UINT idx;
 	UINT jdx;
 	UINT kdx;
+#ifdef _MPI
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+if(stream==0){/*only master writes*/
+#endif /*_MPI*/
 	if (kernel==NULL) return;
 /*before dumping, we need to sync*/
 #ifdef _CUDA
@@ -592,6 +598,10 @@ void ann_dump(_kernel *kernel,FILE *out){
 			_OUT(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
 		_OUT(out,"\n");
 	}
+#ifdef _MPI
+}/*end of master*/
+MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT for master*/
+#endif /*_MPI*/
 }
 /*----------------------------*/
 /*+++ activation functions +++*/
