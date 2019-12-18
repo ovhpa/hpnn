@@ -156,7 +156,7 @@ cudaEventRecord(start,0);
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 		cublasDgemv(cudas->cuda_handle,
-			CUBLAS_OP_T,M,red,&_alpha,_K.hiddens[idx].cuda_w+jdx*M*red,M,
+			CUBLAS_OP_T,M,red,&_alpha,_K.hiddens[0].cuda_w+jdx*M*red,M,
 			_K.cuda_in,1,&_beta,_K.hiddens[0].cuda_v+jdx*red,1);
 		CHK_ERR(fw_gemv);
 		sigmoid<<<_KG(red),0,cudas->cuda_streams[jdx]>>>(red,_K.hiddens[0].cuda_v+jdx*red);
@@ -164,7 +164,7 @@ cudaEventRecord(start,0);
 	}
 	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 	cublasDgemv(cudas->cuda_handle,
-		CUBLAS_OP_T,M,red+rem,&_alpha,_K.hiddens[idx].cuda_w+jdx*M*red,M,
+		CUBLAS_OP_T,M,red+rem,&_alpha,_K.hiddens[0].cuda_w+jdx*M*red,M,
 		_K.cuda_in,1,&_beta,_K.hiddens[0].cuda_v+jdx*red,1);
 	CHK_ERR(fw_gemv);
 	sigmoid<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>(red+rem,_K.hiddens[0].cuda_v+jdx*red);
@@ -172,11 +172,11 @@ cudaEventRecord(start,0);
 #else  /*_CUBLAS*/
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		fw_mv_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-			(M,red,_K.hiddens[idx].cuda_w+jdx*M*red,_K.cuda_in,_K.hiddens[0].cuda_v+jdx*red);
+			(M,red,_K.hiddens[0].cuda_w+jdx*M*red,_K.cuda_in,_K.hiddens[0].cuda_v+jdx*red);
 		CHK_ERR(fw_mv_acc);
 	}
 	fw_mv_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-		(M,red+rem,_K.hiddens[idx].cuda_w+jdx*M*red,_K.cuda_in,_K.hiddens[0].cuda_v+jdx*red);
+		(M,red+rem,_K.hiddens[0].cuda_w+jdx*M*red,_K.cuda_in,_K.hiddens[0].cuda_v+jdx*red);
 	CHK_ERR(fw_mv_acc);
 #endif /*_CUBLAS*/
 	cudaDeviceSynchronize();/*get all stream at this point*/
