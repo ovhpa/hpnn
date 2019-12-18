@@ -88,13 +88,14 @@ int _NN(init,all)(){
 #endif /*_MPI*/
 #ifdef _MKL
 #if defined (PBLAS) || defined (SBLAS)
-        mkl_set_dynamic(0);
+	mkl_set_dynamic(0);
 #endif
-        omp_set_nested(1);
-//	mkl_set_num_threads(nn_num_threads);
+//        omp_set_nested(1);
+//^^^^^^	mkl_set_num_threads(nn_num_threads);
 	omp_set_num_threads(nn_num_threads);
-//	mkl_domain_set_num_threads(nn_num_blas, MKL_DOMAIN_BLAS);
-        omp_set_max_active_levels(2);
+
+//^^^^^^	mkl_domain_set_num_threads(nn_num_blas, MKL_DOMAIN_BLAS);
+//	omp_set_max_active_levels(2);
         /*hyper-threading*/
         _OUT(stdout,"MKL started.\n");
 #endif /*_MKL*/

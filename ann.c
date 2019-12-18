@@ -908,46 +908,20 @@ _HT;
 #endif /*_CUDA*/
 	/*done*/
 }
-/*------------------------*/
-/*+++ back-propagation +++*/
-/*------------------------*/
-DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
-#define LEARN_RATE 0.01
-#ifdef _CUDA
+/*-------------------------------*/
+/*+++ Train Error Calculation +++*/
+/*-------------------------------*/
+DOUBLE ann_kernel_train_error(_kernel *kernel, const DOUBLE *train){
 	DOUBLE Ep=0.;
-	DOUBLE *train_gpu;
-	cudastreams *cudas=_NN(get,cudas)();
-	/**/
-	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
-	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-	Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
-	CUDA_FREE(train_gpu);
-	return Ep;
-#else /*_CUDA*/
-#if !defined (PBLAS) && !defined (SBLAS)
-        UINT kdx;
-#endif
-	UINT N,M;
-	DOUBLE **delta_ptr;
-        UINT idx, jdx;
-        DOUBLE Ep =0.;
-        DOUBLE Epr=0.;
+	UINT idx,N;
 #ifdef _MPI
-	UINT red, rem;
+	UINT red,rem;
 	int n_streams,stream;
 	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
 	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
 #endif /*_MPI*/
-        /*keep a track of mem*/
-        UINT64 allocate=0.;
-	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
-	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
-	for(idx=0;idx<KERN.n_hiddens;idx++)
-		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-/*+++ I - forward is _supposed_ to be done already +++*/
-	Ep=0.;
-#ifdef _MPI
 	N=KERN.n_outputs;
+#ifdef _MPI
 	red=N/n_streams;
 	rem=N%n_streams;
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
@@ -960,14 +934,30 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 			Ep+=(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red])
 			   *(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red]);
 	}
-	Ep*=0.5;
 #else /*_MPI*/
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
 	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
-	Ep*=0.5;
 #endif /*_MPI*/
-//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
-/*+++ II - calculate deltas +++*/
+	Ep*=0.5;
+	return Ep;
+}
+/*------------------------*/
+/*+++ Calculate deltas +++*/
+/*------------------------*/
+void ann_kernel_train_delta(_kernel *kernel,const DOUBLE *train, DOUBLE **delta_ptr){
+#if !defined (PBLAS) && !defined (SBLAS)
+        UINT kdx;
+#endif
+	UINT N,M;
+        UINT idx, jdx;
+        DOUBLE Ep =0.;
+        DOUBLE Epr=0.;
+#ifdef _MPI
+	UINT red, rem;
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#endif /*_MPI*/
 /*^^^ output*/
 	N=KERN.output.n_neurons;
 #ifdef _MPI
@@ -984,7 +974,6 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,DELTA,idx);
 #undef OP_DELTA
 	}
-//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #else /*_MPI*/
 #define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,DELTA,idx);
@@ -1081,7 +1070,6 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 /*^^^ hidden to hidden (if any)*/
 	if(KERN.n_hiddens>1){
@@ -1176,7 +1164,6 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-//			MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 		}
 		/*add zero*/
@@ -1202,7 +1189,6 @@ _HT;
 			UNROLL_OMP_FOR(0,rem,ANN_UNROLL,DACT,jdx);
 #undef OP_DACT
 		}
-//		MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
 #else /*_MPI*/
 		cblas_dgemv(CblasRowMajor,CblasTrans,N,M,
 		1.0,KERN.hiddens[1].weights,M,delta_ptr[1],1,0.,delta_ptr[0],1);
@@ -1271,9 +1257,50 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
 #endif /*_MPI*/
 	}
+}
+/*------------------------*/
+/*+++ back-propagation +++*/
+/*------------------------*/
+DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
+#define LEARN_RATE 0.01
+#ifdef _CUDA
+	DOUBLE Ep=0.;
+	DOUBLE *train_gpu;
+	cudastreams *cudas=_NN(get,cudas)();
+	/**/
+	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
+	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
+	Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
+	CUDA_FREE(train_gpu);
+	return Ep;
+#else /*_CUDA*/
+#if !defined (PBLAS) && !defined (SBLAS)
+        UINT kdx;
+#endif
+	UINT N,M;
+	DOUBLE **delta_ptr;
+        UINT idx, jdx;
+        DOUBLE Ep =0.;
+        DOUBLE Epr=0.;
+#ifdef _MPI
+	UINT red, rem;
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#endif /*_MPI*/
+        /*keep a track of mem*/
+        UINT64 allocate=0.;
+	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
+	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
+	for(idx=0;idx<KERN.n_hiddens;idx++)
+		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
+/*+++ I - forward is _supposed_ to be done already +++*/
+	Ep=ann_kernel_train_error(kernel,train);
+//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
+/*+++ II - calculate deltas +++*/
+	ann_kernel_train_delta(kernel,train,delta_ptr);
 /*+++ III - back propagation +++*/
 /*^^^ output*/
 	N=KERN.output.n_neurons;
@@ -1507,30 +1534,11 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);//WAIT FOR ALL TASKS
 #endif /*_MPI*/
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
-#ifdef _MPI
-	N=KERN.n_outputs;
-	red=N/n_streams;
-	rem=N%n_streams;
-#pragma omp parallel for private(idx) reduction(+:Epr) _NT
-	for(idx=0;idx<red;idx++)
-			Epr+=(train[idx+stream*red]-KERN.output.vec[idx+stream*red])
-			    *(train[idx+stream*red]-KERN.output.vec[idx+stream*red]);
-	MPI_Allreduce(MPI_IN_PLACE,&Epr,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-	if(rem>0) {
-		for(idx=0;idx<rem;idx++) 
-			Epr+=(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red])
-			    *(train[idx+n_streams*red]-KERN.output.vec[idx+n_streams*red]);
-	}
-	Epr*=0.5;
-#else /*_MPI*/
-#pragma omp parallel for private(idx) reduction(+:Epr) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
-	Epr*=0.5;
-#endif /*_MPI*/
+	Epr=ann_kernel_train_error(kernel,train);
 //	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
@@ -1572,7 +1580,13 @@ void ann_empty_momentum(_kernel *kernel){
 	KERN.dw=NULL;
 }
 DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha){
-	UINT idx;
+	UINT idx,N,M;
+#ifdef _MPI
+	UINT red, rem;
+	int n_streams,stream;
+	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
+	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+#endif /*_MPI*/
 #if !defined (PBLAS) && !defined (SBLAS) && !defined (_CUDA)
 	UINT kdx;
 #endif
@@ -1595,261 +1609,307 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 /*+++ I - forward is _supposed_ to be done already +++*/
-	Ep=0.;
-#pragma omp parallel for private(idx) reduction(+:Ep) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
-	Ep*=0.5;
+	Ep=ann_kernel_train_error(kernel,train);
 //	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
-/*^^^ output*/
-#define OP_DELTA(ix) delta_ptr[KERN.n_hiddens][ix]=(train[ix]-KERN.output.vec[ix])*ann_dact(KERN.output.vec[ix])
-	UNROLL_OMP_FOR(0,KERN.output.n_neurons,ANN_UNROLL,DELTA,idx);
-#undef OP_DELTA
-/*^^^ output to hidden*/
-#ifdef PBLAS
-	/*! transposed*/
-	cblas_dgemv(CblasRowMajor,CblasTrans,KERN.output.n_neurons,KERN.output.n_inputs,
-	1.0,KERN.output.weights,KERN.output.n_inputs,delta_ptr[KERN.n_hiddens],1,0.,delta_ptr[KERN.n_hiddens-1],1);
-#define OP_DACT(ix) delta_ptr[KERN.n_hiddens-1][ix]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[ix])
-	UNROLL_OMP_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DACT,jdx);
-#undef OP_DACT
-#elif defined(SBLAS)
-	/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
-_HT;
-		/*since the matrix is transposed incX is the matrix stride!*/
-		delta_ptr[KERN.n_hiddens-1][jdx]=cblas_ddot(
-		KERN.output.n_neurons,
-		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,0,jdx)]),
-		KERN.output.n_inputs,
-		delta_ptr[KERN.n_hiddens],
-		1);
-		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
-	}
-#else /*no PBLAS no SBLAS*/
-#pragma omp parallel for private(jdx,kdx) _NT
-for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
-#define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
-	UNROLL_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
-#undef OP_WD
-	delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
-}
-#endif /*PBLAS*/
-/*^^^ hidden to hidden (if any)*/
-	if(KERN.n_hiddens>1){
-#ifdef PBLAS
-		for(idx=(KERN.n_hiddens-2);idx>1;idx--){
-			/*! transposed*/
-			cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[idx+1].n_neurons,KERN.hiddens[idx+1].n_inputs,
-			1.0,KERN.hiddens[idx+1].weights,KERN.hiddens[idx+1].n_inputs,delta_ptr[idx+1],1,0.,delta_ptr[idx],1);
-#define OP_DACT(ix) delta_ptr[idx][ix]*=ann_dact(KERN.hiddens[idx].vec[ix])
-			UNROLL_OMP_FOR(0,KERN.hiddens[idx].n_neurons,ANN_UNROLL,DACT,jdx);
-#undef OP_DACT
-		}
-		/*add zero*/
-		/*! transposed*/
-		cblas_dgemv(CblasRowMajor,CblasTrans,KERN.hiddens[1].n_neurons,KERN.hiddens[1].n_inputs,
-		1.0,KERN.hiddens[1].weights,KERN.hiddens[1].n_inputs,delta_ptr[1],1,0.,delta_ptr[0],1);
-#define OP_DACT(ix) delta_ptr[0][ix]*=ann_dact(KERN.hiddens[0].vec[ix])
-		UNROLL_OMP_FOR(0,KERN.hiddens[0].n_neurons,ANN_UNROLL,DACT,jdx);
-#undef OP_DACT
-#elif defined(SBLAS)
-		for(idx=(KERN.n_hiddens-2);idx>1;idx--){
-			/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-			for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
-_HT;
-				/*since the matrix is transposed incX is the matrix stride!*/
-				delta_ptr[idx][jdx]=cblas_ddot(
-				KERN.hiddens[idx+1].n_neurons,
-				&(KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,0,jdx)]),
-				KERN.hiddens[idx+1].n_inputs,
-				delta_ptr[idx+1],
-				1);
-				delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
-			}
-		}
-		/*add zero*/
-		/*move the mv into a series of vv*/
-#pragma omp parallel for private(jdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
-_HT;
-			/*since the matrix is transposed incX is the matrix stride!*/
-			delta_ptr[0][jdx]=cblas_ddot(
-			KERN.hiddens[1].n_neurons,
-			&(KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,0,jdx)]),
-			KERN.hiddens[1].n_inputs,
-			delta_ptr[1],
-			1);
-			delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
-		}
-#else /*no PBLAS no SBLAS*/
-		for(idx=(KERN.n_hiddens-2);idx>1;idx--){
-#pragma omp parallel for private(jdx,kdx) _NT
-for(jdx=0;jdx<KERN.hiddens[idx+1].n_inputs;jdx++){
-#define OP_WD(ix) delta_ptr[idx][jdx]+=KERN.hiddens[idx+1].weights[_2D_IDX(KERN.hiddens[idx+1].n_inputs,ix,jdx)]*delta_ptr[idx+1][ix]
-	UNROLL_FOR(0,KERN.hiddens[idx+1].n_neurons,ANN_UNROLL,WD,kdx);
-#undef OP_WD
-	delta_ptr[idx][jdx]*=ann_dact(KERN.hiddens[idx].vec[jdx]);
-}
-		}
-		/*add zero*/
-#pragma omp parallel for private(jdx,kdx) _NT
-for(jdx=0;jdx<KERN.hiddens[1].n_inputs;jdx++){
-#define OP_WD(ix) delta_ptr[0][jdx]+=KERN.hiddens[1].weights[_2D_IDX(KERN.hiddens[1].n_inputs,ix,jdx)]*delta_ptr[1][ix]
-	UNROLL_FOR(0,KERN.hiddens[1].n_neurons,ANN_UNROLL,WD,kdx);
-#undef OP_WD
-	delta_ptr[0][jdx]*=ann_dact(KERN.hiddens[0].vec[jdx]);
-}
-#endif /*PBLAS*/
-	}
+	ann_kernel_train_delta(kernel,train,delta_ptr);
 /*+++ III - back propagation +++*/
 /*^^^ output*/
+	N=KERN.output.n_neurons;
+	M=KERN.output.n_inputs;
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+#endif /*_MPI*/
 #ifdef PBLAS
+#ifdef _MPI
+	cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+stream*red,
+	1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens]+stream*M*red,M);
+	cblas_daxpy(red*M,1.0,KERN.dw[KERN.n_hiddens]+stream*M*red,1,KERN.output.weights+stream*M*red,1);
+	cblas_dscal(red*M,alpha,KERN.dw[KERN.n_hiddens]+stream*M*red,1);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[KERN.n_hiddens],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+		cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+n_streams*red,
+		1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens]+n_streams*M*red,M);
+		cblas_daxpy(rem*M,1.0,KERN.dw[KERN.n_hiddens]+n_streams*M*red,1,KERN.output.weights+n_streams*M*red,1);
+		cblas_dscal(rem*M,alpha,KERN.dw[KERN.n_hiddens]+n_streams*M*red,1);
+	}
+#else /*_MPI*/
 	/*unfortunately dger output can't be scaled*/
-	cblas_dger(CblasRowMajor,KERN.output.n_neurons,KERN.output.n_inputs,LEARN_RATE,delta_ptr[KERN.n_hiddens],
-	1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens],KERN.output.n_inputs);
-	cblas_daxpy(KERN.output.n_inputs*KERN.output.n_neurons,1.0,KERN.dw[KERN.n_hiddens],1,KERN.output.weights,1);
-	cblas_dscal(KERN.output.n_inputs*KERN.output.n_neurons,alpha,KERN.dw[KERN.n_hiddens],1);
+	cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[KERN.n_hiddens],
+	1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens],M);
+	cblas_daxpy(N*M,1.0,KERN.dw[KERN.n_hiddens],1,KERN.output.weights,1);
+	cblas_dscal(N*M,alpha,KERN.dw[KERN.n_hiddens],1);
+#endif /*_MPI*/
 #elif defined(SBLAS)
 	/*move the ger into a series of axpy*/
+#ifdef _MPI
 #pragma omp parallel for private(idx) _NT
-	for(idx=0;idx<KERN.output.n_neurons;idx++){
+	for(idx=0;idx<red;idx++){
+_HT;
+		cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+stream*red]*LEARN_RATE,
+		&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
+		&(KERN.dw[KERN.n_hiddens][(idx+stream*red)*M]),1);
+		cblas_daxpy(M,1.0,
+		&(KERN.dw[KERN.n_hiddens][(idx+stream*red)*M]),1,
+		&(KERN.output.weights[_2D_IDX(M,idx+stream*red,0)]),1);
+		cblas_dscal(M,alpha,&(KERN.dw[KERN.n_hiddens][(idx+stream*red)*M]),1);
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[KERN.n_hiddens],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(idx) _NT
+		for(idx=0;idx<rem;idx++){
+_HT;
+			cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*LEARN_RATE,
+			&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
+			&(KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M]),1);
+			cblas_daxpy(M,1.0,
+			&(KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M]),1,
+			&(KERN.output.weights[_2D_IDX(M,idx+n_streams*red,0)]),1);
+			cblas_dscal(M,alpha,&(KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M]),1);
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(idx) _NT
+	for(idx=0;idx<N;idx++){
 _HT;
 		//dw += LEARN_RATE*delta*y
-		cblas_daxpy(
-		KERN.output.n_inputs,
-		delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
-		&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),
-		1,
-		&(KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs]),
-		1);
+		cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
+		&(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
+		&(KERN.dw[KERN.n_hiddens][idx*M]),1);
 		//W += dw
-		cblas_daxpy(
-		KERN.output.n_inputs,
-		1.0,
-		&(KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs]),
-		1,
-		&(KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,0)]),
-		1);
+		cblas_daxpy(M,1.0,
+		&(KERN.dw[KERN.n_hiddens][idx*M]),1,
+		&(KERN.output.weights[_2D_IDX(M,idx,0)]),1);
 		//dw *= alpha
-		cblas_dscal(
-		KERN.output.n_inputs,
-		alpha,
-		&(KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs]),
-		1);
+		cblas_dscal(M,alpha,&(KERN.dw[KERN.n_hiddens][idx*M]),1);
 	}
+#endif /*_MPI*/
 #else /*no PBLAS no SBLAS*/
+#ifdef _MPI
 #pragma omp parallel for private(idx,jdx) _NT
-	for(idx=0;idx<KERN.output.n_neurons;idx++){
-		for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
-			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
-			KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,jdx)]+=KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx];
-			KERN.dw[KERN.n_hiddens][idx*KERN.output.n_inputs+jdx]*=alpha;
+	for(idx=0;idx<red;idx++){
+		for(jdx=0;jdx<M;jdx++){
+			KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx]+=
+				LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+stream*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+			KERN.output.weights[(idx+stream*red)*M+jdx]+=KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx];
+			KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx]*=alpha;
 		}
 	}
-#endif /*PBLAS*/
-/*^^^ hiddens*/
-#ifdef PBLAS
-/*serial*/
-	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
-		cblas_dger(CblasRowMajor,KERN.hiddens[idx].n_neurons,KERN.hiddens[idx].n_inputs,LEARN_RATE,delta_ptr[idx],
-		1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx],KERN.hiddens[idx].n_inputs);
-		cblas_daxpy(KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,1.0,KERN.dw[idx],1,KERN.hiddens[idx].weights,1);
-		cblas_dscal(KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,alpha,KERN.dw[idx],1);
-	}
-	/*add zero*/
-	cblas_dger(CblasRowMajor,KERN.hiddens[0].n_neurons,KERN.hiddens[0].n_inputs,LEARN_RATE,delta_ptr[0],
-		1,KERN.in,1,KERN.dw[0],KERN.hiddens[0].n_inputs);
-	cblas_daxpy(KERN.hiddens[0].n_inputs*KERN.hiddens[0].n_neurons,1.0,KERN.dw[0],1,KERN.hiddens[0].weights,1);
-	cblas_dscal(KERN.hiddens[0].n_inputs*KERN.hiddens[0].n_neurons,alpha,KERN.dw[0],1);
-#elif defined(SBLAS)
-	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
-		/*move the ger into a series of axpy*/
-#pragma omp parallel for private(jdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-_HT;
-			//dw += LEARN_RATE*delta*y
-			cblas_daxpy(
-			KERN.hiddens[idx].n_inputs,
-			delta_ptr[idx][jdx]*LEARN_RATE,
-			KERN.hiddens[idx-1].vec,
-			1,
-			&(KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1);
-			//W += dw
-			cblas_daxpy(
-			KERN.hiddens[idx].n_inputs,
-			1.0,
-			&(KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1,
-			&(KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1);
-			//dw *= alpha
-			cblas_dscal(
-			KERN.hiddens[idx].n_inputs,
-			alpha,
-			&(KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]),
-			1);
-		}
-	}
-	/*add zero*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-_HT;
-		//dw += LEARN_RATE*delta*y
-		cblas_daxpy(
-		KERN.hiddens[0].n_inputs,
-		delta_ptr[0][jdx]*LEARN_RATE,
-		KERN.in,
-		1,
-		&(KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1);
-		//W += dw
-		cblas_daxpy(
-		KERN.hiddens[0].n_inputs,
-		1.0,
-		&(KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1,
-		&(KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1);
-		//dw *= alpha
-		cblas_dscal(
-		KERN.hiddens[0].n_inputs,
-		alpha,
-		&(KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,0)]),
-		1);
-	}
-#else /*no PBLAS no SBLAS*/
-	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
-#pragma omp parallel for private(jdx,kdx) _NT
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-			for(kdx=0;kdx<KERN.hiddens[idx].n_inputs;kdx++){
-				KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]+=
-					LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[kdx];
-				KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]+=
-					KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)];
-				KERN.dw[idx][_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]*=alpha;
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[KERN.n_hiddens],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(idx,jdx) _NT
+		for(idx=0;idx<rem;idx++){
+			for(jdx=0;jdx<M;jdx++){
+				KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx]+=
+					LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+n_streams*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+				KERN.output.weights[(idx+n_streams*red)*M+jdx]+=KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx];
+				KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx]*=alpha;
 			}
 		}
 	}
-	/*add zero*/
-#pragma omp parallel for private(jdx) _NT
-	for(jdx=0;jdx<KERN.hiddens[0].n_neurons;jdx++){
-		for(kdx=0;kdx<KERN.hiddens[0].n_inputs;kdx++){
-			KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,kdx)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[kdx];
-			KERN.hiddens[0].weights[_2D_IDX(KERN.hiddens[0].n_inputs,jdx,kdx)]+=
-				KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,kdx)];
-			KERN.dw[0][_2D_IDX(KERN.hiddens[0].n_inputs,jdx,kdx)]*=alpha;
+#else /*_MPI*/
+#pragma omp parallel for private(idx,jdx) _NT
+	for(idx=0;idx<N;idx++){
+		for(jdx=0;jdx<M;jdx++){
+			KERN.dw[KERN.n_hiddens][idx*M+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+			KERN.output.weights[_2D_IDX(M,idx,jdx)]+=KERN.dw[KERN.n_hiddens][idx*M+jdx];
+			KERN.dw[KERN.n_hiddens][idx*M+jdx]*=alpha;
 		}
 	}
+#endif /*_MPI*/
+#endif /*PBLAS*/
+/*^^^ hiddens*/
+	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
+		N=KERN.hiddens[idx].n_neurons;
+		M=KERN.hiddens[idx].n_inputs;
+#ifdef _MPI
+		red=N/n_streams;
+		rem=N%n_streams;
+#endif /*_MPI*/
+#ifdef PBLAS
+#ifdef _MPI
+	cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+		delta_ptr[idx]+stream*red,1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx]+stream*M*red,M);
+	cblas_daxpy(N*M,1.0,KERN.dw[idx]+stream*M*red,1,KERN.hiddens[idx].weights+stream*M*red,1);
+	cblas_dscal(N*M,alpha,KERN.dw[idx]+stream*M*red,1);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[idx],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+		cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+			delta_ptr[idx]+n_streams*red,1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx]+n_streams*M*red,M);
+		cblas_daxpy(N*M,1.0,KERN.dw[idx]+n_streams*M*red,1,KERN.hiddens[idx].weights+n_streams*M*red,1);
+		cblas_dscal(N*M,alpha,KERN.dw[idx]+n_streams*M*red,1);
+	}
+#else /*_MPI*/
+	cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[idx],1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx],M);
+	cblas_daxpy(N*M,1.0,KERN.dw[idx],1,KERN.hiddens[idx].weights,1);
+	cblas_dscal(N*M,alpha,KERN.dw[idx],1);
+#endif /*_MPI*/
+#elif defined(SBLAS)
+#ifdef _MPI
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<red;jdx++){
+_HT;
+		cblas_daxpy(M,delta_ptr[idx][jdx+stream*red]*LEARN_RATE,
+			KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][(jdx+stream*red)*M]),1);
+		cblas_daxpy(M,1.0,&(KERN.dw[idx][(jdx+stream*red)*M]),1,&(KERN.hiddens[idx].weights[(jdx+stream*red)*M]),1);
+		cblas_dscal(M,alpha,&(KERN.dw[idx][(jdx+stream*red)*M]),1);
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[idx],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<rem;jdx++){
+_HT;
+			cblas_daxpy(M,delta_ptr[idx][jdx+n_streams*red]*LEARN_RATE,
+				KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1);
+			cblas_daxpy(M,1.0,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1,&(KERN.hiddens[idx].weights[(jdx+n_streams*red)*M]),1);
+			cblas_dscal(M,alpha,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1);
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<N;jdx++){
+_HT;
+		//dw += LEARN_RATE*delta*y
+		cblas_daxpy(M,delta_ptr[idx][jdx]*LEARN_RATE,KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1);
+		//W += dw
+		cblas_daxpy(M,1.0,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx,0)]),1);
+		//dw *= alpha
+		cblas_dscal(M,alpha,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1);
+	}
+#endif /*_MPI*/
+#else /*no PBLAS no SBLAS*/
+#ifdef _MPI
+#pragma omp parallel for private(jdx,kdx) _NT
+	for(jdx=0;jdx<red;jdx++){
+		for(kdx=0;kdx<M;kdx++){
+			KERN.dw[idx][(jdx+stream*red)*M+kdx]+=
+				LEARN_RATE*delta_ptr[idx][jdx+stream*red]*KERN.hiddens[idx-1].vec[kdx];
+			KERN.hiddens[idx].weights[(jdx+stream*red)*M+kdx]+=KERN.dw[idx][(jdx+stream*red)*M+kdx];
+			KERN.dw[idx][(jdx+stream*red)*M+kdx]*=alpha;
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[idx],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(jdx,kdx) _NT
+		for(jdx=0;jdx<rem;jdx++){
+			for(kdx=0;kdx<M;kdx++){
+				KERN.dw[idx][(jdx+n_streams*red)*M+kdx]+=
+					LEARN_RATE*delta_ptr[idx][jdx+n_streams*red]*KERN.hiddens[idx-1].vec[kdx];
+				KERN.hiddens[idx].weights[(jdx+n_streams*red)*M+kdx]+=KERN.dw[idx][(jdx+n_streams*red)*M+kdx];
+				KERN.dw[idx][(jdx+n_streams*red)*M+kdx]*=alpha;
+			}
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx,kdx) _NT
+	for(jdx=0;jdx<N;jdx++){
+		for(kdx=0;kdx<M;kdx++){
+			KERN.dw[idx][_2D_IDX(M,jdx,kdx)]+=LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[kdx];
+			KERN.hiddens[idx].weights[_2D_IDX(M,jdx,kdx)]+=KERN.dw[idx][_2D_IDX(M,jdx,kdx)];
+			KERN.dw[idx][_2D_IDX(M,jdx,kdx)]*=alpha;
+		}
+	}
+#endif /*_MPI*/
+#endif /*PBLAS*/
+	}/*idx: hiddens*/
+	/*add zero*/
+	N=KERN.hiddens[0].n_neurons;
+	M=KERN.hiddens[0].n_inputs;
+#ifdef _MPI
+	red=N/n_streams;
+	rem=N%n_streams;
+#endif /*_MPI*/
+#ifdef PBLAS
+#ifdef _MPI
+	cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.dw[0]+stream*M*red,M);
+	cblas_daxpy(red*M,1.0,KERN.dw[0]+stream*M*red,1,KERN.hiddens[0].weights+stream*M*red,1);
+	cblas_dscal(red*M,alpha,KERN.dw[0]+stream*M*red,1);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[0],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+		cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,delta_ptr[0]+n_streams*red,1,KERN.in,1,KERN.dw[0]+n_streams*M*red,M);
+		cblas_daxpy(rem*M,1.0,KERN.dw[0]+n_streams*M*red,1,KERN.hiddens[0].weights+n_streams*M*red,1);
+		cblas_dscal(rem*M,alpha,KERN.dw[0]+n_streams*M*red,1);
+	}
+#else /*_MPI*/
+	cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[0],1,KERN.in,1,KERN.dw[0],M);
+	cblas_daxpy(N*M,1.0,KERN.dw[0],1,KERN.hiddens[0].weights,1);
+	cblas_dscal(N*M,alpha,KERN.dw[0],1);
+#endif /*_MPI*/
+#elif defined(SBLAS)
+#ifdef _MPI
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<red;jdx++){
+_HT;
+		cblas_daxpy(M,delta_ptr[0][jdx+stream*red]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+stream*red)*M]),1);
+		cblas_daxpy(M,1.0,&(KERN.dw[0][(jdx+stream*red)*M]),1,&(KERN.hiddens[0].weights[(jdx+stream*red)*M]),1);
+		cblas_dscal(M,alpha,&(KERN.dw[0][(jdx+stream*red)*M]),1);
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[0],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+		for(jdx=0;jdx<rem;jdx++){
+_HT;
+			cblas_daxpy(M,delta_ptr[0][jdx+n_streams*red]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+n_streams*red)*M]),1);
+			cblas_daxpy(M,1.0,&(KERN.dw[0][(jdx+n_streams*red)*M]),1,&(KERN.hiddens[0].weights[(jdx+n_streams*red)*M]),1);
+			cblas_dscal(M,alpha,&(KERN.dw[0][(jdx+n_streams*red)*M]),1);
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<N;jdx++){
+_HT;
+		//dw += LEARN_RATE*delta*y
+		cblas_daxpy(M,delta_ptr[0][jdx]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1);
+		//W += dw
+		cblas_daxpy(M,1.0,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx,0)]),1);
+		//dw *= alpha
+		cblas_dscal(M,alpha,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1);
+	}
+#endif /*_MPI*/
+#else /*no PBLAS no SBLAS*/
+#ifdef _MPI
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<red;jdx++){
+		for(kdx=0;kdx<M;kdx++){
+			KERN.dw[0][(jdx+stream*red)*M+kdx]+=LEARN_RATE*delta_ptr[0][jdx+stream*red]*KERN.in[kdx];
+			KERN.hiddens[0].weights[(jdx+stream*red)*M+kdx]+=KERN.dw[0][(jdx+stream*red)*M+kdx];
+			KERN.dw[0][(jdx+stream*red)*M+kdx]*=alpha;
+		}
+	}
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[0],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
+	if(rem>0){
+#pragma omp parallel for private(jdx) _NT
+		for(jdx=0;jdx<rem;jdx++){
+			for(kdx=0;kdx<M;kdx++){
+				KERN.dw[0][(jdx+n_streams*red)*M+kdx]+=LEARN_RATE*delta_ptr[0][jdx+n_streams*red]*KERN.in[kdx];
+				KERN.hiddens[0].weights[(jdx+n_streams*red)*M+kdx]+=KERN.dw[0][(jdx+n_streams*red)*M+kdx];
+				KERN.dw[0][(jdx+n_streams*red)*M+kdx]*=alpha;
+			}
+		}
+	}
+#else /*_MPI*/
+#pragma omp parallel for private(jdx) _NT
+	for(jdx=0;jdx<N;jdx++){
+		for(kdx=0;kdx<M;kdx++){
+			KERN.dw[0][_2D_IDX(M,jdx,kdx)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[kdx];
+			KERN.hiddens[0].weights[_2D_IDX(M,jdx,kdx)]+=KERN.dw[0][_2D_IDX(M,jdx,kdx)];
+			KERN.dw[0][_2D_IDX(M,jdx,kdx)]*=alpha;
+		}
+	}
+#endif /*_MPI*/
 #endif /*PBLAS*/
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
-#pragma omp parallel for private(idx) reduction(+:Epr) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Epr+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
-	Epr*=0.5;
+	Epr=ann_kernel_train_error(kernel,train);
 //	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ IV - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
