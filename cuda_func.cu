@@ -23,7 +23,9 @@ This file is part of HPNN library.
 
 #include <stdio.h>
 #include <cuda_runtime.h>
+#ifdef _CUBLAS
 #include <cublas_v2.h>
+#endif
 #include "common.h"
 #include "ann.h"
 
@@ -125,13 +127,28 @@ void ger_acc(int m,int n,double alpha,double *d,double *h,double *w){
 		for(int i=0; i<m; i++) w[(tid*m)+i] += tmp*h[i];
 	}
 }
+__global__
+void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *h,double *dw,double *w){
+	int tid=threadIdx.x+blockIdx.x*blockDim.x;
+	double tmp;
+	if(tid<n){
+		tmp=learn*d[tid];
+		/*a full line*/
+		for(int i=0; i<m; i++) {
+			w[(tid*m)+i]  += tmp*h[i];
+			dw[(tid*m)+i] += moment*tmp*h[i];
+		}
+	}
+}
 /*-----------------*/
 /* The C interface */
 /*-----------------*/
 extern "C"{
 #define _K (*kernel)
-/*+++ forward update +++*/
-void scuda_ann_forward_cublas(_kernel *kernel,cudastreams *cudas){
+/*-----------------------------*/
+/*+++ forward kernel update +++*/
+/*-----------------------------*/
+void scuda_ann_forward(_kernel *kernel,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem;
@@ -139,15 +156,7 @@ void scuda_ann_forward_cublas(_kernel *kernel,cudastreams *cudas){
         double _alpha=1.0;
         double _beta =0.0;
 #endif
-#ifdef _TIMING
-cudaEvent_t start, stop;
-float time;
-int eventflags = cudaEventBlockingSync;
-cudaEventCreateWithFlags(&start,eventflags);
-cudaEventCreateWithFlags(&stop,eventflags);
-cudaEventRecord(start,0);
-#endif
-/*+++ I - output +++*/
+/*+++ I - input +++*/
 	N=_K.hiddens[0].n_neurons;
 	M=_K.hiddens[0].n_inputs;
 	red=N/cudas->cuda_n_streams;
@@ -249,14 +258,10 @@ cudaEventRecord(start,0);
 	CHK_ERR(fw_mv_acc);
 #endif /*_CUBLAS*/
 	cudaDeviceSynchronize();
-#ifdef _TIMING
-cudaEventRecord(stop,0);
-cudaEventSynchronize(stop);
-cudaEventElapsedTime(&time,start,stop);
-printf("scuda_ann_forward_cublas: streams = %i time = %f\n",cudas->cuda_n_streams,time);
-#endif
 }
-/*update error*/
+/*--------------------------------*/
+/*+++ Calculate Training Error +++*/
+/*--------------------------------*/
 double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas){
 	double dEp=0.;
 #ifdef   _CUBLAS
@@ -266,8 +271,8 @@ double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas){
 	cublasDasum(cudas->cuda_handle,_K.n_outputs,_K.tmp_gpu,1,&dEp);
 	CHK_ERR(err_asum);
 #else  /*_CUBLAS*/
+	/*no streams?*/
 	amb_acc<<<_KG(_K.n_outputs),sizeof(double)*2*(_TPB)>>>(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
-//	amb_acc<<<1,_TPB/2,sizeof(double)*(_TPB)>>>(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
 	CHK_ERR(err_amb_acc);
 	CUDA_G2C_CP(&dEp,&(_K.tmp_gpu[0]),1,double);
 	CHK_ERR(err_g2c_cp);
@@ -275,27 +280,17 @@ double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas){
 	dEp*=0.5;
 	return dEp;
 }
-#define LEARN_RATE 0.01
-double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
+/*------------------------*/
+/*+++ Calculate deltas +++*/
+/*------------------------*/
+void scuda_ann_delta(_kernel *kernel,double *train,double **delta_ptr,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem;
-	double **delta_ptr;
-	double Ep =0.;
-	double Epr=0.;
-	/**/
+#ifdef _CUBLAS
 	double _alpha=1.0;
 	double _beta =0.0;
-	/*allocate delta_ptr*/
-	ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
-	for(idx=0;idx<_K.n_hiddens;idx++) CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
-	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.n_outputs,DOUBLE);/*DEVICE*/
-/*+++ I - FORWARD +++*/
-/*>>> in all cases, the FORWARD move should have already be done <<<*/
-//	scuda_ann_forward_cublas(kernel,cudas);
-	Ep=scuda_ann_error(kernel,train,cudas);
-//	printf("TRAINING INITIAL ERROR: %.15f\n",Ep);
-/*+++ II - DELTAS +++*/
+#endif /*_CUBLAS*/
 /*^^^ output*/
 	N=_K.n_outputs;
 	red=N/cudas->cuda_n_streams;
@@ -308,6 +303,7 @@ double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 	dsigmoid_mul_diff<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 		(red+rem,train+jdx*red,_K.output.cuda_v+jdx*red,delta_ptr[_K.n_hiddens]+jdx*red);
 	CHK_ERR(train_dsigmoid_mul_dif);
+	cudaDeviceSynchronize();
 /*^^^ output to hidden*/
 	/*distribution over M due to transposed operations*/
 	N=_K.output.n_neurons;
@@ -414,14 +410,39 @@ double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 #endif /*_CUBLAS*/
 		cudaDeviceSynchronize();
 	}
+}
+#define LEARN_RATE 0.01
+/*------------------------*/
+/*+++ back-propagation +++*/
+/*------------------------*/
+double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas){
+	int idx,jdx;
+	int M,N,red;
+	int rem;
+	double **delta_ptr;
+	double Ep =0.;
+	double Epr=0.;
+#ifdef _CUBLAS
+	double _alpha=1.0;
+#endif /*_CUBLAS*/
+	/*allocate delta_ptr*/
+	ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
+	for(idx=0;idx<_K.n_hiddens;idx++) CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
+	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.n_outputs,DOUBLE);/*DEVICE*/
+/*+++ I - FORWARD +++*/
+/*>>> in all cases, the FORWARD move should have already be done <<<*/
+	Ep=scuda_ann_error(kernel,train,cudas);
+//	printf("TRAINING INITIAL ERROR: %.15f\n",Ep);
+/*+++ II - DELTAS +++*/
+	scuda_ann_delta(kernel,train,delta_ptr,cudas);
 /*+++ III - back propagation +++*/
 /*^^^ output*/
 	N=_K.output.n_neurons;
 	M=_K.output.n_inputs;
 	red=N/cudas->cuda_n_streams;
 	rem=N%cudas->cuda_n_streams;
-	_alpha=LEARN_RATE;
 #ifdef   _CUBLAS
+	_alpha=LEARN_RATE;
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 		cublasDger(cudas->cuda_handle,M,red,&_alpha,_K.hiddens[_K.n_hiddens-1].cuda_v,1,
@@ -438,7 +459,7 @@ double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 			(M,red,LEARN_RATE,delta_ptr[_K.n_hiddens]+jdx*red,_K.hiddens[_K.n_hiddens-1].cuda_v,_K.output.cuda_w+jdx*M*red);
 		CHK_ERR(train_ger_acc);
 	}
-	ger_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+	ger_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 		(M,red+rem,LEARN_RATE,delta_ptr[_K.n_hiddens]+jdx*red,_K.hiddens[_K.n_hiddens-1].cuda_v,_K.output.cuda_w+jdx*M*red);
 	CHK_ERR(train_ger_acc);
 #endif /*_CUBLAS*/
@@ -466,7 +487,7 @@ double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 				(M,red,LEARN_RATE,delta_ptr[idx]+jdx*red,_K.hiddens[idx-1].cuda_v,_K.hiddens[idx].cuda_w+jdx*M*red);
 			CHK_ERR(train_ger_acc);
 		}
-		ger_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+		ger_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 			(M,red+rem,LEARN_RATE,delta_ptr[idx]+jdx*red,_K.hiddens[idx-1].cuda_v,_K.hiddens[idx].cuda_w+jdx*M*red);
 		CHK_ERR(train_ger_acc);
 #endif /*_CUBLAS*/
@@ -492,15 +513,214 @@ double scuda_ann_train_cublas(_kernel *kernel,double *train,cudastreams *cudas){
 			(M,red,LEARN_RATE,delta_ptr[0]+jdx*red,_K.cuda_in,_K.hiddens[0].cuda_w+jdx*M*red);
 		CHK_ERR(train_ger_acc);
 	}
-	ger_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+	ger_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 		(M,red+rem,LEARN_RATE,delta_ptr[0]+jdx*red,_K.cuda_in,_K.hiddens[0].cuda_w+jdx*M*red);
 	CHK_ERR(train_ger_acc);
 #endif /*_CUBLAS*/
 	cudaDeviceSynchronize();
 /*+++ IV - update error +++*/
-	N=_K.n_outputs;
 	/*update kernel*/
-	scuda_ann_forward_cublas(kernel,cudas);
+	scuda_ann_forward(kernel,cudas);
+	Epr=scuda_ann_error(kernel,train,cudas);
+//	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
+/*+++ V - cleanup +++*/
+	for(idx=0;idx<(_K.n_hiddens+1);idx++){
+		CUDA_FREE(delta_ptr[idx]);
+		delta_ptr[idx]=NULL;
+	}
+	FREE(delta_ptr);
+	CHK_ERR(free_1);
+	return Ep-Epr;
+}
+/*------------------------------*/
+/*+++ zeroes momentum arrays +++*/
+/*------------------------------*/
+void scuda_ann_raz_momentum(_kernel *kernel,cudastreams *cudas){
+	int idx,jdx;
+	int M,N,red,rem;
+/*^^^ output*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+//	CUDA_RAZ(_K.cuda_dw[_K.n_hiddens],N*M,double);
+	red=N/cudas->cuda_n_streams;
+	rem=N%cudas->cuda_n_streams;
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cudaMemsetAsync(_K.cuda_dw[_K.n_hiddens]+jdx*M*red,0.,red*M*sizeof(double),cudas->cuda_streams[jdx]);
+		CHK_ERR(moment_memset);
+	}
+	cudaMemsetAsync(_K.cuda_dw[_K.n_hiddens]+jdx*M*red,0.,(red+rem)*M*sizeof(double),cudas->cuda_streams[jdx]);
+	CHK_ERR(moment_memset);
+/*^^^ hiddens*/
+	for(idx=(_K.n_hiddens-1);idx>0;idx--){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+//		CUDA_RAZ(_K.cuda_dw[idx],N*M,double);
+		red=N/cudas->cuda_n_streams;
+		rem=N%cudas->cuda_n_streams;
+		for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+			cudaMemsetAsync(_K.cuda_dw[idx]+jdx*M*red,0.,red*M*sizeof(double),cudas->cuda_streams[jdx]);
+			CHK_ERR(moment_memset);
+		}
+		cudaMemsetAsync(_K.cuda_dw[idx]+jdx*M*red,0.,(red+rem)*M*sizeof(double),cudas->cuda_streams[jdx]);
+		CHK_ERR(moment_memset);
+	}
+	/*add zero*/
+	N=_K.hiddens[0].n_neurons;
+	M=_K.hiddens[0].n_inputs;
+//	CUDA_RAZ(_K.cuda_dw[0],N*M,double);
+	red=N/cudas->cuda_n_streams;
+	rem=N%cudas->cuda_n_streams;
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cudaMemsetAsync(_K.cuda_dw[0]+jdx*M*red,0.,red*M*sizeof(double),cudas->cuda_streams[jdx]);
+		CHK_ERR(moment_memset);
+	}
+	cudaMemsetAsync(_K.cuda_dw[0]+jdx*M*red,0.,(red+rem)*M*sizeof(double),cudas->cuda_streams[jdx]);
+	CHK_ERR(moment_memset);
+	/*all done, sync required*/
+	cudaDeviceSynchronize();
+}
+/*--------------------------------------*/
+/*+++ back-propagation with momentum +++*/
+/*--------------------------------------*/
+double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,cudastreams *cudas){
+	int idx,jdx;
+	int M,N,red;
+	int rem;
+	double **delta_ptr;
+	double Ep =0.;
+	double Epr=0.;
+	/**/
+#ifdef _CUBLAS
+	double _alpha=LEARN_RATE;
+	double _un=1.0;
+#endif /*_CUBLAS*/
+	/*allocate delta_ptr*/
+	ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
+	for(idx=0;idx<_K.n_hiddens;idx++) CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
+	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.n_outputs,DOUBLE);/*DEVICE*/
+/*+++ I - FORWARD +++*/
+/*>>> in all cases, the FORWARD move should have already be done <<<*/
+	Ep=scuda_ann_error(kernel,train,cudas);
+//	printf("TRAINING INITIAL ERROR: %.15f\n",Ep);
+/*+++ II - DELTAS +++*/
+	scuda_ann_delta(kernel,train,delta_ptr,cudas);
+/*+++ III - back propagation +++*/
+/*^^^ output*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	red=N/cudas->cuda_n_streams;
+	rem=N%cudas->cuda_n_streams;
+#ifdef   _CUBLAS
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		cublasDger(cudas->cuda_handle,M,red,&_alpha,_K.hiddens[_K.n_hiddens-1].cuda_v,1,
+			delta_ptr[_K.n_hiddens]+jdx*red,1,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,M);
+		CHK_ERR(moment_ger);
+		cublasDaxpy(cudas->cuda_handle,red*M,&_un,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,1,_K.output.cuda_w+jdx*M*red,1);
+		CHK_ERR(moment_axpy);
+		cublasDscal(cudas->cuda_handle,red*M,&moment,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,1);
+		CHK_ERR(moment_scal);
+	}
+	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+	cublasDger(cudas->cuda_handle,M,red+rem,&_alpha,_K.hiddens[_K.n_hiddens-1].cuda_v,1,
+		delta_ptr[_K.n_hiddens]+jdx*red,1,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,M);
+	CHK_ERR(moment_ger);
+	cublasDaxpy(cudas->cuda_handle,(red+rem)*M,&_un,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,1,_K.output.cuda_w+jdx*M*red,1);
+	CHK_ERR(moment_axpy);
+	cublasDscal(cudas->cuda_handle,(red+rem)*M,&moment,_K.cuda_dw[_K.n_hiddens]+jdx*M*red,1);
+	CHK_ERR(moment_scal);
+#else  /*_CUBLAS*/
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		ger_dw_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+			(M,red,LEARN_RATE,moment,delta_ptr[_K.n_hiddens]+jdx*red,_K.hiddens[_K.n_hiddens-1].cuda_v,
+			_K.cuda_dw[_K.n_hiddens]+jdx*M*red,_K.output.cuda_w+jdx*M*red);
+		CHK_ERR(moment_ger_dw_acc);
+	}
+	ger_dw_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+		(M,red+rem,LEARN_RATE,moment,delta_ptr[_K.n_hiddens]+jdx*red,_K.hiddens[_K.n_hiddens-1].cuda_v,
+		_K.cuda_dw[_K.n_hiddens]+jdx*M*red,_K.output.cuda_w+jdx*M*red);
+	CHK_ERR(moment_ger_dw_acc);
+#endif /*_CUBLAS*/
+	cudaDeviceSynchronize();
+/*^^^ hiddens*/
+	for(idx=(_K.n_hiddens-1);idx>0;idx--){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		red=N/cudas->cuda_n_streams;
+		rem=N%cudas->cuda_n_streams;
+#ifdef   _CUBLAS
+		for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+			cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+			cublasDger(cudas->cuda_handle,M,red,&_alpha,_K.hiddens[idx-1].cuda_v,1,
+				delta_ptr[idx]+jdx*red,1,_K.cuda_dw[idx]+jdx*M*red,M);
+			CHK_ERR(moment_ger);
+			cublasDaxpy(cudas->cuda_handle,red*M,&_un,_K.cuda_dw[idx]+jdx*M*red,1,_K.hiddens[idx].cuda_w+jdx*M*red,1);
+			CHK_ERR(moment_axpy);
+			cublasDscal(cudas->cuda_handle,red*M,&moment,_K.cuda_dw[idx]+jdx*M*red,1);
+			CHK_ERR(moment_scal);
+		}
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		cublasDger(cudas->cuda_handle,M,red+rem,&_alpha,_K.hiddens[idx-1].cuda_v,1,
+			delta_ptr[idx]+jdx*red,1,_K.cuda_dw[idx]+jdx*M*red,M);
+		CHK_ERR(moment_ger);
+		cublasDaxpy(cudas->cuda_handle,(red+rem)*M,&_un,_K.cuda_dw[idx]+jdx*M*red,1,_K.hiddens[idx].cuda_w+jdx*M*red,1);
+		CHK_ERR(moment_axpy);
+		cublasDscal(cudas->cuda_handle,(red+rem)*M,&moment,_K.cuda_dw[idx]+jdx*M*red,1);
+		CHK_ERR(moment_scal);
+#else  /*_CUBLAS*/
+		for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+			ger_dw_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+				(M,red,LEARN_RATE,moment,delta_ptr[idx]+jdx*red,_K.hiddens[idx-1].cuda_v,
+				_K.cuda_dw[idx]+jdx*M*red,_K.hiddens[idx].cuda_w+jdx*M*red);
+			CHK_ERR(moment_ger_dw_acc);
+		}
+		ger_dw_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+			(M,red+rem,LEARN_RATE,moment,delta_ptr[idx]+jdx*red,_K.hiddens[idx-1].cuda_v,
+			_K.cuda_dw[idx]+jdx*M*red,_K.hiddens[idx].cuda_w+jdx*M*red);
+		CHK_ERR(moment_ger_dw_acc);
+#endif /*_CUBLAS*/
+		cudaDeviceSynchronize();
+	}
+	/*add zero*/
+	N=_K.hiddens[0].n_neurons;
+	M=_K.hiddens[0].n_inputs;
+	red=N/cudas->cuda_n_streams;
+	rem=N%cudas->cuda_n_streams;
+#ifdef   _CUBLAS
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		cublasDger(cudas->cuda_handle,M,red,&_alpha,_K.cuda_in,1,
+			delta_ptr[0]+jdx*red,1,_K.cuda_dw[0]+jdx*M*red,M);
+		CHK_ERR(moment_ger);
+		cublasDaxpy(cudas->cuda_handle,red*M,&_un,_K.cuda_dw[0]+jdx*M*red,1,_K.hiddens[0].cuda_w+jdx*M*red,1);
+		CHK_ERR(moment_axpy);
+		cublasDscal(cudas->cuda_handle,red*M,&moment,_K.cuda_dw[0]+jdx*M*red,1);
+		CHK_ERR(moment_scal);
+	}
+	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+	cublasDger(cudas->cuda_handle,M,red+rem,&_alpha,_K.cuda_in,1,
+		delta_ptr[0]+jdx*red,1,_K.cuda_dw[0]+jdx*M*red,M);
+	CHK_ERR(moment_ger);
+	cublasDaxpy(cudas->cuda_handle,(red+rem)*M,&_un,_K.cuda_dw[0]+jdx*M*red,1,_K.hiddens[0].cuda_w+jdx*M*red,1);
+	CHK_ERR(moment_axpy);
+	cublasDscal(cudas->cuda_handle,(red+rem)*M,&moment,_K.cuda_dw[0]+jdx*M*red,1);
+	CHK_ERR(moment_scal);
+#else  /*_CUBLAS*/
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		ger_dw_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+			(M,red,LEARN_RATE,moment,delta_ptr[0]+jdx*red,_K.cuda_in,
+			_K.cuda_dw[0]+jdx*M*red,_K.hiddens[0].cuda_w+jdx*M*red);
+		CHK_ERR(moment_ger_dw_acc);
+	}
+	ger_dw_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+		(M,red+rem,LEARN_RATE,moment,delta_ptr[0]+jdx*red,_K.cuda_in,
+		_K.cuda_dw[0]+jdx*M*red,_K.hiddens[0].cuda_w+jdx*M*red);
+	CHK_ERR(moment_ger_dw_acc);
+#endif /*_CUBLAS*/
+	cudaDeviceSynchronize();
+/*+++ IV - update error +++*/
+	/*update kernel*/
+	scuda_ann_forward(kernel,cudas);
 	Epr=scuda_ann_error(kernel,train,cudas);
 //	fprintf(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/

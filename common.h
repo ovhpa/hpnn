@@ -314,21 +314,6 @@
 		exit(-1);\
 	}\
 }while(0)
-/* previously "warning: dereferencing type-punned pointer will break strict-aliasing rules"
-#define CUDA_ALLOC(pointer,size,type) do{\
-	cudaError_t _err;\
-	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
-        if(_err!=cudaSuccess) {\
-                _OUT(stderr,"CUDA allocation error (function %s, line %i)\n",FUNCTION,__LINE__);\
-                exit(-1);\
-        }\
-	_err=cudaMemset((void *)(pointer),0,size*sizeof(type));\
-	if(_err!=cudaSuccess) {\
-		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
-		exit(-1);\
-	}\
-}while(0)
-*/
 #define CUDA_ALLOC_REPORT(pointer,size,type,mem) do{\
         CUDA_ALLOC(pointer,size,type);\
         mem+=size*sizeof(type);\
@@ -336,6 +321,14 @@
 #define CUDA_FREE(pointer) do{\
 	if(pointer!=NULL) cudaFree(pointer);\
 	pointer=NULL;\
+}while(0)
+#define CUDA_RAZ(pointer,size,type) do{\
+	cudaError_t _err;\
+	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	if(_err!=cudaSuccess) {\
+		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
 }while(0)
 /*sync*/
 #define CUDA_C2G_CP(cpu,gpu,size,type) do{\
@@ -385,7 +378,12 @@
 }while(0)
 /*streams*/
 typedef struct {
+	int n_gpu;
+#ifdef _CUBLAS
 	cublasHandle_t cuda_handle;
+#else /*_CUBLAS*/
+	int cuda_handle;
+#endif /*_CUBLAS*/
         UINT        cuda_n_streams;
         cudaStream_t *cuda_streams;
 } cudastreams;

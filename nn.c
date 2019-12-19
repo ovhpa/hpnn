@@ -43,7 +43,6 @@ UINT nn_num_threads=1;
 UINT nn_num_blas  = 1;
 #endif
 #ifdef _CUDA
-cublasHandle_t cuda_handle;
 cudastreams cudas;
 #endif
 
@@ -59,19 +58,33 @@ void _NN(toggle,dry)(){
 
 int _NN(init,all)(){
 #ifdef _CUDA
+	/*general GPU device init*/
+	//cudaError_t err;
+	cudaGetDeviceCount(&(cudas.n_gpu));
+	CHK_ERR(init_device_count);
+	if(cudas.n_gpu<1) {
+		_OUT(stderr,"CUDA error: no CUDA-capable device reported.\n");
+		exit(-1);
+	}
+	_OUT(stdout,"CUDA started, found %i GPU(s).\n",cudas.n_gpu);
+	/*TODO: create 1 context / GPU*/
+#ifdef _CUBLAS
 	cublasStatus_t err;
-	err=cublasCreate(&cuda_handle);
+	err=cublasCreate(&cudas.cuda_handle);
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		_OUT(stderr,"CUDA error: can't create a CUDA context.\n");
+		_OUT(stderr,"CUDA error: can't create a CUBLAS context.\n");
 		exit(-1);
 	}
-	cudas.cuda_handle=cuda_handle;
-	err=cublasSetPointerMode(cuda_handle,CUBLAS_POINTER_MODE_HOST);
+	err=cublasSetPointerMode(cudas.cuda_handle,CUBLAS_POINTER_MODE_HOST);
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		_OUT(stderr,"CUDA error: fail to set pointer mode.\n");
+		_OUT(stderr,"CUBLAS error: fail to set pointer mode.\n");
 		exit(-1);
 	}
-#endif
+#else /*_CUBLAS*/
+	cudaGetDevice(&(cudas.cuda_handle));
+	CHK_ERR(init_device_handle);
+#endif /*_CUBLAS*/
+#endif /*_CUDA*/
 #ifdef _MPI
 	int n_streams;
 	MPI_Init(NULL, NULL);
@@ -118,7 +131,11 @@ int _NN(deinit,all)(){
 		free(cudas.cuda_streams);
 		cudas.cuda_streams=NULL;
 	}
+#ifdef _CUBLAS
 	cublasDestroy(cudas.cuda_handle);
+#else /*_CUBLAS*/
+	cudaDeviceReset();
+#endif /*_CUBLAS*/
 #endif /*_CUDA*/
 #ifdef _MPI
 	MPI_Finalize();
@@ -126,7 +143,11 @@ int _NN(deinit,all)(){
 	return 0;
 }
 #ifdef _CUDA
+#ifdef _CUBLAS
 cublasHandle_t _NN(get,cuda_handle)(){
+#else /*_CUBLAS*/
+int _NN(get,cuda_handle)(){
+#endif /*_CUBLAS*/
 	return cudas.cuda_handle;
 }
 cudastreams *_NN(get,cudas)(){
@@ -146,7 +167,9 @@ UINT idx;
 		}
 	}
 	_OUT(stdout,"ANN started with %i CUDA streams.\n",n_streams);
+#ifdef _CUBLAS
 	cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
+#endif /*_CUBLAS*/
 }
 
 
@@ -432,7 +455,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 			/*can't happen*/
 			res=0.;
 		}
-//		if(res==0.) _OUT(stdout,"#");
+		if(res>0.1) _OUT(stdout,"#");
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);

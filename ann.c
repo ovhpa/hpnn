@@ -557,6 +557,9 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 #endif /*_MPI*/
 	return kernel;
 }
+/*---------------------*/
+/*+++ OUTPUT KERNEL +++*/
+/*---------------------*/
 void ann_dump(_kernel *kernel,FILE *out){
 	UINT idx;
 	UINT jdx;
@@ -621,7 +624,7 @@ void ann_kernel_run(_kernel *kernel){
 	cudastreams *cudas=_NN(get,cudas)();
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CHK_ERR(intoGPU);
-	scuda_ann_forward_cublas(kernel,cudas);
+	scuda_ann_forward(kernel,cudas);
 	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 	CHK_ERR(intoCPU);
 	return;
@@ -946,7 +949,7 @@ DOUBLE ann_kernel_train_error(_kernel *kernel, const DOUBLE *train){
 	}
 #else /*_MPI*/
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
-	for(idx=0;idx<KERN.n_outputs;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
+	for(idx=0;idx<N;idx++) Ep+=(train[idx]-KERN.output.vec[idx])*(train[idx]-KERN.output.vec[idx]);
 #endif /*_MPI*/
 	Ep*=0.5;
 	return Ep;
@@ -960,8 +963,6 @@ void ann_kernel_train_delta(_kernel *kernel,const DOUBLE *train, DOUBLE **delta_
 #endif
 	UINT N,M;
         UINT idx, jdx;
-        DOUBLE Ep =0.;
-        DOUBLE Epr=0.;
 #ifdef _MPI
 	UINT red, rem;
 	int n_streams,stream;
@@ -1275,17 +1276,6 @@ _HT;
 /*------------------------*/
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #define LEARN_RATE 0.01
-#ifdef _CUDA
-	DOUBLE Ep=0.;
-	DOUBLE *train_gpu;
-	cudastreams *cudas=_NN(get,cudas)();
-	/**/
-	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
-	CUBLAS_SET_VECTOR(train,1,train_gpu,1,KERN.n_outputs,DOUBLE);
-	Ep=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,cudas);
-	CUDA_FREE(train_gpu);
-	return Ep;
-#else /*_CUDA*/
 #if !defined (PBLAS) && !defined (SBLAS)
         UINT kdx;
 #endif
@@ -1557,28 +1547,42 @@ _HT;
 	}
 	FREE(delta_ptr);
 	return Ep-Epr;
-#endif /*_CUDA*/
 }
-/*---------------------------------*/
-/*+++ momentum back-propagation +++*/
-/*---------------------------------*/
+/*----------------------------*/
+/*+++ init momentum arrays +++*/
+/*----------------------------*/
 void ann_momentum_init(_kernel *kernel){
 	UINT idx;
 	UINT64 allocate=0.;
-	/**/
+	/*alloc everything*/
 	ALLOC_REPORT(KERN.dw,KERN.n_hiddens+1,DOUBLE *,allocate);
 	ALLOC_REPORT(KERN.dw[KERN.n_hiddens],KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++){
 		ALLOC_REPORT(KERN.dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 	}
+#ifdef _CUDA
+	/*allocate everything in CUDA*/
+	UINT64 gpu_alloc=0.;
+	ALLOC_REPORT(KERN.cuda_dw,KERN.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
+	CUDA_ALLOC_REPORT(KERN.cuda_dw[KERN.n_hiddens],KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,gpu_alloc);
+	for(idx=0;idx<KERN.n_hiddens;idx++)
+		CUDA_ALLOC_REPORT(KERN.cuda_dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,gpu_alloc);
+	_OUT(stdout,"CUDA MOMENTUM ALLOC: %lu (bytes)\n",gpu_alloc);
+#endif
 	_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 }
+/*------------------------------*/
+/*+++ zeroes momentum arrays +++*/
+/*------------------------------*/
 void ann_raz_momentum(_kernel *kernel){
 	UINT idx;
 	memset(KERN.dw[0],0,sizeof(DOUBLE)*KERN.output.n_inputs*KERN.output.n_neurons);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		memset(KERN.dw[idx],0,sizeof(DOUBLE)*KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons);
 }
+/*----------------------------*/
+/*+++ FREE momentum arrays +++*/
+/*----------------------------*/
 void ann_empty_momentum(_kernel *kernel){
 	UINT idx;
 	FREE(KERN.dw[KERN.n_hiddens]);
@@ -1589,6 +1593,9 @@ void ann_empty_momentum(_kernel *kernel){
 	FREE(KERN.dw);
 	KERN.dw=NULL;
 }
+/*---------------------------------*/
+/*+++ momentum back-propagation +++*/
+/*---------------------------------*/
 DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha){
 	UINT idx,N,M;
 #ifdef _MPI
@@ -1597,23 +1604,15 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
 	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
 #endif /*_MPI*/
-#if !defined (PBLAS) && !defined (SBLAS) && !defined (_CUDA)
+#if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
 #endif
-#ifdef _CUDA
-#else /*_CUDA*/
 	UINT jdx;
-#endif
 	DOUBLE Ep=0.;
 	DOUBLE Epr=0.;
 	DOUBLE **delta_ptr;
 	/*keep a track of mem*/
 	UINT64 allocate=0.;
-#ifdef _CUDA
-	idx=0;
-	/*TODO: DO IT!*/
-	return Ep-Epr;
-#else /*_CUDA*/
 	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
 	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
@@ -1927,9 +1926,7 @@ _HT;
 		delta_ptr[idx]=NULL;
 	}
 	FREE(delta_ptr);
-//	return sqrt((Ep-Epr)*(Ep-Epr));
 	return Ep-Epr;
-#endif /*_CUDA*/
 }
 
 /*--------------------------*/
@@ -1951,8 +1948,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-	scuda_ann_forward_cublas(kernel,_NN(get,cudas)());
-	cudaDeviceSynchronize();
+	scuda_ann_forward(kernel,_NN(get,cudas)());
 	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
 #else /*_CUDA*/
 	dEp=0.;
@@ -1965,12 +1961,12 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	iter=0;
 	do{
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_ann_train_cublas(kernel,train_gpu,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_ann_train(kernel,train_gpu,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();
 //		_OUT(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
-#else
+#else /*_CUDA*/
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
 		iter++;
@@ -2009,19 +2005,38 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	UINT  iter;
 	DOUBLE dEp;
 	DOUBLE probe;
+#ifdef _CUDA
+	DOUBLE *train_gpu;
+#endif /*_CUDA*/
 	/*copy input*/
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
-	/**/
+#ifdef _CUDA
+	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
+
+	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
+	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
+	scuda_ann_forward(kernel,_NN(get,cudas)());
+	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+#else /*_CUDA*/
 	ann_raz_momentum(kernel);
-	ann_kernel_run(kernel);/*also FILL vec*/
 	dEp=0.;
+	ann_kernel_run(kernel);/*also FILL vec*/
 	for(idx=0;idx<kernel->n_outputs;idx++)
 		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
+#endif /*_CUDA*/
 	_OUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
+#ifdef _CUDA
+		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
+		/*we have to sync output.cuda_v -> out*/
+		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+//		_OUT(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+#else /*_CUDA*/
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
+#endif /*_CUDA*/
 		is_ok=FALSE;
 		iter++;
 		is_ok=TRUE;
@@ -2043,6 +2058,9 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
 	else _OUT(stdout," FAIL!\n");
 	fflush(stdout);
+#ifdef _CUDA
+	CUDA_FREE(train_gpu);
+#endif /*_CUDA*/
 	return dEp;
 }
 

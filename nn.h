@@ -34,7 +34,11 @@ void _NN(toggle,dry)();
 int _NN(init,all)();
 int _NN(deinit,all)();
 #ifdef _CUDA
+#ifdef _CUBLAS
 cublasHandle_t _NN(get,cuda_handle)();
+#else /*_CUBLAS*/
+int _NN(get,cuda_handle)();
+#endif /*_CUBLAS*/
 cudastreams *_NN(get,cudas)();
 void _NN(set,cuda_streams)(UINT n_streams);
 #endif /*_CUDA*/
