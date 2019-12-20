@@ -214,24 +214,6 @@ if(stream==0) {
 _OUT(stdout,"For each MPI thread, ");
 #endif /*_MPI*/
 _OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
-#ifdef _CUDA
-	/*allocate everything in CUDA*/
-	allocate=0;
-	CUDA_ALLOC_REPORT(KERN.cuda_in,n_in,DOUBLE,allocate);
-	CUDA_ALLOC_REPORT(KERN.hiddens[0].cuda_w,n_in*KERN.hiddens[0].n_neurons,DOUBLE,allocate);
-	for(idx=1;idx<n_hid;idx++){
-		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,parameter[idx]*parameter[idx-1],DOUBLE,allocate);
-		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_v,parameter[idx],DOUBLE,allocate);
-	}
-	CUDA_ALLOC_REPORT(KERN.output.cuda_w,n_out*parameter[n_par-2],DOUBLE,allocate);
-	CUDA_ALLOC_REPORT(KERN.output.cuda_v,n_out,DOUBLE,allocate);
-	/*allocate a temporary working array buffer with a maximum dimension*/
-	KERN.max_index=n_in;
-	if(n_out>KERN.max_index) KERN.max_index=n_out;
-	for(idx=0;idx<n_hid;idx++) if(parameter[idx]>KERN.max_index) KERN.max_index=parameter[idx];
-	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
-_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
-#endif
 _OUT(stdout,"n_input=%i ",n_in);
 for(jdx=0;jdx<n_par-1;jdx++) _OUT(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
 _OUT(stdout,"n_output=%i\n",n_out);
@@ -367,16 +349,14 @@ do{
 		}
 		READLINE(fp,line);
 	}while(!feof(fp));
-#ifdef _CUDA
-	/*sync kernel to CUDA*/
-	for(idx=0;idx<n_hid;idx++){
-		CUDA_C2G_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-	}
-	CUDA_C2G_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
-#endif
 	/*end*/
 	FREE(line);
 	fclose(fp);
+#ifdef _CUDA
+	/*all done, init cuda kernel & sync weights*/
+	scuda_ann_allocate(kernel,_NN(get,cudas)());
+	scuda_ann_weights_C2G(kernel,_NN(get,cudas)());
+#endif /*_CUDA*/
 #ifdef _MPI
 	for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD);
 }/*end of master load*/
@@ -481,23 +461,6 @@ if(stream==0){/*master kernel generation*/
 	ALLOC_REPORT(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
 	_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
-#ifdef _CUDA
-	/*allocate everything in CUDA*/
-	allocate=0;
-	CUDA_ALLOC_REPORT(KERN.cuda_in,KERN.n_inputs,DOUBLE,allocate);
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-		CUDA_ALLOC_REPORT(KERN.hiddens[idx].cuda_v,KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
-	}
-	CUDA_ALLOC_REPORT(KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE,allocate);
-	CUDA_ALLOC_REPORT(KERN.output.cuda_v,KERN.output.n_neurons,DOUBLE,allocate);
-	/*allocate a temporary working array buffer with a maximum dimension*/
-	KERN.max_index=KERN.n_inputs;
-	if(KERN.n_outputs>KERN.max_index) KERN.max_index=KERN.n_outputs;
-	for(idx=0;idx<KERN.n_hiddens;idx++) if(KERN.hiddens[idx].n_neurons>KERN.max_index) KERN.max_index=KERN.hiddens[idx].n_neurons;
-	CUDA_ALLOC_REPORT(KERN.tmp_gpu,KERN.max_index,DOUBLE,allocate);
-_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
-#endif
 	/*randomly fill hidden weights*/
 	for(idx=0;idx<n_hiddens;idx++){
 		for(jdx=0;jdx<KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons;jdx++){
@@ -511,12 +474,10 @@ _OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 		KERN.output.weights[jdx]=2.0*(temp_rnd-0.5)/sqrt(KERN.output.n_inputs);
 	}
 #ifdef _CUDA
-        /*sync kernel to CUDA*/
-        for(idx=0;idx<KERN.n_hiddens;idx++){
-		CUDA_C2G_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-        }
-	CUDA_C2G_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
-#endif
+	/*all done, init cuda kernel & sync weights*/
+	scuda_ann_allocate(kernel,_NN(get,cudas)());
+	scuda_ann_weights_C2G(kernel,_NN(get,cudas)());
+#endif /*_CUDA*/
 #ifdef _MPI
 }/*end of master-only*/
 /*master -> slave(s)*/
@@ -573,10 +534,8 @@ if(stream==0){/*only master writes*/
 	if (kernel==NULL) return;
 /*before dumping, we need to sync*/
 #ifdef _CUDA
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		CUDA_G2C_CP(KERN.hiddens[idx].weights,KERN.hiddens[idx].cuda_w,KERN.hiddens[idx].n_neurons*KERN.hiddens[idx].n_inputs,DOUBLE);
-	}
-	CUDA_G2C_CP(KERN.output.weights,KERN.output.cuda_w,KERN.output.n_neurons*KERN.output.n_inputs,DOUBLE);
+	/*sync weights back*/
+	scuda_ann_weights_G2C(kernel,_NN(get,cudas)());
 #endif /*_CUDA*/
 	_OUT(out,"[name] %s\n",KERN.name);
 	_OUT(out,"[param] %i",KERN.n_inputs);
@@ -620,16 +579,6 @@ DOUBLE ann_dact(DOUBLE y){
 /*------------------------*/
 void ann_kernel_run(_kernel *kernel){
 	/*simple, one pass kernel*/
-#ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
-	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
-	CHK_ERR(intoGPU);
-	scuda_ann_forward(kernel,cudas);
-	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
-	CHK_ERR(intoCPU);
-	return;
-#else /*_CUDA*/
-	/*NON-CUDA VERSION*/
 	UINT idx,jdx,M,N;
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
@@ -918,7 +867,6 @@ _HT;
 #ifdef _MPI
 //	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
 #endif
-#endif /*_CUDA*/
 	/*done*/
 }
 /*-------------------------------*/
@@ -1281,7 +1229,10 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #endif
 	UINT N,M;
 	DOUBLE **delta_ptr;
-        UINT idx, jdx;
+        UINT idx;
+#ifndef PBLAS
+	UINT jdx;
+#endif
         DOUBLE Ep =0.;
         DOUBLE Epr=0.;
 #ifdef _MPI
@@ -1305,6 +1256,10 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 /*^^^ output*/
 	N=KERN.output.n_neurons;
 	M=KERN.output.n_inputs;
+Epr=0.;
+	for(idx=0;idx<(N);idx++) Epr+=fabs(KERN.output.vec[idx]);
+	_OUT(stdout,"\nres = %.15f\n",Epr);
+Epr=0.;
 #ifdef _MPI
 	red=N/n_streams;
 	rem=N%n_streams;
@@ -1607,7 +1562,9 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
 #endif
+#ifndef PBLAS
 	UINT jdx;
+#endif
 	DOUBLE Ep=0.;
 	DOUBLE Epr=0.;
 	DOUBLE **delta_ptr;
@@ -1732,7 +1689,7 @@ _HT;
 #endif /*_MPI*/
 #endif /*PBLAS*/
 /*^^^ hiddens*/
-	for(idx=(KERN.n_hiddens-1);idx>1;idx--){
+	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
 		N=KERN.hiddens[idx].n_neurons;
 		M=KERN.hiddens[idx].n_inputs;
 #ifdef _MPI
@@ -2012,7 +1969,6 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 #ifdef _CUDA
 	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
-
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
@@ -2037,7 +1993,6 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 #else /*_CUDA*/
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
 #endif /*_CUDA*/
-		is_ok=FALSE;
 		iter++;
 		is_ok=TRUE;
 		for(idx=0;idx<KERN.n_outputs;idx++){

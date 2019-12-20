@@ -50,7 +50,7 @@ int main (int argc, char *argv[]){
 	UINT  n_o, n_b;
 #endif /*_OMP*/
 #ifdef _CUDA
-	UINT n_s;
+	UINT n_s=0;
 #endif /*_CUDA*/
 #if defined (_OMP) || defined (_CUDA)
 	CHAR *tmp,*ptr;
@@ -169,7 +169,6 @@ int main (int argc, char *argv[]){
 							dump_help();
 							return 1;
 						}
-						_NN(set,cuda_streams)(n_s);
 						goto next_arg;/*no combination is allowed*/
 #endif /*_CUDA*/
 					default:
@@ -191,6 +190,10 @@ next_arg:
 	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
 	/*initialize ann*/
 	_NN(init,all)();
+#ifdef _CUDA
+	if(n_s<1) n_s=1;
+	_NN(set,cuda_streams)(n_s);
+#endif /*_CUDA*/
 	/*load configuration file*/
 	neural=read_conf(nn_filename);
 	if(neural==NULL) {

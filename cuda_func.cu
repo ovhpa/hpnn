@@ -128,15 +128,15 @@ void ger_acc(int m,int n,double alpha,double *d,double *h,double *w){
 	}
 }
 __global__
-void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *h,double *dw,double *w){
+void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,double *dw,double *w){
 	int tid=threadIdx.x+blockIdx.x*blockDim.x;
-	double tmp;
+	double tmp,tmp2;
 	if(tid<n){
-		tmp=learn*d[tid];
+		tmp=learn*d[tid];tmp2=moment*tmp;
 		/*a full line*/
 		for(int i=0; i<m; i++) {
-			w[(tid*m)+i]  += tmp*h[i];
-			dw[(tid*m)+i] += moment*tmp*h[i];
+			w[(tid*m)+i]  += tmp*v[i];
+			dw[(tid*m)+i] += tmp2*v[i];
 		}
 	}
 }
@@ -145,6 +145,67 @@ void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *h,doubl
 /*-----------------*/
 extern "C"{
 #define _K (*kernel)
+/*------------------------------------*/
+/*+++ allocate CUDA-part of kernel +++*/
+/*------------------------------------*/
+void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
+	int allocate;
+	int idx;
+	/*allocate everything in CUDA*/
+	allocate=0;
+	CUDA_ALLOC_REPORT(_K.cuda_in,_K.n_inputs,DOUBLE,allocate);
+	for(idx=0;idx<_K.n_hiddens;idx++){
+		CUDA_ALLOC_REPORT(_K.hiddens[idx].cuda_w,_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,DOUBLE,allocate);
+		CUDA_ALLOC_REPORT(_K.hiddens[idx].cuda_v,_K.hiddens[idx].n_neurons,DOUBLE,allocate);
+	}
+	CUDA_ALLOC_REPORT(_K.output.cuda_w,_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
+	CUDA_ALLOC_REPORT(_K.output.cuda_v,_K.output.n_neurons,DOUBLE,allocate);
+	/*allocate a temporary working array buffer with a maximum dimension*/
+	_K.max_index=_K.n_inputs;
+	if(_K.n_outputs>_K.max_index) _K.max_index=_K.n_outputs;
+	for(idx=0;idx<_K.n_hiddens;idx++) if(_K.hiddens[idx].n_neurons>_K.max_index) _K.max_index=_K.hiddens[idx].n_neurons;
+	CUDA_ALLOC_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
+	_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
+}
+/*----------------------------------------*/
+/*+++ transfer weights from CPU to GPU +++*/
+/*----------------------------------------*/
+void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
+	int idx;
+	int M,N;
+/*^^^ output*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	CUDA_C2G_CP(_K.output.weights,_K.output.cuda_w,M*N,double);
+	CHK_ERR(memcpy_C2G);
+/*^^^ hiddens*/
+	for(idx=0;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		CUDA_C2G_CP(_K.hiddens[idx].weights,_K.hiddens[idx].cuda_w,M*N,double);
+		CHK_ERR(memcpy_C2G);
+	}
+	cudaDeviceSynchronize();
+}
+/*----------------------------------------*/
+/*+++ transfer weights from GPU to CPU +++*/
+/*----------------------------------------*/
+void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas){
+	int idx;
+	int M,N;
+	cudaDeviceSynchronize();
+/*^^^ output*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	CUDA_G2C_CP(_K.output.weights,_K.output.cuda_w,M*N,double);
+	CHK_ERR(memcpy_C2G);
+/*^^^ hiddens*/
+	for(idx=0;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		CUDA_G2C_CP(_K.hiddens[idx].weights,_K.hiddens[idx].cuda_w,M*N,double);
+	}
+}
 /*-----------------------------*/
 /*+++ forward kernel update +++*/
 /*-----------------------------*/
@@ -591,8 +652,9 @@ double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,cuda
 	double Epr=0.;
 	/**/
 #ifdef _CUBLAS
-	double _alpha=LEARN_RATE;
+	double _alpha=1.0;
 	double _un=1.0;
+	int kdx;
 #endif /*_CUBLAS*/
 	/*allocate delta_ptr*/
 	ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
@@ -601,7 +663,7 @@ double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,cuda
 /*+++ I - FORWARD +++*/
 /*>>> in all cases, the FORWARD move should have already be done <<<*/
 	Ep=scuda_ann_error(kernel,train,cudas);
-//	printf("TRAINING INITIAL ERROR: %.15f\n",Ep);
+///	printf("TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - DELTAS +++*/
 	scuda_ann_delta(kernel,train,delta_ptr,cudas);
 /*+++ III - back propagation +++*/
@@ -611,6 +673,7 @@ double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,cuda
 	red=N/cudas->cuda_n_streams;
 	rem=N%cudas->cuda_n_streams;
 #ifdef   _CUBLAS
+	_alpha=LEARN_RATE;
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 		cublasDger(cudas->cuda_handle,M,red,&_alpha,_K.hiddens[_K.n_hiddens-1].cuda_v,1,
