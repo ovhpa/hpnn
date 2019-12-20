@@ -132,11 +132,12 @@ void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,doubl
 	int tid=threadIdx.x+blockIdx.x*blockDim.x;
 	double tmp,tmp2;
 	if(tid<n){
-		tmp=learn*d[tid];tmp2=moment*tmp;
+		tmp=learn*d[tid];
 		/*a full line*/
 		for(int i=0; i<m; i++) {
-			w[(tid*m)+i]  += tmp*v[i];
-			dw[(tid*m)+i] += tmp2*v[i];
+			dw[(tid*m)+i] += tmp*v[i];
+			w[(tid*m)+i]  += dw[(tid*m)+i];
+			dw[(tid*m)+i] *= moment;
 		}
 	}
 }
