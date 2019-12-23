@@ -1,6 +1,6 @@
 #!/bin/bash
 # Generate a kernel ANN filled with random weight.
-# hubert.valencia@imass.nagoya-u.ac.jp  -- [OVHPA]
+# hubert.valencia _at_ imass.nagoya-u.ac.jp  -- [OVHPA]
 
 # gen.bash num_input num_output num_hidden
 
