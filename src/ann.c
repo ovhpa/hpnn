@@ -48,7 +48,7 @@
 #include <libhpnn.h>
 #include <libhpnn/ann.h>
 #ifdef _CUDA
-#include <libhpnn/cuda_func.h>
+#include <libhpnn/cuda_ann.h>
 #endif /*_CUDA*/
 /*----------------------*/
 /*+++ useful defines +++*/
