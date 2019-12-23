@@ -1,25 +1,21 @@
-/* High Performance Neural Networks  -- OVHPA 2019
- * mail: hubert.valencia _at_ imass.nagoya-u.ac.jp
- * ann.c:  contains the C / OpenMP implementations
- * of HPNN's ANN neural network routines.
-*/
-
 /*
-This file is part of HPNN library.
-
-    HPNN is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    HPNN is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
-*/
+ * ann.c
+ *
+ * Copyright (C) 2019 - Hubert Valencia
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -76,12 +72,11 @@ _kernel *ann_load(CHAR *f_kernel){
 #define FAIL load_kernel_fail
 #define KERN (*kernel)
 	PREP_READLINE();
-        CHAR *line=NULL;
-        CHAR *ptr,*ptr2;
+	CHAR *line=NULL;
+	CHAR *ptr,*ptr2;
 	_kernel *kernel;
 	UINT *parameter;
 	UINT64 allocate;
-//	int is_ok;
 	FILE  *fp;
 	UINT  idx;
 	UINT  jdx;
@@ -313,39 +308,39 @@ do{
 READLINE(fp,line);
 jdx=0;
 do{
-        ptr=STRFIND("[neuron",line);
-        if(ptr==NULL){
-                _OUT(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
-                goto FAIL;
-        }
-        while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
-        if(!ISDIGIT(*ptr)) {
-                _OUT(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
-                goto FAIL;
-        }
-        GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
-        if(n_par<1) {
-                _OUT(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
-                goto FAIL;
-        }
-        ptr=ptr2+1;SKIP_BLANK(ptr);
-        if(!ISDIGIT(*ptr)) {
-                _OUT(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
-                goto FAIL;
-        }
-        GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
-        if(n_par<1) {
-                _OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
-                goto FAIL;
-        }
-        READLINE(fp,line);
-        ptr=&(line[0]);SKIP_BLANK(ptr);
-        for(kdx=0;kdx<n_par;kdx++){
-                /*read weights*/
-                GET_DOUBLE(KERN.output.weights[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
-                ptr=ptr2+1;SKIP_BLANK(ptr);
-        }
-        jdx++;
+	ptr=STRFIND("[neuron",line);
+	if(ptr==NULL){
+		_OUT(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
+		goto FAIL;
+	}
+	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
+	if(!ISDIGIT(*ptr)) {
+		_OUT(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
+		goto FAIL;
+	}
+	GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
+	if(n_par<1) {
+		_OUT(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
+		goto FAIL;
+	}
+	ptr=ptr2+1;SKIP_BLANK(ptr);
+	if(!ISDIGIT(*ptr)) {
+		_OUT(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
+		goto FAIL;
+	}
+	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
+	if(n_par<1) {
+		_OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
+		goto FAIL;
+	}
+	READLINE(fp,line);
+	ptr=&(line[0]);SKIP_BLANK(ptr);
+	for(kdx=0;kdx<n_par;kdx++){
+		/*read weights*/
+		GET_DOUBLE(KERN.output.weights[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+		ptr=ptr2+1;SKIP_BLANK(ptr);
+	}
+	jdx++;
 	READLINE(fp,line);
 }while(jdx<KERN.output.n_neurons);
 /*continue*/
@@ -1228,24 +1223,24 @@ _HT;
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 #define LEARN_RATE 0.01
 #if !defined (PBLAS) && !defined (SBLAS)
-        UINT kdx;
+	UINT kdx;
 #endif
 	UINT N,M;
 	DOUBLE **delta_ptr;
-        UINT idx;
+	UINT idx;
 #ifndef PBLAS
 	UINT jdx;
 #endif
-        DOUBLE Ep =0.;
-        DOUBLE Epr=0.;
+	DOUBLE Ep =0.;
+	DOUBLE Epr=0.;
 #ifdef _MPI
 	UINT red, rem;
 	int n_streams,stream;
 	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
 	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
 #endif /*_MPI*/
-        /*keep a track of mem*/
-        UINT64 allocate=0.;
+	/*keep a track of mem*/
+	UINT64 allocate=0.;
 	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
 	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
