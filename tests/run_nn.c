@@ -1,21 +1,31 @@
+/*
+ * run_nn.c
+ *
+ * Copyright (C) 2019 - Hubert Valencia
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
 
-/* Artificial Neuron Network preparation and training. */
-/* --------------------- Hubert Okadome Valencia, 2019 */
+/* Artificial Neuron Network ---------------------- preparation and training. */
+/* -------------------------------------------- Hubert Okadome Valencia, 2019 */
 
-/*we need to define atom_symb, space_groups at least once per program*/
-#define NEED_ATOM_LIST
-#define NEED_SG_LIST
-#include "common.h"
-#undef NEED_ATOM_LIST
-#undef NEED_SG_LIST
-#include "ann.h"
-#include "nn.h"
-#include "file.h"
+#include <libhpnn.h>
 
 void dump_help(){
 	fprintf(stdout,"****************************************\n");
@@ -184,17 +194,17 @@ next_arg:
 		/*default config file*/
 		STRDUP("./nn.conf",nn_filename);
 	}
-        /*initialize ann*/
-        _NN(init,all)();
+	/*initialize ann*/
+	_NN(init,all)();
 	/*load configuration file*/
-	neural=read_conf(nn_filename);
+	neural=_NN(conf,load)(nn_filename);
 	if(neural==NULL) {
 		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
 		return 1;
 	}
 	/*setup done, run kernel*/
 	_NN(kernel,run)(neural);
-        /*deinit*/
-        _NN(deinit,all)();
+	/*deinit*/
+	_NN(deinit,all)();
 	return 0;
 }

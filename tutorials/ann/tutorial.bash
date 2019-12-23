@@ -1,9 +1,9 @@
 #!/bin/bash
 # tutorial demonstrating ANN with RRUFF XRD database
-# hubert.valencia@imass.nagoya-u.ac.jp    -- [OVHPA]
+# hubert.valencia _at_ imass.nagoya-u.ac.jp    -- [OVHPA]
 
 if [ -z "$OMP_NUM_THREADS" ]&>/dev/null; then
-	export OMP_NUM_THREADS=4
+	export OMP_NUM_THREADS=2
 fi
 
 #check or make pdif
@@ -19,16 +19,11 @@ else
 	fi
 fi
 #check or make train_nn
-if [ -x "./train_nn" ]&>/dev/null; then
-	TRAIN=./train_nn
+if [ -x "../../bin/train_nn" ]&>/dev/null; then
+	TRAIN=../../bin/train_nn
 else
-	make all
-	if [ -x "./train_nn" ]&>/dev/null; then
-		TRAIN=./train_nn
-	else
-		echo "Can't make train_nn executable!, bailing!"
-		exit
-	fi
+	echo "Can't find train_nn executable!, bailing!"
+	exit
 fi
 #prepare rruff
 echo "For the tutorial,  the RRUFF database is required"
@@ -46,7 +41,7 @@ while true; do
 	esac
 done
 echo
-
+#download?
 if [ -n "$NEED_RRUFF" ]&>/dev/null; then
 	if [ -d "./rruff" ]&>/dev/null; then
 		echo "DIRECTORY ./rruff ALREADY EXISTS!"
@@ -101,17 +96,17 @@ fi
 mkdir -p ./rruff/samples
 #prepare tests
 if [ -d "./rruff/tests" ]&>/dev/null; then
-        if [ -d "./rruff/old-tests" ]&>/dev/null; then
-                rm -f ./rruff/old-tests/*
-                rmdir ./rruff/old-tests
-        fi
-        mv ./rruff/tests ./rruff/old-tests
+	if [ -d "./rruff/old-tests" ]&>/dev/null; then
+		rm -f ./rruff/old-tests/*
+		rmdir ./rruff/old-tests
+	fi
+	mv ./rruff/tests ./rruff/old-tests
 fi
 mkdir -p ./rruff/tests
 echo "preparing samples"
 cp $PDIF ./rruff
 cd rruff
-../pdif . -i 850 -o 230
+./pdif . -i 850 -o 230
 echo "preparing configuration files"
 echo "[name] tutorial" > nn.conf
 echo "[type] ANN" >> nn.conf
@@ -130,7 +125,7 @@ echo "training NN -- turn 0"
 cp $TRAIN ./rruff
 cd rruff
 #first round
-../train_nn
+./train_nn -O2
 echo "Initial training done!"
 rm -f nn.conf
 mv nn2.conf nn.conf
@@ -138,12 +133,16 @@ mv nn2.conf nn.conf
 for idx in `seq 10`
 do
 	echo "training NN -- turn $idx"
-	../train_nn
+	./train_nn
 done
 echo "ANN should be trained enough for a rough test."
-echo "Please try ../run_nn - from rruff directory..."
 cp ./samples/* ./tests/
-../run_nn
+if [ -x "../../bin/run_nn" ]&>/dev/null; then
+	../../bin/run_nn
+else
+	echo "Can't find run_nn executable!"
+	echo "Please try run_nn, from the rruff directory..."
+fi
 echo "All done!"
 
 

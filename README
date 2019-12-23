@@ -1,0 +1,53 @@
+LIBHPNN version 0.1
+-------------------
+
+ This is the README of the library, since there is not INSTALL.txt (yet), I will
+explain here how to manually install libhpnn.
+
+This is however not a tutorial on how to _use_ libhpnn, please see the README.md
+file in the tutorial directory for such instructions.
+
+I - Installation
+----------------
+
+The libhpnn uses a GNU/autotool strategy to get its prerequisite libraries.
+This should mean that installation can be as simple as:
+```
+% ./autogen.sh
+[... some output ...]
+% ./configure
+[... some more output ...]
+% make all
+[... still some more output ...]
+```
+And that should put the compiled libhpnn library into the lib directory.
+An additional:
+```
+% sudo make install
+[... guess? ...]
+```
+will install libhpnn into a system directory where it can be directly linked and
+used. For example compiling a software that require libhpnn with gcc, one should
+only have to add the appropriate -l switch.
+```
+% gcc my_prog.c -lhpnn
+```
+Of course that depends on how your system is configured.
+
+At the configure step, using `--prefix=/path` option will install the library at
+the /path root, it means that `libhpnn.h`,  and `libhpnn.a` will be installed as
+`/path/include/libhpnn.h`,  and `/path/lib/libhpnn.a`, respectively.
+In case you wish to use a non-standard path -or one that is not recognize by gcc
+compiler- you can still use the library with -I and -L switches:
+```
+% gcc -I/path/include my_prog.c -L/path/lib -lhpnn
+```
+
+II - Personalization
+--------------------
+
+libhpnn relies on effective BLAS, OpenMP, MPI, and CUDA libraries. On most cases
+this means that a simple installation similar to the previous section will _not_
+leads to an optimized libhpnn.
+
+

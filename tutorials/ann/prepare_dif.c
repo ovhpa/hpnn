@@ -1,19 +1,38 @@
+/*
+ * prepare_dif.c
+ *
+ * Copyright (C) 2019 - Hubert Valencia
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
 
-/* Artificial Neuron Network preparation and training. */
-/* This is an example processing RRUFF XRD database[1] */
-/* --------------------- Hubert Okadome Valencia, 2019 */
+/* Artificial Neuron Network ---------------------- preparation and training. */
+/* ^^^^^^^^^^^^^^^^^^^^^^^This is an example processing RRUFF XRD database[1] */
+/* -------------------------------------------- Hubert Okadome Valencia, 2019 */
 
 /*[1] http://rruff.info/about/about_general.php */
 
 /*we need to define atom_symb, space_groups at least once per program*/
 #define NEED_ATOM_LIST
 #define NEED_SG_LIST
-#include "common.h"
+#include "atom.def"
+#include "sg.def"
 #undef NEED_ATOM_LIST
 #undef NEED_SG_LIST
 #include "file_dif.h"
@@ -171,7 +190,8 @@ end_loop:
 		jdx=0;
 	}
 	if(sample_dir==NULL) STRDUP("./samples",sample_dir);
-fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",rruff_dir,n_inputs,n_outputs,sample_dir);
+fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",
+		rruff_dir,n_inputs,n_outputs,sample_dir);
 	/*check sample directory*/
 	OPEN_DIR(directory,sample_dir);
 	if(directory==NULL){
@@ -180,7 +200,8 @@ fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",rruff_dir,n_inputs,n_output
 	}
 	CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",sample_dir);
+		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",
+			sample_dir);
 	}
 	/*process*/
 	STRCAT(curr_dir,rruff_dir,"/dif/");
@@ -206,7 +227,8 @@ fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",rruff_dir,n_inputs,n_output
 			continue;
 		}
 		if(dif->lambda==0.710730){
-			fprintf(stderr,"ERROR:  file %s has wavelength of 0.710730! SKIP\n",curr_file);
+			fprintf(stderr,"ERROR:  file %s has wavelength of 0.710730! SKIP\n",
+				curr_file);
 			FILE_FROM_DIR(directory,curr_file);
 			continue;
 		}
@@ -241,10 +263,8 @@ fprintf(stdout,">> received: %s -i %i -o %i -s %s\n",rruff_dir,n_inputs,n_output
 	}
 	CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+		fprintf(stderr,"ERROR: trying to close %s directory. IGNORED\n",
+			curr_dir);
 	}
-
-
-
 	return 0;
 }

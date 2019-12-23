@@ -1,0 +1,19 @@
+LIBHPNN - v. 0.1 (2019)
+This is the first version of libhpnn (obviously).
+Very alpha, with a lot of potential BUGS.
+FEATURES:
+	* type ANN is ready: simple feedforward NN with a sigmoid activation.
+		* OpenMP implemetation: OK
+		* CUDA implematation: OK
+		* MPI implementation: OK
+		* MPI + OpenMP implemetation: OK
+		* MPI + cuda: TODO (started)
+		* OpenMP + cuda: TODO (started)
+		* MPI + OpenMP + CUDA: TODO (started)
+	all NN implementation can be run and trained, consistently, which means that
+they should all give the exact same answer*.
+
+* The tolerance is calculated over the absolute sum of the elements and within a
+criterion of 10^{-14}, and <10^{-12} for for all the data vectors (including the
+hidden ones), and all weights matrix, respectively.
+

@@ -1,12 +1,35 @@
+/*
+ * file_dif.c
+ *
+ * Copyright (C) 2019 - Hubert Valencia
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "common.h"
-
+#include <libhpnn/common.h>
 #include "file_dif.h"
 
-#define DIF (*dif)
+/*we dont need the full definition*/
+#ifdef NEED_ATOM_LIST
+#undef NEED_ATOM_LIST
+#endif
+#include "atom.def"
+#include "sg.def"
 
+#define DIF (*dif)
 /*read a RRUFF database DIF file*/
 _dif *read_dif(CHAR *filename){
 #define FAIL read_dif_fail
@@ -33,10 +56,12 @@ _dif *read_dif(CHAR *filename){
 		return NULL;
 	}
 	READLINE(fp,line);/*line 1: name*/
-/*there are 4 files: R060187, R060699, R060349, and R060508 that do not contain full set information*/
+/* There are 4 files: R060187, R060699, R060349, and R060508 
+	* that do not contain full set information*/
 	if(STRFIND("R060187",line) != NULL) goto FAIL;
 	if(STRFIND("5.000",line) != NULL) goto FAIL;
-/*there are also 823 files that do not contain ATOM information -- supposedly available in literature.*/
+/* There are also 823 files that do not contain ATOM information 
+	* -- supposedly available in literature.*/
 	ptr=&(line[0]);SKIP_BLANK(ptr);
 	idx=0;ptr2=ptr;
 	while(ISGRAPH(*ptr)) {
@@ -104,12 +129,13 @@ _dif *read_dif(CHAR *filename){
 		}
 		ptr=STRFIND("SPACE GROUP",line);
 		if(ptr!=NULL){
-			/*one dif file, R060879, has an incorrect "SPACE GROUP #:" instead of just "SPACE GROUP:"*/
+			/*one dif file, R060879, has an incorrect "SPACE GROUP #:"
+			 *instead of just "SPACE GROUP:"*/
 			ptr+=11;
 			if(*ptr!=':') ptr++;
 			ptr+=2;
-			/*the space group is given as a string, we need to convert it to an integer...*/
-/*because this is WAY too long*/
+			/*the space group is given as a string, we need to convert it to an
+			 *integer...because this is WAY too long*/
 #define SG_IS_EQ(pointer,index,is_ok) do{\
 	SHORT _i=0;\
 	do{\
@@ -162,15 +188,20 @@ while((!ISDIGIT(*ptr))&&(ISGRAPH(*ptr))){
 					ATM_CP(DIF.atoms,at,DIF.natoms-1);
 					at[DIF.natoms-1].Z=idx;
 					ptr+=2;
-					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					FREE(DIF.atoms);
 					DIF.atoms=at;at=NULL;
 					break;
@@ -191,15 +222,20 @@ while((!ISDIGIT(*ptr))&&(ISGRAPH(*ptr))){
 					ATM_CP(DIF.atoms,at,DIF.natoms-1);
 					at[DIF.natoms-1].Z=8;/*O*/
 					ptr+=2;
-					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					FREE(DIF.atoms);
 					DIF.atoms=at;at=NULL;
 				}else{
@@ -209,15 +245,20 @@ while((!ISDIGIT(*ptr))&&(ISGRAPH(*ptr))){
 					ATM_CP(DIF.atoms,at,DIF.natoms-1);
 					at[DIF.natoms-1].Z=0;/*X->unknown*/
 					ptr+=2;
-					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].x,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].y,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].z,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].occ,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					ptr=ptr2+1;SKIP_BLANK(ptr);
-					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
+					GET_DOUBLE(at[DIF.natoms-1].B,ptr,ptr2);
+					ASSERT_GOTO(ptr2,FAIL);
 					FREE(DIF.atoms);
 					DIF.atoms=at;at=NULL;
 				}
@@ -233,11 +274,6 @@ while((!ISDIGIT(*ptr))&&(ISGRAPH(*ptr))){
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) continue;/*let's be permissive*/
 			GET_DOUBLE(DIF.lambda,ptr,ptr2);
-/* lambda is now a parameter
-			if(DIF.lambda!=1.541838){
-				fprintf(stdout,"#WARNING: expected 1.541838, but got %lf\n",DIF.lambda);
-			}
-*/
 		}
 		ptr=STRFIND("2-THETA",line);
 		if(ptr!=NULL){
@@ -354,15 +390,20 @@ idx=0;
 do{
 	idx++;
 }while((space_groups_id[(UINT) DIF.space]!=DIF.space)&&(idx<NUM_GROUPS));
-if(idx<NUM_GROUPS) fprintf(stdout,"      SPACE GROUP: %s (%i)\n",space_groups_hm[idx],(UINT) DIF.space);
-else fprintf(stdout,"      SPACE GROUP: %i\n",(UINT) DIF.space);
+if(idx<NUM_GROUPS)
+	fprintf(stdout,"      SPACE GROUP: %s (%i)\n",
+	        space_groups_hm[idx],(UINT) DIF.space);
+else
+	printf(stdout,"      SPACE GROUP: %i\n",(UINT) DIF.space);
 
 fprintf(stdout,"\n");
-fprintf(stdout,"           ATOM        X         Y         Z     OCCUPANCY  ISO(B)\n");
+fprintf(stdout,
+	"           ATOM        X         Y         Z     OCCUPANCY  ISO(B)\n");
 for(idx=0;idx<DIF.natoms;idx++){
 	fprintf(stdout,"            %s",atom_symb[DIF.atoms[idx].Z]);
 	if(atom_symb[DIF.atoms[idx].Z][1]=='\0') fprintf(stdout," ");
-	fprintf(stdout,"     %.5f   %.5f   %.5f",DIF.atoms[idx].x,DIF.atoms[idx].y,DIF.atoms[idx].z);
+	fprintf(stdout,"     %.5f   %.5f   %.5f",
+		DIF.atoms[idx].x,DIF.atoms[idx].y,DIF.atoms[idx].z);
 	fprintf(stdout,"     %.3f     %.3f\n",DIF.atoms[idx].occ,DIF.atoms[idx].B);
 }
 fprintf(stdout,"\n");
@@ -370,7 +411,8 @@ fprintf(stdout,"            X-RAY WAVELENGTH:     %lf\n",DIF.lambda);
 fprintf(stdout,"\n");
 fprintf(stdout,"               2-THETA      INTENSITY\n");
 for(idx=0;idx<DIF.n_peaks;idx++){
-	fprintf(stdout,"                %.2f        %6.2f\n",DIF.pk_t[idx],DIF.pk_i[idx]);
+	fprintf(stdout,"                %.2f        %6.2f\n",
+		DIF.pk_t[idx],DIF.pk_i[idx]);
 }
 
 
@@ -431,13 +473,4 @@ BOOL dif_2_sample(const _dif *dif,FILE *dest,UINT n_inputs,UINT n_outputs){
 	FREE(samples);
 	return TRUE;
 }
-
-
-
-
-
 #undef DIF
-
-
-
-
