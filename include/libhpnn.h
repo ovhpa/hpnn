@@ -95,7 +95,8 @@ UINT _NN(get,h_neurons)(nn_def *neural,UINT layer);
 /*---------------------*/
 /*+++ manipulate NN +++*/
 /*---------------------*/
-BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens);
+BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,
+							UINT n_outputs,UINT *hiddens);
 BOOL _NN(kernel,load)(nn_def *neural);
 void _NN(kernel,dump)(nn_def *neural, FILE *output);
 BOOL _NN(kernel,train)(nn_def *neural);
