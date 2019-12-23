@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+datarootdir=@datarootdir@
+datadir=@datadir@
+includedir=@includedir@/liblibhpnn-0.1
+
+Name: libhpnn
+Description: High Performance Neural Network library.
+Version: @VERSION@
+Requires: 
+Libs: -L${libdir} -lhpnn
+Cflags: -I${includedir}
