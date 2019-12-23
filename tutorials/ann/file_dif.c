@@ -22,8 +22,14 @@
 #include <libhpnn/common.h>
 #include "file_dif.h"
 
-#define DIF (*dif)
+/*we dont need the full definition*/
+#ifdef NEED_ATOM_LIST
+#undef NEED_ATOM_LIST
+#endif
+#include "atom.def"
+#include "sg.def"
 
+#define DIF (*dif)
 /*read a RRUFF database DIF file*/
 _dif *read_dif(CHAR *filename){
 #define FAIL read_dif_fail
