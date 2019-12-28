@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-## Created by Anjuta
+## Re-written OVHPA @2019
 
 SUBDIRS = src 
 
@@ -11,7 +11,7 @@ dist_doc_DATA = \
 	INSTALL \
 	NEWS
 
-
+AM_CFLAGS = -I$(top_srcdir)/include
 
 # Remove doc directory on uninstall
 uninstall-local:

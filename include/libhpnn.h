@@ -83,7 +83,7 @@ UINT _NN(get,omp_blas)();
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/
-nn_def _NN(conf,load)(CHAR *filename);
+nn_def *_NN(conf,load)(CHAR *filename);
 void _NN(conf,dump)(FILE *fp,nn_def *neural);
 /*----------------------------*/
 /*+++ Access NN parameters +++*/

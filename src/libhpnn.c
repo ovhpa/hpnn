@@ -48,6 +48,7 @@
 #endif
 /*^^^main header*/
 #include <libhpnn.h>
+#include <libhpnn/ann.h>
 
 /*GLOBAL VARIABLES TODO: include in the main handler*/
 SHORT	nn_verbose =0;
@@ -221,7 +222,7 @@ UINT _NN(get,omp_blas)(){
 	}\
 }while(0)
 /*load neural network definition file*/
-nn_def _NN(conf,load)(CHAR *filename){
+nn_def *_NN(conf,load)(CHAR *filename){
 #define FAIL read_conf_fail
 	PREP_READLINE();
 	CHAR *line=NULL;
@@ -230,7 +231,6 @@ nn_def _NN(conf,load)(CHAR *filename){
 	UINT *n_hiddens;
 	UINT64 allocate;
 	nn_def  *neural;
-//	_kernel *kernel;
 	BOOL is_ok;
 	UINT   idx;
 	FILE   *fp;
@@ -327,7 +327,6 @@ _OUT(stdout,"NN loading kernel!\n");
 				_OUT(stderr,"Malformed NN configuration file!\n");
 				_OUT(stderr,"keyword: hidden, value: %s\n",ptr);
 				goto FAIL;
-				return FALSE;
 			}
 			parameter[1]=1;ptr2=ptr;
 			while(ISGRAPH(*ptr)){
