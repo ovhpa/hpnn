@@ -21,6 +21,13 @@ This tutorial is provided in order to understand libhpnn API, it is by no mean a
 -> in case you are interested by such application, I recommend reading the following paper: 
 P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). A preprint is available [here](https://arxiv.org/abs/1812.05625)
 
+## License ![logo](https://www.gnu.org/graphics/gplv3-or-later.png)
+
+* libhpnn is a free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+* libhpnn is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public [License](LICENSE) for more details.
+* libhpnn should include a copy of the GNU General Public License.  If not, see <[https://www.gnu.org/licenses/](https://www.gnu.org/licenses/)>.
+
+
 ## Compile
 
 1/ Select or create a `make.xxx` in the arch folder.
