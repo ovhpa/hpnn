@@ -13,8 +13,37 @@ AC_PROG_CC
 AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
 
-
 LT_INIT
+
+# +++ deal with switches +++
+# CUDA
+AC_MSG_CHECKING([if CUDA was required])
+AC_ARG_WITH([libcuda],
+            [AS_HELP_STRING([--without-cuda],
+              [disable support for cuda])],
+            [],
+            [with_cuda=yes])
+AC_MSG_RESULT([$with_cuda])
+# CUBLAS
+# it is _possible_ to use naive cuda interface without CUBLAS
+AC_MSG_CHECKING([if CUBLAS was required])
+AC_ARG_WITH([libcublas],
+            [AS_HELP_STRING([--without-cublas],
+              [disable support for cublas])],
+            [],
+            [with_cublas=yes])
+AC_MSG_RESULT([$with_cublas])
+# MPI
+AC_MSG_CHECKING([if MPI was required])
+AC_ARG_WITH([libmpi],
+            [AS_HELP_STRING([--with-mpi],
+              [compile with MPI support @<:@default=auto@:>@])],
+            [],
+            [with_mpi=auto])
+AC_MSG_RESULT([$with_mpi])
+
+
+
 AC_MSG_NOTICE(+++---------------------------+++)
 AC_MSG_NOTICE(+++ entering standard checks. +++)
 AC_MSG_NOTICE(+++---------------------------+++)
@@ -26,7 +55,6 @@ AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h unistd.h])
 
 # Checks for library functions.
 AC_CHECK_FUNCS([getcwd memset sqrt])
-
 
 # PKG_CHECK_MODULES
 AC_MSG_NOTICE(+++-------------------------------------+++)
@@ -53,10 +81,12 @@ PKG_CHECK_MODULES(cublas,
 		  [pkg_cublas="yes"],
 		  [AC_MSG_RESULT([+++ NOT FOUND: CUBLAS (not fatal) +++])])
 # CHECK for mpi -- this can defines mpi_CFLAGS and mpi_LIBS
-PKG_CHECK_MODULES(mpi,
+if test "x$with_mpi" != xno; then
+	PKG_CHECK_MODULES(mpi,
 		  [mpi],
 		  [pkg_mpi="yes"],
 		  [AC_MSG_RESULT([+++ NOT FOUND: MPI (not fatal) +++])])
+fi
 # CHECK for openmpi (C compiler) -- this can defines ompic_CFLAGS and ompic_LIBS
 PKG_CHECK_MODULES(ompic,
 		  [ompi-c],
@@ -65,13 +95,33 @@ PKG_CHECK_MODULES(ompic,
 # CHECK for mkl
 # TODO
 
-# now check for non pkg-config libraries/installations
+# now check for libraries/installations
 AC_MSG_NOTICE(+++---------------------------------------------+++)
 AC_MSG_NOTICE(+++ entering libraries/features related checks. +++)
 AC_MSG_NOTICE(+++---------------------------------------------+++)
-
-
-
+# MPI
+if test "x$with_mpi" != xno; then
+	AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
+	if test "x$pkg_mpi" != xyes; then
+		AC_MSG_NOTICE(^^^ no mpi package -> configuring $use_mpicc)
+		AC_MSG_CHECKING([if mpicc is current compiler])
+		AC_LANG_PUSH(C)
+		AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+#include <mpi.h>
+]],[[
+MPI_Init(NULL, NULL);
+MPI_Finalize();
+return 0;
+]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
+		AC_LANG_POP()
+		AC_MSG_RESULT([$mpicc_gcc])
+	fi
+fi
+#FAIL if we need to
+if test "x$with_mpi" = xyes -o "x$pkg_mpi" != xyes -o "x$use_mpicc" = xnone; then
+	AC_MSG_ERROR(MPI was requested --use-mpi=yes but no MPI found!)
+fi
 
 AC_OUTPUT([
 Makefile
