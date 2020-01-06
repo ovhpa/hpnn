@@ -20,6 +20,30 @@
 #ifndef LIBHPNN_H
 #define LIBHPNN_H
 #include <libhpnn/common.h>
+/*----------------------------*/
+/*+++ library capabilities +++*/
+/*----------------------------*/
+typedef enum {
+	NN_CAP_NONE=0,
+	NN_CAP_OMP=(1<<0),
+	NN_CAP_MPI=(1<<1),
+	NN_CAP_CUDA=(1<<2),
+	NN_CAP_CUBLAS=(1<<3),
+	/*(1<<4) is reserved for OCL*/
+	NN_CAP_PBLAS=(1<<5),
+	NN_CAP_SBLAS=(1<<6),
+} nn_cap;
+/*----------------------------------*/
+/*+++ library runtime parameters +++*/
+/*----------------------------------*/
+typedef struct {
+	SHORT nn_verbose;
+	BOOL  nn_dry;
+	UINT  nn_num_threads;
+	UINT  nn_num_blas;
+	UINT  nn_num_tasks;
+	cudastreams cudas;
+} nn_runtime;
 /*--------------------------------*/
 /*+++ types of neural networks +++*/
 /*--------------------------------*/
@@ -42,11 +66,12 @@ typedef enum {
 /*+++ NN definition handler +++*/
 /*-----------------------------*/
 typedef struct {
+	nn_runtime *rr;		/*each NN should link to the runtime parameters*/
 	CHAR     *name;		/*name of the NN*/
 	nn_type   type;		/*NN type*/
 	BOOL need_init;		/*require initialization*/
 	UINT      seed;		/*seed used in case of initialization*/
-	void   *kernel;		/*NN kernel (weights,input,output)*/
+	void   *kernel;		/*NN kernel*/
 	CHAR *f_kernel;		/*kernel filename*/
 	nn_train train;		/*training type*/
 	CHAR  *samples;		/*samples directory (for training)*/
@@ -60,27 +85,33 @@ typedef struct {
 /*+++ initialize library +++*/
 /*--------------------------*/
 void _NN(inc,verbose)();
+void _NN(dec,verbose)();
+void _NN(set,verbose)(SHORT verbosity);
+void _NN(get,verbose)(SHORT *verbosity);
 void _NN(toggle,dry)();
+nn_cap _NN(get,capabilities)();
+BOOL _NN(init,OMP)();
+BOOL _NN(init,MPI)();
+BOOL _NN(init,CUDA)();
+BOOL _NN(init,BLAS)();
 int  _NN(init,all)();
+BOOL _NN(deinit,OMP)();
+BOOL _NN(deinit,MPI)();
+BOOL _NN(deinit,CUDA)();
+BOOL _NN(deinit,BLAS)();
 int  _NN(deinit,all)();
-/*^^^ CUDA specific*/
-#ifdef _CUDA
-#ifdef _CUBLAS
-cublasHandle_t _NN(get,cuda_handle)();
-#else /*_CUBLAS*/
-int _NN(get,cuda_handle)();
-#endif /*_CUBLAS*/
+/*--------------------------*/
+/*+++ set/get parameters +++*/
+/*--------------------------*/
+BOOL _NN(set,omp_threads)(UINT n_threads);
+BOOL _NN(get,omp_threads)(UNIT *n_threads);
+BOOL _NN(set,mpi_tasks)(UINT n_tasks);
+BOOL _NN(get,mpi_tasks)(UNIT *n_tasks);
+BOOL _NN(set,cuda_streams)(UINT n_streams);
+BOOL _NN(get,cuda_streams)(UINT *n_streams);
+BOOL _NN(set,omp_blas)(UINT n_blas);
+BOOL _NN(get,omp_blas)(UINT *n_blas);
 cudastreams *_NN(get,cudas)();
-void _NN(set,cuda_streams)(UINT n_streams);
-#endif /*_CUDA*/
-/*^^^ OMP specific*/
-#ifdef _OMP
-void _NN(set,omp_threads)(UINT n);
-UINT _NN(get,omp_threads)();
-/*^^^ MKL blas specific*/
-void _NN(set,omp_blas)(UINT n);
-UINT _NN(get,omp_blas)();
-#endif /*_OMP*/
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/

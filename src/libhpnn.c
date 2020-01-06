@@ -50,15 +50,33 @@
 /*^^^main header*/
 #include <libhpnn.h>
 #include <libhpnn/ann.h>
-
-/*GLOBAL VARIABLES TODO: include in the main handler*/
-SHORT	nn_verbose =0;
-BOOL	nn_dry =FALSE;
-/*^^^ OMP specific*/
-#ifdef _OMP
-UINT nn_num_threads=1;
-UINT nn_num_blas  = 1;
-#endif
+/*GLOBAL VARIABLE: there it a unique runtime per run
+ *  for which each use of library routine refers to.*/
+nn_runtime lib_runtime;
+/*new defs to take into account verbosity*/
+#define NN_DBG(_file,...) do{\
+	if(lib_runtime.nn_verbose>2){\
+		_OUT((_file),"NN(DBG): ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_OUT(_file,...) do{\
+	if(lib_runtime.nn_verbose>1){\
+		_OUT((_file),"NN: ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_WARN(_file,...) do{\
+	if(lib_runtime.nn_verbose>0){\
+		_OUT((_file),"NN(WARN): ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_ERROR(_file,...) do{\
+	_OUT((_file),"NN(ERR): ");\
+	_OUT((_file), __VA_ARGS__);\
+}while(0)
+#define NN_WRITE _OUT
 /*^^^ CUDA specific*/
 #ifdef _CUDA
 cudastreams cudas;
@@ -72,112 +90,226 @@ cudastreams cudas;
 /*+++ initialize library +++*/
 /*--------------------------*/
 void _NN(inc,verbose)(){
-        nn_verbose++;
-        if(nn_verbose>0) _OUT(stdout,"# NN: increasing verbosity\n");
+	if(lib_runtime.nn_verbose>2) return;
+        lib_runtime.nn_verbose++;
+}
+void _NN(dec,verbose)(){
+	if(lib_runtime.nn_verbose<1) return;
+	lib_runtime.nn_verbose--;
+}
+void _NN(set,verbose)(SHORT verbosity){
+	lib_runtime.nn_verbose=verbosity;
+}
+void _NN(get,verbose)(SHORT *verbosity){
+	*verbosity=lib_runtime.nn_verbose;
 }
 void _NN(toggle,dry)(){
-        nn_dry^=nn_dry;
+        lib_runtime.nn_dry^=lib_runtime.nn_dry;
 }
-int _NN(init,all)(){
+nn_cap _NN(get,capabilities)(){
+	UINT res=0;
+#ifdef _OMP
+	res+=(1<<0);
+#endif
+#ifdef _MPI
+	res+=(1<<1);
+#endif
 #ifdef _CUDA
-	/*general GPU device init*/
-	//cudaError_t err;
-	cudaGetDeviceCount(&(cudas.n_gpu));
-	CHK_ERR(init_device_count);
-	if(cudas.n_gpu<1) {
-		_OUT(stderr,"CUDA error: no CUDA-capable device reported.\n");
-		exit(-1);
+	res+=(1<<2);
+#endif
+#ifdef _CUBLAS
+	res+=(1<<3);
+#endif
+	/*(1<<4) is reserved for OCL*/
+#ifdef _PBLAS
+	res+=(1<<5);
+#elif defined(SBLAS)
+	res+=(1<<6);
+#endif
+	return (nn_cap)res;
+}
+BOOL _NN(init,OMP)(){
+#ifndef _OMP
+	NN_WARN(stdout,"failed to init OMP (no capability).\n");
+	return FALSE;
+#else
+	NN_OUT(stdout,"NN: OMP init done.\n");
+	return TRUE;
+#endif
+}
+BOOL _NN(init,MPI)(){
+#ifndef _MPI
+	NN_WARN(sdout,"failed to init MPI (no capability).\n");
+	return FALSE;
+#else
+	MPI_Init(NULL, NULL);
+	MPI_Comm_size(MPI_COMM_WORLD,&(lib_runtime.nn_num_tasks));
+	if(lib_runtime.nn_num_tasks<2) {
+		NN_WARN(stdout,"#WARNING: libhpnn was compiled with MPI,\n");
+		NN_WARN(stdout,"but only one task is used, which may not\n");
+		NN_WARN(stdout,"be what you intended and is inefficient.\n");
+		NN_WARN(stdout,"Please switch to serial version of hpnn,\n");
+		NN_WARN(stdout,"or use several parallel tasks with -np X\n");
+		NN_WARN(stdout,"option of mpirun.               -- OVHPA\n");
 	}
-	_OUT(stdout,"CUDA started, found %i GPU(s).\n",cudas.n_gpu);
-	/*TODO: create 1 context / GPU*/
+	NN_OUT(stdout,"MPI started %i tasks.\n",lib_runtime.nn_num_tasks);
+	return TRUE;
+}
+BOOL _NN(init,CUDA)(){
+#ifndef _CUDA
+	NN_WARN(STDOUT,"failed to init CUDA (no capability).\n");
+	return FALSE;
+#else
+	cudaGetDeviceCount(&(lib_runtime.cudas.n_gpu));
+	CHK_ERR(init_device_count);
+	if(lib_runtime.cudas.n_gpu<1) {
+		NN_WARN(stderr,"CUDA error: no CUDA-capable device reported.\n");
+		return FALSE;
+	}
+	NN_OUT(stdout,"CUDA started, found %i GPU(s).\n",lib_runtime.cudas.n_gpu);
 #ifdef _CUBLAS
 	cublasStatus_t err;
-	err=cublasCreate(&cudas.cuda_handle);
+	err=cublasCreate(&(lib_runtime.cudas.cuda_handle));
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		_OUT(stderr,"CUDA error: can't create a CUBLAS context.\n");
-		exit(-1);
+		NN_ERROR(stderr,"CUDA error: can't create a CUBLAS context.\n");
+		_NN(unset,capability)(NN_CUBLAS);
+		return TRUE;
 	}
-	err=cublasSetPointerMode(cudas.cuda_handle,CUBLAS_POINTER_MODE_HOST);
+	err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle,CUBLAS_POINTER_MODE_HOST);
 	if(err!=CUBLAS_STATUS_SUCCESS){
-		_OUT(stderr,"CUBLAS error: fail to set pointer mode.\n");
-		exit(-1);
+		NN_WARN(stderr,"CUBLAS error: fail to set pointer mode.\n");
+		return TRUE;
 	}
 #else /*_CUBLAS*/
-	cudaGetDevice(&(cudas.cuda_handle));
+	cudaGetDevice(&(lib_runtime.cudas.cuda_handle));
 	CHK_ERR(init_device_handle);
 #endif /*_CUBLAS*/
-#endif /*_CUDA*/
-#ifdef _MPI
-	int n_streams;
-	MPI_Init(NULL, NULL);
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	if(n_streams<2) {
-		_OUT(stdout,"#WARNING: libhpnn was compiled with MPI,\n");
-		_OUT(stdout,"but only one task is used, which may not\n");
-		_OUT(stdout,"be what you intended and is inefficient.\n");
-		_OUT(stdout,"Please switch to serial version of hpnn,\n");
-		_OUT(stdout,"or use several parallel tasks with -np X\n");
-		_OUT(stdout,"option of mpirun.               -- OVHPA\n");
-	}
-	_OUT(stdout,"MPI started %i tasks.\n",n_streams);
-#endif /*_MPI*/
-#ifdef _MKL
-#if defined (PBLAS) || defined (SBLAS)
-	mkl_set_dynamic(0);
 #endif
-//        omp_set_nested(1);
-//^^^^^^	mkl_set_num_threads(nn_num_threads);
-	omp_set_num_threads(nn_num_threads);
-
-//^^^^^^	mkl_domain_set_num_threads(nn_num_blas, MKL_DOMAIN_BLAS);
-//	omp_set_max_active_levels(2);
-        /*hyper-threading*/
-        _OUT(stdout,"MKL started.\n");
-#endif /*_MKL*/
-#ifdef _OMP
-        _OUT(stdout,"ANN started with %i OMP threads.\n",nn_num_threads);
+}
+BOOL _NN(init,BLAS)(){
+#ifdef PBLAS
 #ifdef _MKL
-	_OUT(stdout,"and with %i BLAS MKL threads.\n",nn_num_blas);
+        mkl_set_dynamic(0);
 #endif /*_MKL*/
-	fflush(stdout);
-#endif /*_OMP*/
+	NN_OUT(stdout,"USING PBLAS.\n");
+	return TRUE;
+#elif defined(SBLAS)
+#ifdef _MKL
+        mkl_set_dynamic(0);
+#endif /*_MKL*/
+	NN_OUT(stdout,"USING SBLAS.\n");
+	return TRUE;
+#else /*no PBLAS no SBLAS*/
+	NN_WARN(stdout,"NOT USING BLAS.\n");
+	return FALSE;
+#endif
+}
+int _NN(init,all)(){
         return 0;
 }
-int _NN(deinit,all)(){
-#ifdef _CUDA
-	UINT idx;
-	if(cudas.cuda_n_streams>1)
-		for(idx=0;idx<cudas.cuda_n_streams;idx++)
-			cudaStreamDestroy(cudas.cuda_streams[idx]);
-	else {
-		free(cudas.cuda_streams);
-		cudas.cuda_streams=NULL;
-	}
-#ifdef _CUBLAS
-	cublasDestroy(cudas.cuda_handle);
-#else /*_CUBLAS*/
-	cudaDeviceReset();
-#endif /*_CUBLAS*/
-#endif /*_CUDA*/
-#ifdef _MPI
-	MPI_Finalize();
+BOOL _NN(deinit,OMP)(){
+#ifndef _OMP
+	return FALSE;
+#else
+	/*nothing to do (for now)*/
+	return TRUE;
 #endif
+}
+BOOL _NN(deinit,MPI)(){
+#ifndef _MPI
+	return FALSE;
+#else
+	/*this should be done last*/
+	MPI_Finalize();
+	return TRUE;
+#endif	
+}
+BOOL _NN(deinit,CUDA)(){
+#ifndef _CUDA
+	return FALSE;
+#else
+	if(lib_runtime.cudas.cuda_n_streams>1){
+		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
+			cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
+	}
+	free(lib_runtime.cudas.cuda_streams);
+	lib_runtime.cudas.cuda_streams=NULL;
+#ifdef _CUBLAS
+	cublasDestroy(lib_runtime.cudas.cuda_handle);
+#endif
+	cudaDeviceReset();
+	return TRUE;
+#endif
+}
+BOOL _NN(deinit,BLAS)(){
+#if !defined (PBLAS) && !defined (SBLAS)
+	return FALSE;
+#else
+	/*nothing to do (for now)*/
+	return TRUE;
+#endif
+}
+int _NN(deinit,all)(){
 	return 0;
 }
-#ifdef _CUDA
-#ifdef _CUBLAS
-cublasHandle_t _NN(get,cuda_handle)(){
-#else /*_CUBLAS*/
-int _NN(get,cuda_handle)(){
-#endif /*_CUBLAS*/
-	return cudas.cuda_handle;
+/*--------------------------*/
+/*+++ set/get parameters +++*/
+/*--------------------------*/
+BOOL _NN(set,omp_threads)(UINT n_threads){
+#ifndef _OMP
+	NN_WARN(stdout,"failed to set OMP num_threads (no capability).\n");
+	return FALSE;
+#else
+	lib_runtime.nn_num_threads = n_threads;
+	omp_set_num_threads(lib_runtime.nn_num_threads);
+	return TRUE;
+#endif /*_OMP*/
 }
-cudastreams *_NN(get,cudas)(){
-	return &cudas;
+BOOL _NN(get,omp_threads)(UNIT *n_threads){
+#ifndef _OMP
+	*n_threads = 1;
+	return FALSE;
+#else
+	*n_threads = lib_runtime.nn_num_threads;
+	return TRUE;
+#endif
 }
-void _NN(set,cuda_streams)(UINT n_streams){
-UINT idx;
-	if(n_streams<2) {
+BOOL _NN(set,mpi_tasks)(UINT n_tasks){
+#ifndef _MPI
+	NN_WARN(stdout,"failed to set MPI num_tasks (no capability).\n");
+	return FALSE;
+#else
+	NN_WARN(stdout,"Changing MPI num_tasks is not implemented yet (and is generally not a good idea).\n");
+	NN_WARN(stdout,"However, the possibility is left open for future implementations... -- OVHPA\n");
+	return TRUE;
+#endif
+}
+BOOL _NN(get,mpi_tasks)(UNIT *n_tasks){
+#ifndef _MPI
+	*n_tasks=1;
+	return FALSE;
+#else
+	*n_tasks=lib_runtime.nn_num_tasks;
+	return TRUE;
+#endif
+}
+BOOL _NN(set,cuda_streams)(UINT n_streams){
+#ifndef _CUDA
+	return FALSE;
+#else
+	/*setting new cuda_streams should reset the cuda_streams*/
+	/*only if cuda_streams was initialized properly before..*/
+	if(cudas.cuda_streams!=NULL){
+		/*first we need to wipe previous streams*/
+		if(lib_runtime.cudas.cuda_n_streams>1){
+			for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
+				cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
+		}
+		free(lib_runtime.cudas.cuda_streams);
+		lib_runtime.cudas.cuda_streams=NULL;
+	}
+	if(n_streams<2){
+		/*assign a unique "NULL" stream*/
 		cudas.cuda_n_streams=1;
 		ALLOC(cudas.cuda_streams,sizeof(cudaStream_t),cudaStream_t);
 		cudas.cuda_streams[0]=NULL;
@@ -189,39 +321,45 @@ UINT idx;
 				cudaStreamNonBlocking);
 		}
 	}
-	_OUT(stdout,"ANN started with %i CUDA streams.\n",n_streams);
 #ifdef _CUBLAS
-	cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
+	/*this step is optional, but it seems that CUBLAS prefers
+	 *to start on its own first stream...*/
+        cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
 #endif /*_CUBLAS*/
+	return TRUE;
+#endif
 }
-#endif /*_CUDA*/
-#ifdef _OMP
-void _NN(set,omp_threads)(UINT n){
-	nn_num_threads=n;	
+BOOL _NN(get,cuda_streams)(UINT *n_streams){
+#ifndef _CUDA
+	return FALSE;
+#else
+	*n_streams = cudas.cuda_n_streams;
+	return TRUE;
+#endif
 }
-UINT _NN(get,omp_threads)(){
-	return nn_num_threads;
+BOOL _NN(set,omp_blas)(UINT n_blas){
+#if !defined (PBLAS) && !defined (SBLAS)
+	return FALSE;
+#else
+	lib_runtime.nn_num_blas=n_blas;
+	omp_set_num_threads(lib_runtime.nn_num_threads);
+	return TRUE;
+#endif
 }
-void _NN(set,omp_blas)(UINT n){
-        nn_num_blas=n;
+BOOL _NN(get,omp_blas)(UINT *n_blas){
+#if !defined (PBLAS) && !defined (SBLAS)
+	return FALSE;
+#else
+	*n_blas=lib_runtime.nn_num_blas;
+	return TRUE;
+#endif
 }
-UINT _NN(get,omp_blas)(){
-	return nn_num_blas;
+cudastreams *_NN(get,cudas)(){
+	return &(lib_runtime.cudas);
 }
-#endif /*_OMP*/
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/
-/*TODO: move STR_CLEAN in common.h*/
-#define STR_CLEAN(pointer) do{\
-	CHAR *_ptr=pointer;\
-	while(*_ptr!='\0'){\
-		if(*_ptr=='\t') *_ptr='\0';\
-		if(*_ptr==' ') *_ptr='\0';\
-		if((*_ptr=='\n')||(*_ptr=='#')) *_ptr='\0';\
-		else _ptr++;\
-	}\
-}while(0)
 /*load neural network definition file*/
 nn_def *_NN(conf,load)(CHAR *filename){
 #define FAIL read_conf_fail

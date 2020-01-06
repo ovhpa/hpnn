@@ -246,16 +246,20 @@
 	ALLOC(pointer,size,type);\
 	mem+=size*sizeof(type);\
 }while(0)
-
 /*useful*/
-//#define SKIP_BLANK(pointer) while(!ISGRAPH(*pointer)) pointer++
-//#define SKIP_NUM(pointer) while(ISDIGIT(*pointer)) pointer++
-/*SAFER VERSIONS*/
 #define SKIP_BLANK(pointer) \
 	while((!ISGRAPH(*pointer))&&(*pointer!='\n')&&(*pointer!='\0')) pointer++
 #define SKIP_NUM(pointer) \
 	while((ISDIGIT(*pointer))&&(*pointer!='\n')&&(*pointer!='\0')) pointer++
-
+#define STR_CLEAN(pointer) do{\
+	CHAR *_ptr=pointer;\
+	while(*_ptr!='\0'){\
+		if(*_ptr=='\t') *_ptr='\0';\
+		if(*_ptr==' ') *_ptr='\0';\
+		if((*_ptr=='\n')||(*_ptr=='#')) *_ptr='\0';\
+		else _ptr++;\
+	}\
+}while(0)
 #define GET_LAST_LINE(fp,buffer) do{\
 	fseek(fp,-2,SEEK_END);\
 	while(fgetc(fp)!='\n') fseek(fp,-2,SEEK_CUR);\
@@ -414,18 +418,22 @@
 		exit(-1);\
 	}\
 }while(0)
-/*streams*/
+#endif /*_CUDA*/
+
 typedef struct {
-	int n_gpu;
+	UINT n_gpu;
 #ifdef _CUBLAS
 	cublasHandle_t cuda_handle;
 #else /*_CUBLAS*/
 	int cuda_handle;
 #endif /*_CUBLAS*/
 	UINT        cuda_n_streams;
+#ifdef _CUDA
 	cudaStream_t *cuda_streams;
-} cudastreams;
+#else /*_CUDA*/
+	void *cuda_streams;
 #endif /*_CUDA*/
+} cudastreams;
 
 
 
