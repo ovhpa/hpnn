@@ -1,21 +1,22 @@
 /*
- * common.h
- *
- * Copyright (C) 2019 - Hubert Valencia
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
++++ libhpnn - High Performance Neural Network library - file: common.h +++
+    Copyright (C) 2019  Okadome Valencia Hubert
+
+    This file is part of libhpnn.
+
+    libhpnn is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    libhpnn is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #ifndef COMMON_H
 #define COMMON_H
 #ifdef USE_GLIB
@@ -70,7 +71,12 @@
 #define FUNCTION "???"
 #endif
 #define PREP_READLINE() size_t _readline_len=0
-#define READLINE(fp,buffer) getline(&buffer,&_readline_len,fp)
+#define READLINE(fp,buffer) do{\
+	ssize_t _read_count=0;\
+	_read_count=getline(&buffer,&_readline_len,fp);\
+	if(_read_count==-1) _OUT(stderr,"READ ERROR: getline failed (function %s, line %i)\n",\
+                        FUNCTION,__LINE__);\
+}while(0)
 #define QUOTE(a) #a
 #define QUOTE2(a,b) TH_QUOTE(a ## b)
 #define TINY 1E-14
@@ -240,16 +246,20 @@
 	ALLOC(pointer,size,type);\
 	mem+=size*sizeof(type);\
 }while(0)
-
 /*useful*/
-//#define SKIP_BLANK(pointer) while(!ISGRAPH(*pointer)) pointer++
-//#define SKIP_NUM(pointer) while(ISDIGIT(*pointer)) pointer++
-/*SAFER VERSIONS*/
 #define SKIP_BLANK(pointer) \
 	while((!ISGRAPH(*pointer))&&(*pointer!='\n')&&(*pointer!='\0')) pointer++
 #define SKIP_NUM(pointer) \
 	while((ISDIGIT(*pointer))&&(*pointer!='\n')&&(*pointer!='\0')) pointer++
-
+#define STR_CLEAN(pointer) do{\
+	CHAR *_ptr=pointer;\
+	while(*_ptr!='\0'){\
+		if(*_ptr=='\t') *_ptr='\0';\
+		if(*_ptr==' ') *_ptr='\0';\
+		if((*_ptr=='\n')||(*_ptr=='#')) *_ptr='\0';\
+		else _ptr++;\
+	}\
+}while(0)
 #define GET_LAST_LINE(fp,buffer) do{\
 	fseek(fp,-2,SEEK_END);\
 	while(fgetc(fp)!='\n') fseek(fp,-2,SEEK_CUR);\
@@ -408,18 +418,22 @@
 		exit(-1);\
 	}\
 }while(0)
-/*streams*/
+#endif /*_CUDA*/
+
 typedef struct {
-	int n_gpu;
+	UINT n_gpu;
 #ifdef _CUBLAS
 	cublasHandle_t cuda_handle;
 #else /*_CUBLAS*/
 	int cuda_handle;
 #endif /*_CUBLAS*/
 	UINT        cuda_n_streams;
+#ifdef _CUDA
 	cudaStream_t *cuda_streams;
-} cudastreams;
+#else /*_CUDA*/
+	void *cuda_streams;
 #endif /*_CUDA*/
+} cudastreams;
 
 
 

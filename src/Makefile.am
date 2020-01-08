@@ -8,15 +8,13 @@ AM_CPPFLAGS = \
 	-DPACKAGE_DATA_DIR=\""$(pkgdatadir)"\" \
 	$(LIBHPNN_CFLAGS)
 
-AM_CFLAGS =\
-	 -Wall\
-	 -g
+AM_CFLAGS = -I$(top_srcdir)/include
 
 lib_LTLIBRARIES = libhpnn.la
 
 
 libhpnn_la_SOURCES = \
-	lib.c
+	libhpnn.c ann.c cuda_ann.cu
 
 libhpnn_la_LDFLAGS = 
 
