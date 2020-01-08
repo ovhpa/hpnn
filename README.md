@@ -1,15 +1,42 @@
 # hpnn
 High performance neural networks
 
+## Introduction
+
 The hpnn library is an (academic) essay on trying to develop a simple, yet optimized, library for the "on-the-fly" training of artificial neural networks (ANNs).
 The goal is to provide any given program an access to the creation, training, and use of ANN through a very simplistic API, creating ANNs as the program perform its regular calculations.
+
+The novelty (or oddness) of our method is that the training of ANNs is aimed to be performed while the actual calculation are performed, for example, if we consider a normal ANN creation and optimization such as:
+
+![regular](res/regular.png)
+
+A database is build using the many output produced by running a program (in blue).
+Then, an ANN is trained with the data from the database (in green).
+When the training is deem good enough, a final ANN can be use (in orange) to produce a result (in red) from input almost instantly.
+The quality of the output of course depend on the quality of the database.
+Usually, the training process is quite long, and obtaining the database can be problematic: high quality database usually require a huge amount of time and/or some significant financial.
+Note that in such "classic" scenario, the demonstration `train_nn` and `run_nn` programs from libhpnn can be used.
+
+The goal libhpnn is trying to achieve can be viewed as:
+
+![hpnn](res/hpnn.png)
+
+In this case, an ANN in enriched on the fly each time the program is run.
+As the ANN quality improved, the ANN can be used together with the program as a was to optimize its performance.
+Of course, the ANN part has to be "corrected" by the program on each run until such correction prove unnecessary.
+For example, if one consider using an ANN in place of a self consistent (iterative) calculation:
+* at first the ANN is poorly optimized, the ANN part is then no better than a random initialization of the calculation, and the whole calculation should take a little _longer_ than it would without the ANN part.
+* as the ANN improved, the iterative part will reduce, since the initialization will be a "better" guess (than a random one). In this part, the training and preparation of ANN will challenge the reduction of the iterative part.
+* when the ANN is getting efficient, the iterative part will reduce significantly (ideally tending to a single iteration). At that point the training of ANN will also be reduce and can even be switched off. The remaining iterative part will then act as a "safety net" for the (still possible) failures of the ANN.
+
+The HPNN library is developed "from scratch" (which means from accessible books and literature) and is provided _as is_ in the hope that it will be helpful (see [License](LICENSE)).
 
 The library is written in plain C, and optimized for use in parallel systems with several layers:
 * MPI - for the inter-nodes computations
 * OpenMP - for the intra-nodes computations
 * CUDA - for GPGPU computations
 
-Some other technologies may be added later.
+Some other technologies (for ex. openCL) may be added later.
 
 This work is still at a very, very early stage!
 Some _demonstration_ wrapper are provided which shows an example of integration with the library: these are not the programs you are looking for ;)
@@ -30,27 +57,13 @@ P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). 
 
 ## Compile
 
-1/ Select or create a `make.xxx` in the arch folder.
-2/ replace the line that says `include arch/make.gcc.linux` with your `make.xxx` file:
-```
-include arch/make.xxx
-```
-3/ type:
-```
-make all
-```
-In the main directory (where the `Makefile` file is).
+Usually the `autogen.sh` script will find the best option for compiling libhpnn.
+In such case, it will produce a `configure` executable, which can be run to prepare the Makefiles.
+After that, given that no error is encountered, a `make all` command will compile the library and a `make install` will install it into the directory specified by the `--prefix=` option (which default to /usr/local on GNU/Linux). Depending on where the installation is performed, the latter installation could require elevated privilege (such as root).
 
-There is also a `debug` target (for.. debug) and a glib `gall` target for compatibility, with an associated `gdebug` for debuging glib target.
-All target can be made using:
-```
-make everything
-```
+Additionally, before the `make install` step, one may want to test the libhpnn library. The `make check` command will perform several tests, depending on the library capability. Should one of the test FAIL, please check external compilers and library (C compiler, MPI, openMP, CUDA) prior to filling a BUG report.
 
-It is recomended to use or modify one of the available targets:
-make.gcc.openblas: uses the openblas _parallel_ library with the gcc compiler. 
-arch/make.icc.linux: uses the mkl _parallel_ library with the intel compiler.
-
+One may want to use specific compiler, libraries, or capabilities settings for the compilation of libhpnn. In such cases, please consult the [install](INSTALL) file.
 
 ## Basic ANN type (NN\_TYPE\_ANN)
 
