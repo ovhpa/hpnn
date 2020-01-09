@@ -129,4 +129,5 @@ AC_OUTPUT([
 Makefile
 src/libhpnn.pc
 src/Makefile
+tests/Makefile
 ])
