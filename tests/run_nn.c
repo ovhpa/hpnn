@@ -27,31 +27,31 @@
 #include <libhpnn.h>
 
 void dump_help(){
-	fprintf(stdout,"****************************************\n");
-	fprintf(stdout," usage: run_nn [-options] [input]       \n");
-	fprintf(stdout,"****************************************\n");
-	fprintf(stdout,"options:                               *\n");
-	fprintf(stdout,"-h \tdisplay this help;                *\n");
-	fprintf(stdout,"-v \tincrease verbosity;               *\n");
+	_OUT(stdout,"****************************************\n");
+	_OUT(stdout," usage: run_nn [-options] [input]       \n");
+	_OUT(stdout,"****************************************\n");
+	_OUT(stdout,"options:                               *\n");
+	_OUT(stdout,"-h \tdisplay this help;                *\n");
+	_OUT(stdout,"-v \tincrease verbosity;               *\n");
 /*^^^ for openMP calculation ^^^*/
 #ifdef _OMP
-	fprintf(stdout,"-O \tnumber of openMP threads.         *\n");
-	fprintf(stdout,"-B \tnumber of BLAS threads (MKL).     *\n");
+	_OUT(stdout,"-O \tnumber of openMP threads.         *\n");
+	_OUT(stdout,"-B \tnumber of BLAS threads (MKL).     *\n");
 #endif
 /*^^^ CUDA specific ^^^*/
 #ifdef _CUDA
-	fprintf(stdout,"-S \tnumber of CUDA streams.           *\n");
+	_OUT(stdout,"-S \tnumber of CUDA streams.           *\n");
 #endif /*_CUDA*/
-	fprintf(stdout,"****************************************\n");
-	fprintf(stdout,"input: neural network def file contains*\n");
-	fprintf(stdout,"neural network definitions & topologies*\n");
-	fprintf(stdout," -can contain weight values or seed for*\n");
-	fprintf(stdout,"the random generation of weights.      *\n");
-	fprintf(stdout,"****************************************\n");
-	fprintf(stdout,"Code released 'as is' /GPLv3, available*\n");
-	fprintf(stdout,"here: https://github.com/ovhpa/hpnn    *\n");
-	fprintf(stdout,"- project started 2019~       -- OVHPA.*\n");
-	fprintf(stdout,"****************************************\n");
+	_OUT(stdout,"****************************************\n");
+	_OUT(stdout,"input: neural network def file contains*\n");
+	_OUT(stdout,"neural network definitions & topologies*\n");
+	_OUT(stdout," -can contain weight values or seed for*\n");
+	_OUT(stdout,"the random generation of weights.      *\n");
+	_OUT(stdout,"****************************************\n");
+	_OUT(stdout,"Code released 'as is' /GPLv3, available*\n");
+	_OUT(stdout,"here: https://github.com/ovhpa/hpnn    *\n");
+	_OUT(stdout,"- project started 2019~       -- OVHPA.*\n");
+	_OUT(stdout,"****************************************\n");
 }
 int main (int argc, char *argv[]){
 	UINT idx,jdx;
@@ -66,6 +66,8 @@ int main (int argc, char *argv[]){
 	CHAR *tmp,*ptr;
 #endif
 	CHAR *nn_filename = NULL;
+	/*init all*/
+	_NN(init,all)();
 /*parse arguments*/
 	if(argc>1){
 		idx=1;
@@ -77,6 +79,7 @@ int main (int argc, char *argv[]){
 					switch (argv[idx][jdx]){
 					case 'h':
 						dump_help();
+						_NN(deinit,all)();
 						return 0;/*nothing happen after help*/
 					case 'v':
 						_NN(inc,verbose)();
@@ -91,24 +94,24 @@ int main (int argc, char *argv[]){
 							tmp=&(argv[idx][0]);
 							SKIP_BLANK(tmp);
 							if(!ISDIGIT(*(tmp))){
-fprintf(stderr,"syntax error: bad -O parameter!\n");
+_OUT(stderr,"syntax error: bad -O parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 						}else{
 							/*we have -ON*/
 							if(!ISDIGIT(*(tmp+1))){
-fprintf(stderr,"syntax error: bad -O parameter!\n");
+_OUT(stderr,"syntax error: bad -O parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 							tmp++;
 						}
 						GET_UINT(n_o,tmp,ptr);
 						if(n_o==0){
-fprintf(stderr,"syntax error: bad -O parameter!\n");
+_OUT(stderr,"syntax error: bad -O parameter!\n");
 							dump_help();
-							return 1;
+							goto FAIL;
 						}
 						_NN(set,omp_threads)(n_o);
 						goto next_arg;/*no combination is allowed*/
@@ -120,24 +123,24 @@ fprintf(stderr,"syntax error: bad -O parameter!\n");
 							tmp=&(argv[idx][0]);
 							SKIP_BLANK(tmp);
 							if(!ISDIGIT(*(tmp))){
-fprintf(stderr,"syntax error: bad -B parameter!\n");
+_OUT(stderr,"syntax error: bad -B parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 						}else{
 							/*we have -BN*/
 							if(!ISDIGIT(*(tmp+1))){
-fprintf(stderr,"syntax error: bad -B parameter!\n");
+_OUT(stderr,"syntax error: bad -B parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 							tmp++;
 						}
 						GET_UINT(n_b,tmp,ptr);
 						if(n_b==0){
-fprintf(stderr,"syntax error: bad -B parameter!\n");
+_OUT(stderr,"syntax error: bad -B parameter!\n");
 							dump_help();
-							return 1;
+							goto FAIL;
 						}
 						_NN(set,omp_blas)(n_b);
 						goto next_arg;/*no combination is allowed*/
@@ -151,32 +154,32 @@ fprintf(stderr,"syntax error: bad -B parameter!\n");
 							tmp=&(argv[idx][0]);
 							SKIP_BLANK(tmp);
 							if(!ISDIGIT(*(tmp))){
-fprintf(stderr,"syntax error: bad -S parameter!\n");
+_OUT(stderr,"syntax error: bad -S parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 						}else{
 							/*we have -SN*/
 							if(!ISDIGIT(*(tmp+1))){
-fprintf(stderr,"syntax error: bad -S parameter!\n");
+_OUT(stderr,"syntax error: bad -S parameter!\n");
 								dump_help();
-								return 1;
+								goto FAIL;
 							}
 							tmp++;
 						}
 						GET_UINT(n_s,tmp,ptr);
 						if(n_s==0){
-fprintf(stderr,"syntax error: bad -S parameter!\n");
+_OUT(stderr,"syntax error: bad -S parameter!\n");
 							dump_help();
-							return 1;
+							goto FAIL;
 						}
 						_NN(set,cuda_streams)(n_s);
 						goto next_arg;/*no combination is allowed*/
 #endif /*_CUDA*/
 					default:
-						fprintf(stderr,"syntax error: unrecognized option!\n");
+						_OUT(stderr,"syntax error: unrecognized option!\n");
 						dump_help();
-					return 1;
+						goto FAIL;
 					}
 				}
 			}else{
@@ -193,17 +196,18 @@ next_arg:
 		/*default config file*/
 		STRDUP("./nn.conf",nn_filename);
 	}
-	/*initialize ann*/
-	_NN(init,all)();
 	/*load configuration file*/
 	neural=_NN(conf,load)(nn_filename);
 	if(neural==NULL) {
 		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
-		return 1;
+		goto FAIL;
 	}
 	/*setup done, run kernel*/
 	_NN(kernel,run)(neural);
 	/*deinit*/
 	_NN(deinit,all)();
 	return 0;
+FAIL:
+	_NN(deinit,all)();
+	return -1;
 }

@@ -206,7 +206,23 @@ BOOL _NN(init,BLAS)(){
 #endif
 }
 int _NN(init,all)(){
-        return 0;
+	BOOL is_ok=FALSE;
+	nn_cap capability = _NN(get,capabilities)();
+	if(capability & NN_CAP_OMP) {
+		is_ok|=_NN(init,OMP)();
+	}
+	if(capability & NN_CAP_MPI) {
+		is_ok|=_NN(init,MPI)();
+	}
+	if(capability & NN_CAP_CUDA) {
+		is_ok|=_NN(init,CUDA)();
+	}
+	if((capability & NN_CAP_PBLAS)||(capability & NN_CAP_SBLAS)){
+		is_ok|=_NN(init,BLAS)();
+
+	}
+	if(is_ok) return 0;
+	else return -1;
 }
 BOOL _NN(deinit,OMP)(){
 #ifndef _OMP
@@ -251,7 +267,14 @@ BOOL _NN(deinit,BLAS)(){
 #endif
 }
 int _NN(deinit,all)(){
-	return 0;
+	BOOL is_ok=FALSE;
+	nn_cap capability = _NN(get,capabilities)();
+	if(capability & NN_CAP_OMP) is_ok|=_NN(deinit,OMP)();
+	if(capability & NN_CAP_MPI) is_ok|=_NN(deinit,MPI)();
+	if(capability & NN_CAP_CUDA) is_ok|=_NN(deinit,CUDA)();
+	if((capability & NN_CAP_PBLAS)||(capability & NN_CAP_SBLAS)) is_ok|=_NN(deinit,BLAS)();
+	if(is_ok) return 0;
+	else return -1;
 }
 /*--------------------------*/
 /*+++ set/get parameters +++*/

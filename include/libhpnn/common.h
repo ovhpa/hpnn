@@ -74,8 +74,6 @@
 #define READLINE(fp,buffer) do{\
 	ssize_t _read_count=0;\
 	_read_count=getline(&buffer,&_readline_len,fp);\
-	if(_read_count==-1) _OUT(stderr,"READ ERROR: getline failed (function %s, line %i)\n",\
-                        FUNCTION,__LINE__);\
 }while(0)
 #define QUOTE(a) #a
 #define QUOTE2(a,b) TH_QUOTE(a ## b)
