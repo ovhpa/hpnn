@@ -181,6 +181,8 @@ int main (int argc, char *argv[]){
 							dump_help();
 							goto FAIL;
 						}
+						if(n_s<1) n_s=1;
+						_NN(set,cuda_streams)(n_s);
 						goto next_arg;/*no combination is allowed*/
 #endif /*_CUDA*/
 					default:
@@ -200,11 +202,6 @@ next_arg:
 		}
 	}
 	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
-	/*initialize ann*/
-#ifdef _CUDA
-	if(n_s<1) n_s=1;
-	_NN(set,cuda_streams)(n_s);
-#endif /*_CUDA*/
 	/*load configuration file*/
 	neural=_NN(conf,load)(nn_filename);
 	if(neural==NULL) {
