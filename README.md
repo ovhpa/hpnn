@@ -65,18 +65,32 @@ Additionally, before the `make install` step, one may want to test the libhpnn l
 
 One may want to use specific compiler, libraries, or capabilities settings for the compilation of libhpnn. In such cases, please consult the [install](INSTALL) file.
 
-## Basic ANN type (NN\_TYPE\_ANN)
+## ANN types
 
-The feed-forward simple ANN is the most simple topology. It is composed of:
+Generally a ANN can be viewed as shown in the following scheme:
+
+![hpnn](res/ann.png)
+
+In which an array (ie a vector containing values i) is given as an input and pass to a layer. Such layer is composed of a vector (possibly of a different dimension than input) of neurons. A neurons is actually a matrix of weights to which the input vector will be multiplied, and an activation function which will be applied to the result of the multiplication. Such activation can be a simple logical operation (such as if result is positive function is 1 and 0 otherwise), or a more complex function - for ex. a sigmoid will offer more flexibility than a simple logical activation. That function result is the result of a layer and is an array of values (r in the figure). The operation can then be repeated several times by adding several layers. The last layer is called the output layer by convention because it contains the final output array (o values). Layers between input array and output layer are called hidden layers. Sometimes the input array is improperly called "input layer" even though it does not contain any relevant layer elements (roughly it would be as if it is multiplied by the identity matrix followed by a f(x)=x function). Layers are also sometimes modeled with an array of bias b values that are added to the result function, but its use is limited and it has been proven to be equivalent to adding an appropriate neuron, and therefore is not implemented in libhpnn.
+
+This simple topology in which each layer output is the input of the next layer is called a feed-forward layer.
+
+### Basic ANN (NN\_TYPE\_ANN)
+
+The NN\_TYPE\_ANN (in which A stands for 'activated') is a simple feed-forward topology (see above) with:
 * inputs: any number of inputs, which must be consistent with sample and test files, used for training and testing ANN, respectively;
-* any number of layers (at least 1), each of them composed of any number of neurons;
+* any number of hidden layers (at least 1), each of them composed of any number of neurons;
 * an output layer, composed of a number of neurons equals to the number of outputs.
 
-Basic schematics for NN\_TYPE\_ANN
+The activation is fixed for all layers (including the output layers) and is of sigmoid type.
 
-X
+Training methods allowed for NN\_TYPE\_ANN are:
+- [x] simple back-propagation;
+- [x] back-propagation with momentum;
+- [ ] conjugate gradient method;
+- [ ] simplex.
 
-The hpnn is optimized for:
+The NN\_TYPE\_ANN is optimized for:
 - [x] Serial processing, using BLAS (lvl. 2);
 - [x] openMP (multicore) processing, using parallel BLAS (openblas, intel mkl);
 - [x] CUDA (multi-GPU) processing, using CUBLAS;
@@ -84,10 +98,9 @@ The hpnn is optimized for:
 - [x] MPI/OpenMP combination (for multi-nodes/multi-CPUs/multi-cores configurations.
 - [ ] MPI/CUDA for GPGPU capable multi-nodes (work in progress).
 
+### Linear activation ANN (NN\_TYPE\_LNN)
 
-
-_YES_ even the README.md is not finished...
-
+Incoming...
 
 
 
