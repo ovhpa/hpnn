@@ -1,53 +1,33 @@
-LIBHPNN version 0.1
+LIBHPNN version 0.2
 -------------------
 
- This is the README of the library, since there is not INSTALL.txt (yet), I will
-explain here how to manually install libhpnn.
+This README is supposed to provide a minimal description of the high performance neural network (hpnn) library, for use with a package and/or source-only distribution. It is not aimed at replacing the README.md file which is the official README of libhpnn project.
 
-This is however not a tutorial on how to _use_ libhpnn, please see the README.md
-file in the tutorial directory for such instructions.
-
-I - Installation
+I - introduction
 ----------------
 
-The libhpnn uses a GNU/autotool strategy to get its prerequisite libraries.
-This should mean that installation can be as simple as:
-```
-% ./autogen.sh
-[... some output ...]
-% ./configure
-[... some more output ...]
-% make all
-[... still some more output ...]
-```
-And that should put the compiled libhpnn library into the lib directory.
-An additional:
-```
-% sudo make install
-[... guess? ...]
-```
-will install libhpnn into a system directory where it can be directly linked and
-used. For example compiling a software that require libhpnn with gcc, one should
-only have to add the appropriate -l switch.
-```
-% gcc my_prog.c -lhpnn
-```
-Of course that depends on how your system is configured.
+HPNN library aimed to provide an easy API to create, optimized, and use artificial neural networks (ANNs) "on the fly" while using a regular (ie. without ANN) program.
+The ANNs call to library would hopefully slowly replace the computation intensive part of a program, while improving its ANNs on each run, in a predictor-corrector fashion.
 
-At the configure step, using `--prefix=/path` option will install the library at
-the /path root, it means that `libhpnn.h`,  and `libhpnn.a` will be installed as
-`/path/include/libhpnn.h`,  and `/path/lib/libhpnn.a`, respectively.
-In case you wish to use a non-standard path -or one that is not recognize by gcc
-compiler- you can still use the library with -I and -L switches:
+II - license
+------------
+
+* The whole libhpnn project, including its example case programs, wiki, documentation, and every other files it contains (thereafter referred to as "the project") is considered a free software: * you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+* The project is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public [License](LICENSE) for more details.
+* a copy of the GNU General Public License should be include with the project (see COPYING and/or LICENSE file).  If not, see <[https://www.gnu.org/licenses/](https://www.gnu.org/licenses/)>.
+
+III - Installation
+------------------
+
+The installation of libhpnn relies on the autotools system.
+Usually only a few steps are required to produce the library:
 ```
-% gcc -I/path/include my_prog.c -L/path/lib -lhpnn
+./autogen.sh
+./configure
+make all
+make install
 ```
+The latter may require elevated privileged depending on the installation target directory, which can be modified by the `--prefix=` switch.
 
-II - Personalization
---------------------
-
-libhpnn relies on effective BLAS, OpenMP, MPI, and CUDA libraries. On most cases
-this means that a simple installation similar to the previous section will _not_
-leads to an optimized libhpnn.
-
+For advance instruction and specific combination of compilers or libraries, please see the INSTALL file.
 

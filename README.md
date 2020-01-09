@@ -43,7 +43,7 @@ Some _demonstration_ wrapper are provided which shows an example of integration 
 * train_nn: demonstrate how to train a network using MPI/OpenMP/CUDA, taking training set from a sample directory, and creating a kernel.opt file which contains the definition of the optimized ANN.
 * run_nn: demonstrate how to run a specific ANN against a testing set from a test directory.
 
-Additionally, in order to produce a valid set of input/ouput to feed an ANN, a tutorial presentation is available which will download an X-ray diffraction (XRD) database and create two programs to format it into a simple format. It consist in a script that will do most of the demonstration by itself. The full explanation of this tutorial is available here.
+Additionally, in order to produce a valid set of input/output to feed an ANN, a tutorial presentation is available which will download an X-ray diffraction (XRD) database and create two programs to format it into a simple format. It consist in a script that will do most of the demonstration by itself. The full explanation of this tutorial is available here.
 This tutorial is provided in order to understand libhpnn API, it is by no mean a guide of good practice in producing reasonable model for XRD predicting the geometry of a crystal using XRD pattern.
 -> in case you are interested by such application, I recommend reading the following paper: 
 P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). A preprint is available [here](https://arxiv.org/abs/1812.05625)

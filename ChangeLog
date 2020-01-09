@@ -1,12 +1,28 @@
-LIBHPNN - v. 0.1 (2019)
+## LIBHPNN - v. 0.2 (2020)
+New API interface version oriented toward general purpose use of the library.
+still very alpha, with a lot of potential BUGS.
+FEATURES:
+    * one of the most interesting improvement is the new autotool integration.
+        * autogen.sh
+        * configure.ac
+        * makefile.am
+    * the interface was change so it can be use with an external program that has
+    already initialize its MPI/openMP/CUDA interface.
+    * the two main wrapper, run_nn and train_nn are now main test of the library.
+    The internal math and function are unchanged, while the interface is now more
+    user-friendly.
+    * Documentation is now more clear about the goals of libhpnn.
+This version is intended to be the first release through github.
+
+## LIBHPNN - v. 0.1 (2019)
 This is the first version of libhpnn (obviously).
 Very alpha, with a lot of potential BUGS.
 FEATURES:
-	* type ANN is ready: simple feedforward NN with a sigmoid activation.
-		* OpenMP implemetation: OK
-		* CUDA implematation: OK
+	* type ANN is ready: simple feed-forward NN with a sigmoid activation.
+		* OpenMP implementation: OK
+		* CUDA implementation: OK
 		* MPI implementation: OK
-		* MPI + OpenMP implemetation: OK
+		* MPI + OpenMP implementation: OK
 		* MPI + cuda: TODO (started)
 		* OpenMP + cuda: TODO (started)
 		* MPI + OpenMP + CUDA: TODO (started)
