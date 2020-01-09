@@ -1,7 +1,7 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl Re-written OVHPA @2019
 
-AC_INIT(libhpnn, 0.1)
+AC_INIT(libhpnn, 0.2)
 
 AC_CONFIG_HEADERS([config.h])
 
@@ -127,6 +127,6 @@ fi
 
 AC_OUTPUT([
 Makefile
-src/libhpnn-0.1.pc
+src/libhpnn.pc
 src/Makefile
 ])

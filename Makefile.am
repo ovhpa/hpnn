@@ -13,6 +13,7 @@ dist_doc_DATA = \
 
 AM_CFLAGS = -I$(top_srcdir)/include
 
+
 # Remove doc directory on uninstall
 uninstall-local:
 	-rm -r $(docdir)
