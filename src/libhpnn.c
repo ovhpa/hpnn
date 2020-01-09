@@ -139,9 +139,9 @@ BOOL _NN(init,OMP)(){
 }
 BOOL _NN(init,MPI)(){
 #ifndef _MPI
-	NN_WARN(sdout,"failed to init MPI (no capability).\n");
+	NN_WARN(stdout,"failed to init MPI (no capability).\n");
 	return FALSE;
-#else
+#else /*_MPI*/
 	MPI_Init(NULL, NULL);
 	MPI_Comm_size(MPI_COMM_WORLD,&(lib_runtime.nn_num_tasks));
 	if(lib_runtime.nn_num_tasks<2) {
@@ -154,10 +154,11 @@ BOOL _NN(init,MPI)(){
 	}
 	NN_OUT(stdout,"MPI started %i tasks.\n",lib_runtime.nn_num_tasks);
 	return TRUE;
+#endif /*_MPI*/
 }
 BOOL _NN(init,CUDA)(){
 #ifndef _CUDA
-	NN_WARN(STDOUT,"failed to init CUDA (no capability).\n");
+	NN_WARN(stdout,"failed to init CUDA (no capability).\n");
 	return FALSE;
 #else
 	cudaGetDeviceCount(&(lib_runtime.cudas.n_gpu));
@@ -265,7 +266,7 @@ BOOL _NN(set,omp_threads)(UINT n_threads){
 	return TRUE;
 #endif /*_OMP*/
 }
-BOOL _NN(get,omp_threads)(UNIT *n_threads){
+BOOL _NN(get,omp_threads)(UINT *n_threads){
 #ifndef _OMP
 	*n_threads = 1;
 	return FALSE;
@@ -284,7 +285,7 @@ BOOL _NN(set,mpi_tasks)(UINT n_tasks){
 	return TRUE;
 #endif
 }
-BOOL _NN(get,mpi_tasks)(UNIT *n_tasks){
+BOOL _NN(get,mpi_tasks)(UINT *n_tasks){
 #ifndef _MPI
 	*n_tasks=1;
 	return FALSE;

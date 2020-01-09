@@ -104,9 +104,9 @@ int  _NN(deinit,all)();
 /*+++ set/get parameters +++*/
 /*--------------------------*/
 BOOL _NN(set,omp_threads)(UINT n_threads);
-BOOL _NN(get,omp_threads)(UNIT *n_threads);
+BOOL _NN(get,omp_threads)(UINT *n_threads);
 BOOL _NN(set,mpi_tasks)(UINT n_tasks);
-BOOL _NN(get,mpi_tasks)(UNIT *n_tasks);
+BOOL _NN(get,mpi_tasks)(UINT *n_tasks);
 BOOL _NN(set,cuda_streams)(UINT n_streams);
 BOOL _NN(get,cuda_streams)(UINT *n_streams);
 BOOL _NN(set,omp_blas)(UINT n_blas);

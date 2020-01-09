@@ -119,8 +119,10 @@ return 0;
 	fi
 fi
 #FAIL if we need to
-if test "x$with_mpi" = xyes -o "x$pkg_mpi" != xyes -o "x$use_mpicc" = xnone; then
-	AC_MSG_ERROR(MPI was requested --use-mpi=yes but no MPI found!)
+if test "x$with_mpi" = xyes; then
+	if test "x$pkg_mpi" != xyes -o "x$use_mpicc" = xnone; then
+		AC_MSG_ERROR(MPI was requested --use-mpi=yes but no MPI found!)
+	fi
 fi
 
 AC_OUTPUT([
