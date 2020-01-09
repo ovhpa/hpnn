@@ -1255,10 +1255,6 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 /*^^^ output*/
 	N=KERN.output.n_neurons;
 	M=KERN.output.n_inputs;
-Epr=0.;
-	for(idx=0;idx<(N);idx++) Epr+=fabs(KERN.output.vec[idx]);
-	_OUT(stdout,"\nres = %.15f\n",Epr);
-Epr=0.;
 #ifdef _MPI
 	red=N/n_streams;
 	rem=N%n_streams;

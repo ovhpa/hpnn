@@ -1,6 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-
-## Created by Anjuta
+## Re-written OVHPA @2019
 
 AM_CPPFLAGS = \
 	-DPACKAGE_LOCALE_DIR=\""$(localedir)"\" \
