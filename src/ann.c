@@ -62,7 +62,7 @@
 #endif
 /*^^^ OMP specific*/
 #ifdef _OMP
-#define _NT num_threads(_NN(get,omp_threads)())
+#define _NT num_threads(_NN(return,omp_threads)())
 #else
 #define _NT
 #endif

@@ -41,7 +41,14 @@ AC_ARG_WITH([libmpi],
             [],
             [with_mpi=auto])
 AC_MSG_RESULT([$with_mpi])
-
+# OMP
+AC_MSG_CHECKING([if OMP was required])
+AC_ARG_WITH([libomp],
+            [AS_HELP_STRING([--with-omp],
+              [compile with OpenMP support @<:@default=auto@:>@])],
+            [],
+            [with_omp=auto])
+AC_MSG_RESULT([$with_omp])
 
 
 AC_MSG_NOTICE(+++---------------------------+++)
@@ -50,6 +57,7 @@ AC_MSG_NOTICE(+++---------------------------+++)
 
 # Checks for header files.
 AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([omp.h],[use_omp='yes'], [use_omp='no'])
 
 # Checks for typedefs, structures, and compiler characteristics.
 
@@ -103,6 +111,7 @@ AC_MSG_NOTICE(+++---------------------------------------------+++)
 if test "x$with_mpi" != xno; then
 	AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
 	if test "x$pkg_mpi" != xyes; then
+		CFLAGS+=" -D_MPI"
 		AC_MSG_NOTICE(^^^ no mpi package -> configuring $use_mpicc)
 		AC_MSG_CHECKING([if mpicc is current compiler])
 		AC_LANG_PUSH(C)
@@ -117,13 +126,27 @@ return 0;
 		AC_LANG_POP()
 		AC_MSG_RESULT([$mpicc_gcc])
 	fi
+else
+	CFLAGS+=" -D_MPI"
 fi
-#FAIL if we need to
+#FAIL if we need to (ie user asked for MPI but none could be found)
 if test "x$with_mpi" = xyes; then
-	if test "x$pkg_mpi" != xyes -o "x$use_mpicc" = xnone; then
-		AC_MSG_ERROR(MPI was requested --use-mpi=yes but no MPI found!)
+	if test "x$pkg_mpi" != xyes -a "x$use_mpicc" = xnone; then
+		AC_MSG_ERROR(MPI was requested with --use-mpi=yes but no MPI found!)
 	fi
 fi
+# OMP
+if test "x$use_omp" = xyes; then
+	# TODO determine if libomp is needed
+	CFLAGS+=" -fopenmp -D_OMP"
+fi
+#FAIL if we need to (ie user asked for OMP but omp.h could not be found)
+if test "x$with_omp" = xyes; then
+	if test "x$use_omp" != xyes; then
+		AC_MSG_ERROR(OMP was requested with --use-omp=yes but no omp.h header was not found!)
+	fi
+fi
+
 
 AC_OUTPUT([
 Makefile

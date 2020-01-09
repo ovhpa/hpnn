@@ -298,6 +298,9 @@ BOOL _NN(get,omp_threads)(UINT *n_threads){
 	return TRUE;
 #endif
 }
+int _NN(return,omp_threads)(){
+	return lib_runtime.nn_num_threads;
+}
 BOOL _NN(set,mpi_tasks)(UINT n_tasks){
 #ifndef _MPI
 	NN_WARN(stdout,"failed to set MPI num_tasks (no capability).\n");
