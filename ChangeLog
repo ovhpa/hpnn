@@ -14,7 +14,7 @@ FEATURES:
     * Documentation is now more clear about the goals of libhpnn.
 This version is intended to be the first release through github.
 
-## LIBHPNN - v. 0.1 (2019)
+## LIBHPNN - v. 0.1 (2019-12-20)
 This is the first version of libhpnn (obviously).
 Very alpha, with a lot of potential BUGS.
 FEATURES:

@@ -11,12 +11,8 @@ Another interesting - yet simple - example of interface with the hpnn library AP
 
 ## Basic ANN type (NN\_TYPE\_ANN)
 
-This it the most basic, feedforward, NN.
-It consists of a vector of inputs, one or several hidden layers, and one ouput layer.
-each layer, being it hidden or output, has the following structure:
-* a matrix containing the layers weights, and
-* a vector containing the intermediate result.
-In the case of output layer, obviously, the intermediate result is actually the output result of the NN.
+See the main [README.md](README.md) file for the definition of that ANN type.
 
+A tutorial is provided for this type in the form of a bash script, [tutorial.bash](tutorials/ann/tutorial.bash). Following is a walk-through of what the script is doing. 
 
 
