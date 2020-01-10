@@ -145,13 +145,14 @@ if test "x$with_omp" != xno; then
 else
 	use_omp=no
 fi
-#test for BLAS flavous
-#unless --with-blas=no or --with-blas=none switch is used
-if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
+#auto BLAS flavous (TODO)
 	# I - with auto, try in order:
 	#1 - mkl if intel compiler
 	#2 - openblas
 	#3 - generic cblas
+#check fo specific BLAS requirement
+#unless --with-blas=no or --with-blas=none switch is used
+if test "x$with_blas" != xno -o "x$with_blas" != xnone -o "x$with_blas" != auto; then
 	# II - specific cases
 	if test "x$with_blas" = xmkl; then
 		AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[use_mkl='yes'],[use_mkl='no'])
@@ -218,9 +219,38 @@ if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
 			AC_MSG_ERROR(OPENBLAS was requested with --use-blas=openblas but cblas.h can't be found!)
 		fi
 	fi
+	if test "x$with_blas" = xatlas; then
+		#libraries such as atlas use [-lcblas -ltatlas] [-ltatlas] or [-lsatlas]
+		AC_CHECK_HEADERS([cblas.h],[use_cblas='yes'],[use_cblas='no'])
+		if test "x$use_cblas" = xyes; then
+			AC_SEARCH_LIBS([ATL_dgemv],[tatlas])# -ltatlas
+			#this one might not be needed
+			AC_SEARCH_LIBS([cblas_dgemv],[cblas],[can_pblas='yes'],[can_pblas='no'])# -lcblas
+			if test "x$can_pblas" != xyes; then
+				#try sequential version...
+				AC_SEARCH_LIBS([ATL_dgemv],[satlas])# -lsatlas
+				#this one might not be needed
+				AC_SEARCH_LIBS([cblas_ddot],[cblas],[can_sblas='yes'],[can_sblas='no'])# -lcblas
+				if test "x$can_sblas" != xyes; then
+					AC_MSG_ERROR(ATLAS BLAS was requested with --use-blas=atlas but LDFLAGS can't be set!)
+				else
+					AC_MSG_NOTICE([^^^ WARNING! PARALLEL OPENBLAS COULD NOT BE FOUND! ^^^])
+					AC_MSG_NOTICE([^^^ !!!!!!!! WILL USE SEQUENTIAL OPENBLAS INSTEAD! ^^^])
+					AC_MSG_NOTICE([^^^ !!!!!!!! NOTE: PERFORMANCE WILL SUFFER (much)! ^^^])
+					AC_CHECK_FUNCS([cblas_ddot cblas_daxpy cblas_dscal cblas_dger])
+					CFLAGS+=" -DSBLAS"
+				fi
+			else
+				AC_CHECK_FUNCS([cblas_dgemv cblas_dger])
+				CFLAGS+=" -DPBLAS"
+			fi
+		else
+			AC_MSG_ERROR(CBLAS was requested with --use-blas=atlas but cblas.h can't be found!)
+		fi
+	fi
 fi
 # Checks for typedefs, structures, and compiler characteristics.
-
+#TODO - optimization level -O3 for intel compiler can't be use with MPI
 
 # Checks for library functions.
 AC_SEARCH_LIBS([sqrt], [m])
