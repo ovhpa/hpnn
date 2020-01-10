@@ -70,6 +70,15 @@ if test "x$with_cublas" = xyes; then
 		with_cuda='yes'
 	fi
 fi
+# BLAS
+AC_MSG_CHECKING([if specific BLAS was required])
+AC_ARG_WITH([blas],
+            [AS_HELP_STRING([--with-blas],
+              [determine which BLAS flavor to use @<:@default=auto@:>@])],
+            [],
+            [with_blas=auto])
+AC_MSG_RESULT([$with_blas])
+
 
 AC_MSG_NOTICE(+++---------------------------+++)
 AC_MSG_NOTICE(+++ entering standard checks. +++)
@@ -115,7 +124,19 @@ return 0;
 		fi
 	fi
 fi
-
+#determine if compiler is INTEL
+AC_MSG_CHECKING([if current compiler ($CC) is intel compiler])
+AC_LANG_PUSH(C)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+]],[[
+#ifndef __ICC
+#error "NOT ICC"
+#endif
+return 0;
+]])],[is_icc='yes'], [is_icc='no'])
+AC_LANG_POP()
+AC_MSG_RESULT([$is_icc])
 # Checks for header files.
 AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h unistd.h])
 #if not --with-omp=no test for OpenMP header
@@ -124,7 +145,80 @@ if test "x$with_omp" != xno; then
 else
 	use_omp=no
 fi
-
+#test for BLAS flavous
+#unless --with-blas=no or --with-blas=none switch is used
+if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
+	# I - with auto, try in order:
+	#1 - mkl if intel compiler
+	#2 - openblas
+	#3 - generic cblas
+	# II - specific cases
+	if test "x$with_blas" = xmkl; then
+		AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[use_mkl='yes'],[use_mkl='no'])
+		if test "x$is_icc" = xyes; then
+			#if CC is intel compiler only -mkl is necessary
+			#+ the default is to use parallel blas with mkl
+			CFLAGS+=" -mkl=parallel -D_MKL -DPBLAS"
+		else
+			#we don't have intel compiler...
+			if test "x$use_mkl" = xyes; then
+				#but found mkl.h
+				#maybe user gave correct FLAGS?
+				AC_CHECK_FUNCS([cblas_dgemv cblas_dger mkl_set_dynamic mkl_set_num_threads_local],[can_mkl='yes'],[can_mkl='no'])
+				if test "x$can_mkl" = xyes; then
+					CFLAGS+=" -D_MKL -DPBLAS"
+				else
+					#try to setup a default gcc target...
+					#slowly... one lib at a time
+					AC_SEARCH_LIBS([dlopen],[dl])# -ldl
+					AC_SEARCH_LIBS([sqrt],[m])# -lm
+					AC_SEARCH_LIBS([pthread_create], [pthread])# -lpthread
+					AC_SEARCH_LIBS([omp_set_num_threads],[gomp])# -lgomp
+					AC_SEARCH_LIBS([mkl_blas_xdgemv],[mkl_core],[],[],[-lmkl_sequential])# -lmkl_core
+					AC_SEARCH_LIBS([mkl_blas_dgemv_omp],[mkl_gnu_thread],[],[],[-lmkl_sequential])# -lmkl_gnu_threads
+					AC_SEARCH_LIBS([cblas_dgemv], [mkl_gf_lp64],[can_mkl='yes'],[can_mkl='no'])
+					#check again (kill the cache before!)
+					AS_UNSET([ac_cv_func_cblas_dgemv])
+					AS_UNSET([ac_cv_func_cblas_dger])
+					AS_UNSET([ac_cv_func_mkl_set_dynamic])
+					AS_UNSET([ac_cv_func_mkl_set_num_threads_local])
+					AC_CHECK_FUNCS([cblas_dgemv cblas_dger mkl_set_dynamic mkl_set_num_threads_local],[can_mkl='yes'],[can_mkl='no'])
+					if test "x$can_mkl" = xyes; then
+						CFLAGS+=" -D_MKL -DPBLAS"
+					else
+						AC_MSG_ERROR(MKL was requested with --use-blas=mkl but LDFLAGS can't bet set!)
+					fi
+				fi
+			else
+				AC_MSG_ERROR(MKL was requested with --use-blas=mkl but mkl.h can't be found!)
+			fi
+		fi
+	fi
+	if test "x$with_blas" = xopenblas; then
+		AC_CHECK_HEADERS([cblas.h],[use_cblas='yes'],[use_cblas='no'])
+		if test "x$use_cblas" = xyes; then
+			AC_SEARCH_LIBS([cblas_dgemv],[openblaso],[can_pblas='yes'],[can_pblas='no'])
+			if test "x$can_pblas" != xyes; then
+				#sometimes openblaso parallel library is not available
+				AC_SEARCH_LIBS([cblas_dgemv],[openblas],[can_sblas='yes'],[can_sblas='no'])
+				if test "x$can_sblas" != xyes; then
+					AC_MSG_ERROR(OPENBLAS was requested with --use-blas=openblas but LDFLAGS can't be set!)
+				else
+					AC_MSG_NOTICE([^^^ WARNING! PARALLEL OPENBLAS COULD NOT BE FOUND! ^^^])
+					AC_MSG_NOTICE([^^^ !!!!!!!! WILL USE SEQUENTIAL OPENBLAS INSTEAD! ^^^])
+					AC_MSG_NOTICE([^^^ !!!!!!!! NOTE: PERFORMANCE WILL SUFFER (much)! ^^^])
+					AC_CHECK_FUNCS([cblas_ddot cblas_daxpy cblas_dscal cblas_dger])
+					CFLAGS+=" -DSBLAS"
+				fi
+			else
+				AC_CHECK_FUNCS([cblas_dgemv cblas_dger])
+				CFLAGS+=" -DPBLAS"
+			fi
+		else
+			AC_MSG_ERROR(OPENBLAS was requested with --use-blas=openblas but cblas.h can't be found!)
+		fi
+	fi
+fi
 # Checks for typedefs, structures, and compiler characteristics.
 
 
