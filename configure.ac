@@ -20,7 +20,7 @@ LT_INIT
 AC_MSG_CHECKING([if MPI was required])
 AC_ARG_WITH([mpi],
             [AS_HELP_STRING([--with-mpi],
-              [compile with MPI support @<:@default=auto@:>@])],
+              [compile with [MPI] support @<:@default=auto@:>@])],
             [],
             [with_mpi=auto])
 AC_MSG_RESULT([$with_mpi])
@@ -28,7 +28,7 @@ AC_MSG_RESULT([$with_mpi])
 AC_MSG_CHECKING([if OMP was required])
 AC_ARG_WITH([omp],
             [AS_HELP_STRING([--with-omp],
-              [compile with OpenMP support @<:@default=auto@:>@])],
+              [compile with [OpenMP] support @<:@default=auto@:>@])],
             [],
             [with_omp=auto])
 AC_MSG_RESULT([$with_omp])
@@ -74,7 +74,8 @@ fi
 AC_MSG_CHECKING([if specific BLAS was required])
 AC_ARG_WITH([blas],
             [AS_HELP_STRING([--with-blas],
-              [determine which BLAS flavor to use @<:@default=auto@:>@])],
+              [determine which BLAS flavor to use @<:@default=auto@:>@\
+		valid values: [auto,yes,no,none,openblas,mkl,atlas]])],
             [],
             [with_blas=auto])
 AC_MSG_RESULT([$with_blas])
@@ -146,15 +147,36 @@ else
 	use_omp=no
 fi
 #auto BLAS flavous (TODO)
-	# I - with auto, try in order:
-	#1 - mkl if intel compiler
-	#2 - openblas
-	#3 - generic cblas
+#use mkl if available
+auto_blas='none'
+if test "x$with_blas" = xauto; then
+	AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[auto_blas='mkl'])
+	AS_UNSET([ac_cv_header_mkl_h])
+	AS_UNSET([ac_cv_header_mkl_cblas_h])
+	if test "x$auto_blas" = xmkl; then
+		AC_MSG_NOTICE([^^^ auto_blas: found MKL ^^^])
+	fi
+fi
+#use openblas if available
+if test "x$with_blas" = xauto -a "x$auto_blas" = xnone; then
+	AC_SEARCH_LIBS([cblas_dgemv],[openblaso openblas],[auto_blas='openblas'])
+	AS_UNSET([ac_cv_func_cblas_dgemv])
+	if test "x$auto_blas" = xopenblas; then
+		AC_MSG_NOTICE([^^^ auto_blas: found OPENBLAS ^^^])
+	fi
+fi
+if test "x$with_blas" = xauto -a "x$auto_blas" = xnone; then
+	AC_SEARCH_LIBS([ATL_dgemv],[tatlas satlas],[auto_blas='atlas'])
+	AS_UNSET([ac_cv_func_ATL_dgemv])
+	if test "x$auto_blas" = xatlas; then
+		AC_MSG_NOTICE([^^^ auto_blas: found ATLAS ^^^])
+	fi
+fi
 #check fo specific BLAS requirement
 #unless --with-blas=no or --with-blas=none switch is used
-if test "x$with_blas" != xno -o "x$with_blas" != xnone -o "x$with_blas" != auto; then
+if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
 	# II - specific cases
-	if test "x$with_blas" = xmkl; then
+	if test "x$with_blas" = xmkl -o "x$auto_blas" = xmkl; then
 		AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[use_mkl='yes'],[use_mkl='no'])
 		if test "x$is_icc" = xyes; then
 			#if CC is intel compiler only -mkl is necessary
@@ -195,7 +217,7 @@ if test "x$with_blas" != xno -o "x$with_blas" != xnone -o "x$with_blas" != auto;
 			fi
 		fi
 	fi
-	if test "x$with_blas" = xopenblas; then
+	if test "x$with_blas" = xopenblas -o "x$auto_blas" = xopenblas; then
 		AC_CHECK_HEADERS([cblas.h],[use_cblas='yes'],[use_cblas='no'])
 		if test "x$use_cblas" = xyes; then
 			AC_SEARCH_LIBS([cblas_dgemv],[openblaso],[can_pblas='yes'],[can_pblas='no'])
@@ -219,7 +241,7 @@ if test "x$with_blas" != xno -o "x$with_blas" != xnone -o "x$with_blas" != auto;
 			AC_MSG_ERROR(OPENBLAS was requested with --use-blas=openblas but cblas.h can't be found!)
 		fi
 	fi
-	if test "x$with_blas" = xatlas; then
+	if test "x$with_blas" = xatlas -o "x$auto_blas" = xatlas; then
 		#libraries such as atlas use [-lcblas -ltatlas] [-ltatlas] or [-lsatlas]
 		AC_CHECK_HEADERS([cblas.h],[use_cblas='yes'],[use_cblas='no'])
 		if test "x$use_cblas" = xyes; then
