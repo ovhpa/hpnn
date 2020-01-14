@@ -77,10 +77,6 @@ nn_runtime lib_runtime;
 	_OUT((_file), __VA_ARGS__);\
 }while(0)
 #define NN_WRITE _OUT
-/*^^^ CUDA specific*/
-#ifdef _CUDA
-cudastreams cudas;
-#endif
 /*------------------*/
 /*+++ NN methods +++*/
 /*------------------*/
@@ -245,6 +241,7 @@ BOOL _NN(deinit,CUDA)(){
 #ifndef _CUDA
 	return FALSE;
 #else
+	UINT idx;
 	if(lib_runtime.cudas.cuda_n_streams>1){
 		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
 			cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
@@ -324,9 +321,10 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 #ifndef _CUDA
 	return FALSE;
 #else
+	UINT idx;
 	/*setting new cuda_streams should reset the cuda_streams*/
 	/*only if cuda_streams was initialized properly before..*/
-	if(cudas.cuda_streams!=NULL){
+	if(lib_runtime.cudas.cuda_streams!=NULL){
 		/*first we need to wipe previous streams*/
 		if(lib_runtime.cudas.cuda_n_streams>1){
 			for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
@@ -337,21 +335,21 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 	}
 	if(n_streams<2){
 		/*assign a unique "NULL" stream*/
-		cudas.cuda_n_streams=1;
-		ALLOC(cudas.cuda_streams,sizeof(cudaStream_t),cudaStream_t);
-		cudas.cuda_streams[0]=NULL;
+		lib_runtime.cudas.cuda_n_streams=1;
+		ALLOC(lib_runtime.cudas.cuda_streams,sizeof(cudaStream_t),cudaStream_t);
+		lib_runtime.cudas.cuda_streams[0]=NULL;
 	}else{
-		cudas.cuda_n_streams=n_streams;
-		ALLOC(cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
-		for(idx=0;idx<cudas.cuda_n_streams;idx++){
-			cudaStreamCreateWithFlags(&(cudas.cuda_streams[idx]),
+		lib_runtime.cudas.cuda_n_streams=n_streams;
+		ALLOC(lib_runtime.cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
+		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++){
+			cudaStreamCreateWithFlags(&(lib_runtime.cudas.cuda_streams[idx]),
 				cudaStreamNonBlocking);
 		}
 	}
 #ifdef _CUBLAS
 	/*this step is optional, but it seems that CUBLAS prefers
 	 *to start on its own first stream...*/
-        cublasSetStream(cudas.cuda_handle,cudas.cuda_streams[0]);
+        cublasSetStream(lib_runtime.cudas.cuda_handle,lib_runtime.cudas.cuda_streams[0]);
 #endif /*_CUBLAS*/
 	return TRUE;
 #endif
@@ -360,7 +358,7 @@ BOOL _NN(get,cuda_streams)(UINT *n_streams){
 #ifndef _CUDA
 	return FALSE;
 #else
-	*n_streams = cudas.cuda_n_streams;
+	*n_streams = lib_runtime.cudas.cuda_n_streams;
 	return TRUE;
 #endif
 }

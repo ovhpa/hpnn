@@ -10,10 +10,7 @@ AM_INIT_AUTOMAKE([1.11])
 AM_SILENT_RULES([yes])
 
 AC_PROG_CC
-AC_PROG_LIBTOOL
 AC_PROG_MAKE_SET
-
-LT_INIT
 
 # +++ deal with switches +++
 # MPI
@@ -79,13 +76,13 @@ AC_ARG_WITH([blas],
             [],
             [with_blas=auto])
 AC_MSG_RESULT([$with_blas])
-
-
-AC_MSG_NOTICE(+++---------------------------+++)
-AC_MSG_NOTICE(+++ entering standard checks. +++)
-AC_MSG_NOTICE(+++---------------------------+++)
-
+# -------
+# OpenMPI
+# -------
 # first of all determine if we need to switch compiler
+AC_MSG_NOTICE(+++------------+++)
+AC_MSG_NOTICE(+++ check MPI. +++)
+AC_MSG_NOTICE(+++------------+++)
 if test "x$with_mpi" != xno; then
 	AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
 	AC_MSG_CHECKING([if current compiler ($CC) is MPI-able])
@@ -124,7 +121,18 @@ return 0;
 			CFLAGS+=" -D_MPI"
 		fi
 	fi
+else
+	AC_MSG_NOTICE(^^^ REQUESTED: NO MPI ^^^)
 fi
+#FAIL MPI if we need to (ie user asked for MPI but none could be found)
+if test "x$with_mpi" = xyes; then
+	if test "x$pkg_mpi" != xyes -a "x$use_mpicc" = xnone; then
+		AC_MSG_ERROR(MPI was requested with --use-mpi=yes but no MPI found!)
+	fi
+fi
+# --------
+# COMPILER
+# --------
 #determine if compiler is INTEL
 AC_MSG_CHECKING([if current compiler ($CC) is intel compiler])
 AC_LANG_PUSH(C)
@@ -138,15 +146,57 @@ return 0;
 ]])],[is_icc='yes'], [is_icc='no'])
 AC_LANG_POP()
 AC_MSG_RESULT([$is_icc])
-# Checks for header files.
-AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h unistd.h])
+# ------------
+# INIT LIBTOOL
+# ------------
+# to avoid strange libtool errors this has to be done after
+# switching to mpicc (in case we actually switch). -- OVHPA
+LT_INIT
+if test "x$is_icc" != xyes; then
+	#intel compiler include math library
+	AC_SEARCH_LIBS([sqrt], [m])
+	AC_CHECK_FUNCS([getcwd memset exp sqrt])
+fi
+# --------------
+# +++ OpenMP +++
+# --------------
+AC_MSG_NOTICE(+++---------------+++)
+AC_MSG_NOTICE(+++ check OpenMP. +++)
+AC_MSG_NOTICE(+++---------------+++)
 #if not --with-omp=no test for OpenMP header
-if test "x$with_omp" != xno; then
+use_omp="unused"
+if test "x$with_omp" != xno -a "x$with_omp" != xnone; then
 	AC_CHECK_HEADERS([omp.h],[use_omp='yes'], [use_omp='no'])
 else
 	use_omp=no
+	AC_MSG_NOTICE(^^^ REQUESTED: NO OpenMP ^^^)
 fi
-#auto BLAS flavous (TODO)
+if test "x$use_omp" = xyes; then
+	#try to determine the FLAGS for openmp
+	AC_LANG_PUSH(C)
+	AC_OPENMP
+	AC_SUBST(OPENMP_CFLAGS)
+	AC_MSG_NOTICE(^^^ OpenMP detected and configured ^^^)
+	CFLAGS="${CFLAGS} ${OPENMP_CFLAGS}"
+	AC_LANG_POP()
+	# _OMP switch is also necessary!
+	CFLAGS+=" -D_OMP"
+else
+	#in case we don't use OpenMP, don't spam with unknown-pragma
+	CFLAGS+=" -Wno-unknown-pragmas"
+fi
+#FAIL OMP if we need to (ie user asked for OMP but omp.h could not be found)
+if test "x$with_omp" = xyes; then
+	if test "x$use_omp" != xyes; then
+		AC_MSG_ERROR(OMP was requested with --use-omp=yes but no omp.h header was not found!)
+	fi
+fi
+# ----
+# BLAS
+# ----
+AC_MSG_NOTICE(+++-------------+++)
+AC_MSG_NOTICE(+++ check BLAS. +++)
+AC_MSG_NOTICE(+++-------------+++)
 #use mkl if available
 auto_blas='none'
 if test "x$with_blas" = xauto; then
@@ -174,7 +224,7 @@ if test "x$with_blas" = xauto -a "x$auto_blas" = xnone; then
 fi
 #check fo specific BLAS requirement
 #unless --with-blas=no or --with-blas=none switch is used
-if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
+if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
 	# II - specific cases
 	if test "x$with_blas" = xmkl -o "x$auto_blas" = xmkl; then
 		AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[use_mkl='yes'],[use_mkl='no'])
@@ -270,98 +320,48 @@ if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
 			AC_MSG_ERROR(CBLAS was requested with --use-blas=atlas but cblas.h can't be found!)
 		fi
 	fi
+else
+	AC_MSG_NOTICE(^^^ REQUESTED: NO BLAS ^^^)
 fi
 # Checks for typedefs, structures, and compiler characteristics.
 #TODO - optimization level -O3 for intel compiler can't be use with MPI
-
-# Checks for library functions.
-AC_SEARCH_LIBS([sqrt], [m])
-AC_CHECK_FUNCS([getcwd memset exp sqrt])
-
-# PKG_CHECK_MODULES
-AC_MSG_NOTICE(+++-------------------------------------+++)
-AC_MSG_NOTICE(+++ entering pkg-config related checks. +++)
-AC_MSG_NOTICE(+++-------------------------------------+++)
-# CHECK for cblas -- this can defines cblas_CFLAGS and cblas_LIBS
-PKG_CHECK_MODULES(cblas,
-		  [cblas],
-		  [pkg_cblas="yes"],
-		  [AC_MSG_RESULT([+++ NOT FOUND: CBLAS (not fatal) +++])])
-# CHECK for openblas package -- this can defines openblas_CFLAGS and openblas_LIBS
-PKG_CHECK_MODULES(openblas,
-		  [openblas],
-		  [pkg_openblas="yes"],
-		  [AC_MSG_RESULT([+++ NOT FOUND: OPENBLAS (not fatal) +++])])
-# CHECK for cuda package -- this can defines cuda_CFLAGS and cuda_LIBS
-# do not check if --with-cuda=no
-if test "x$with_cuda" != xno; then
-PKG_CHECK_MODULES(cuda,
-		  [cuda],
-		  [pkg_cuda="yes"],
-		  [AC_MSG_RESULT([+++ NOT FOUND: CUDA (not fatal) +++])])
-fi
-# CHECK for cublas package -- this can defines cublas_CFLAGS and cublas_LIBS
-# do not check if --with-cublas=no
-if test "x$with_cublas" != xno; then
-PKG_CHECK_MODULES(cublas,
-		  [cublas],
-		  [pkg_cublas="yes"],
-		  [AC_MSG_RESULT([+++ NOT FOUND: CUBLAS (not fatal) +++])])
-fi
-# MPI checks
-# do not check if --with-mpi=no
-if test "x$with_mpi" != xno; then
-	#only check if not MPI-able
-	if test "x$mpi_gcc" = xno; then
-		#first check for ompi-c  -- this can defines ompic_CFLAGS and ompic_LIBS
-		PKG_CHECK_MODULES(ompic,
-			  [ompi-c],
-			  [pkg_ompic="yes"],
-			  [AC_MSG_RESULT([+++ NOT FOUND: OMPI-C (not fatal) +++])])
-		if test "x$pkg_ompic" != xyes; then
-			#check MPI -- this can defines mpi_CFLAGS and mpi_LIBS
-			PKG_CHECK_MODULES(mpi,
-				  [mpi],
-				  [pkg_mpi="yes"],
-				  [AC_MSG_RESULT([+++ NOT FOUND: MPI (not fatal) +++])])
+# ----
+# CUDA
+# ----
+AC_MSG_NOTICE(+++-------------+++)
+AC_MSG_NOTICE(+++ check CUDA. +++)
+AC_MSG_NOTICE(+++-------------+++)
+if test "x$with_cuda" != xno -a "x$with_cuda" != xnone; then
+	auto_cuda=no
+	AC_CHECK_HEADERS([cuda_runtime.h],[auto_cuda='yes'])
+	# fail if we have to
+	if test "x$with_cuda" = xyes -a "x$auto_cuda" != xyes; then
+		AC_MSG_ERROR(CUDA was requested with --use-cuda=yes but no cuda_runtime.h header was not found!)
+	fi
+	if test "x$auto_cuda" = xyes; then
+		AC_CHECK_PROGS(use_nvcc, nvcc, none)
+		if test "x$use_nvcc" != xnone; then
+			#do we have cuda_runtime?
+			nvcc_cmp='ok'
+			AC_MSG_CHECKING([if CUDA compiler ($use_nvcc) is OK])
+			AC_MSG_RESULT([$nvcc_cmp])
+			NVCC="$use_nvcc"
+			AC_SUBST(NVCC)
+			CFLAGS+=" -D_CUDA"
+			NVCCFLAGS+="-w --device-w --default-stream per-thread --use_fast_math -lineinfo -D_CUDA"
+			AC_SUBST(NVCCFLAGS)
+			LDFLAGS+=" -lcudart -lstdc++"
 		fi
 	fi
-fi
-# CHECK for mkl
-# TODO
-
-# now check for libraries/installations
-AC_MSG_NOTICE(+++---------------------------------------------+++)
-AC_MSG_NOTICE(+++ entering libraries/features related checks. +++)
-AC_MSG_NOTICE(+++---------------------------------------------+++)
-#FAIL MPI if we need to (ie user asked for MPI but none could be found)
-if test "x$with_mpi" = xyes; then
-	if test "x$pkg_mpi" != xyes -a "x$use_mpicc" = xnone; then
-		AC_MSG_ERROR(MPI was requested with --use-mpi=yes but no MPI found!)
-	fi
-fi
-# OMP
-if test "x$use_omp" = xyes; then
-	#try to determine the FLAGS for openmp
-	AC_LANG_PUSH(C)
-	AC_OPENMP
-	AC_SUBST(OPENMP_CFLAGS)
-	AC_MSG_NOTICE(^^^ OpenMP detected and configured ^^^)
-	CFLAGS="${CFLAGS} ${OPENMP_CFLAGS}"
-	AC_LANG_POP()
-	# _OMP switch is also necessary!
-	CFLAGS+=" -D_OMP"
 else
-	#in case we don't use OpenMP, don't spam with unknown-pragma
-	CFLAGS+=" -Wno-unknown-pragmas"
+	AC_MSG_NOTICE(^^^ REQUESTED: NO CUDA ^^^)
 fi
-#FAIL OMP if we need to (ie user asked for OMP but omp.h could not be found)
-if test "x$with_omp" = xyes; then
-	if test "x$use_omp" != xyes; then
-		AC_MSG_ERROR(OMP was requested with --use-omp=yes but no omp.h header was not found!)
-	fi
-fi
+AM_CONDITIONAL([HAVE_CUDA], [test "x$nvcc_cmp" = "xok"])
+AC_SUBST(HAVE_CUDA)
 
+# ---------
+# Makefiles
+# ---------
 AC_OUTPUT([
 Makefile
 src/libhpnn.pc

@@ -20,7 +20,14 @@ otherinclude_HEADERS = $(top_srcdir)/include/libhpnn/common.h \
 	$(top_srcdir)/include/libhpnn/cuda_ann.h
 
 libhpnn_la_SOURCES = \
-	libhpnn.c ann.c cuda_ann.cu
+	libhpnn.c ann.c
+
+if HAVE_CUDA
+libhpnn_la_SOURCES += cuda_ann.cu
+
+libhpnn_la_AR = $(NVCC) -lib -o
+
+endif
 
 libhpnn_la_LDFLAGS = 
 
@@ -31,3 +38,9 @@ pkgconfig_DATA = libhpnn.pc
 
 EXTRA_DIST = \
 	libhpnn.pc.in
+
+if HAVE_CUDA
+# THE only working so far
+.cu.lo:
+	$(LIBTOOL) --tag=CC --mode=compile $(NVCC) --compile -Xcompiler="-fPIC -DPIC" $(NVCCFLAGS) $(AM_CFLAGS) -o $@ $^ -prefer-non-pic 
+endif

@@ -129,7 +129,7 @@ __global__
 void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,
 													double *dw,double *w){
 	int tid=threadIdx.x+blockIdx.x*blockDim.x;
-	double tmp,tmp2;
+	double tmp;
 	if(tid<n){
 		tmp=learn*d[tid];
 		/*a full line*/

@@ -25,6 +25,12 @@
 /* -------------------------------------------- Hubert Okadome Valencia, 2019 */
 
 #include <libhpnn.h>
+/*
+#include <libhpnn/ann.h>
+#ifdef _CUDA
+#include <libhpnn/cuda_ann.h>
+#endif
+*/
 
 void dump_help(){
 	_OUT(stdout,"****************************************\n");
