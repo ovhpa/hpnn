@@ -124,6 +124,31 @@ nn_cap _NN(get,capabilities)(){
 #endif
 	return (nn_cap)res;
 }
+void _NN(unset,capability)(nn_cap capability){
+	switch (capability){
+	case NN_CAP_OMP:
+		lib_runtime.capability &= ~(1<<0);
+		break;
+	case NN_CAP_MPI:
+		lib_runtime.capability &= ~(1<<1);
+		break;
+	case NN_CAP_CUDA:
+		lib_runtime.capability &= ~(1<<2);
+		break;
+	case NN_CAP_CUBLAS:
+		lib_runtime.capability &= ~(1<<3);
+		break;
+	case NN_CAP_PBLAS:
+		lib_runtime.capability &= ~(1<<5);
+		break;
+	case NN_CAP_SBLAS:
+		lib_runtime.capability &= ~(1<<6);
+		break;
+	case NN_CAP_NONE:
+	default:
+		return;
+	}
+}
 BOOL _NN(init,OMP)(){
 #ifndef _OMP
 	NN_WARN(stdout,"failed to init OMP (no capability).\n");
@@ -169,7 +194,7 @@ BOOL _NN(init,CUDA)(){
 	err=cublasCreate(&(lib_runtime.cudas.cuda_handle));
 	if(err!=CUBLAS_STATUS_SUCCESS){
 		NN_ERROR(stderr,"CUDA error: can't create a CUBLAS context.\n");
-		_NN(unset,capability)(NN_CUBLAS);
+		_NN(unset,capability)(NN_CAP_CUBLAS);
 		return TRUE;
 	}
 	err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle,CUBLAS_POINTER_MODE_HOST);
@@ -367,7 +392,9 @@ BOOL _NN(set,omp_blas)(UINT n_blas){
 	return FALSE;
 #else
 	lib_runtime.nn_num_blas=n_blas;
+#ifdef _OMP
 	omp_set_num_threads(lib_runtime.nn_num_threads);
+#endif
 	return TRUE;
 #endif
 }

@@ -15,56 +15,76 @@ AC_PROG_MAKE_SET
 # +++ deal with switches +++
 # MPI
 AC_MSG_CHECKING([if MPI was required])
-AC_ARG_WITH([mpi],
-            [AS_HELP_STRING([--with-mpi],
-              [compile with [MPI] support @<:@default=auto@:>@])],
-            [],
-            [with_mpi=auto])
-AC_MSG_RESULT([$with_mpi])
+AC_ARG_ENABLE([mpi],
+	[AS_HELP_STRING([--enable-mpi],
+	[enable [MPI] @<:@default=auto if not given@:>@])],
+	[],
+	[enable_mpi=auto])
+AC_MSG_RESULT([$enable_mpi])
 # OMP
 AC_MSG_CHECKING([if OMP was required])
-AC_ARG_WITH([omp],
-            [AS_HELP_STRING([--with-omp],
-              [compile with [OpenMP] support @<:@default=auto@:>@])],
-            [],
-            [with_omp=auto])
-AC_MSG_RESULT([$with_omp])
+AC_ARG_ENABLE([omp],
+	[AS_HELP_STRING([--enable-omp],
+	[enable [OpenMP] @<:@default=auto if not given@:>@])],
+	[],
+	[enable_omp=auto])
+AC_MSG_RESULT([$enable_omp])
 # CUDA
 AC_MSG_CHECKING([if CUDA was required])
-AC_ARG_WITH([cuda],
-            [AS_HELP_STRING([--with-cuda],
-              [compile with [CUDA] support @<:@default=auto@:>@])],
-            [],
-            [with_cuda=auto])
-AC_MSG_RESULT([$with_cuda])
+AC_ARG_ENABLE([cuda],
+	[AS_HELP_STRING([--enable-cuda],
+	[enable [CUDA] @<:@default=auto if not given@:>@])],
+	[],
+	[enable_cuda=auto])
+AC_MSG_RESULT([$enable_cuda])
+AC_ARG_WITH([cuda_include],
+	    [AS_HELP_STRING([--with-cuda-include],
+		[specify [CUDA] include path])],
+	    [],
+	    [with_cuda_include=auto])
+AC_ARG_WITH([cuda_lib],
+	    [AS_HELP_STRING([--with-cuda-lib],
+		[specify [CUDA] library path])],
+	    [],
+	    [with_cuda_lib=auto])
 # CUBLAS
 # it is _possible_ to use naive cuda interface without CUBLAS
 AC_MSG_CHECKING([if CUBLAS was required])
-AC_ARG_WITH([cublas],
-            [AS_HELP_STRING([--with-cublas],
-              [compile with [CUBLAS] support @<:@default=auto@:>@])],
-            [],
-            [with_cublas=auto])
-AC_MSG_RESULT([$with_cublas])
+AC_ARG_ENABLE([cublas],
+	[AS_HELP_STRING([--enable-cublas],
+	[enable [CUBLAS] @<:@default=auto if not given with CUDA@:>@])],
+	[],
+	[enable_cublas=auto])
+AC_MSG_RESULT([$enable_cublas])
+
+
+
+#AC_MSG_CHECKING([if CUBLAS was required])
+#AC_ARG_WITH([cublas],
+#            [AS_HELP_STRING([--with-cublas],
+#              [compile with [CUBLAS] support @<:@default=auto@:>@])],
+#            [],
+#            [with_cublas=auto])
+#AC_MSG_RESULT([$with_cublas])
 # switch "magic"
-# --with-cuda=no set --with-cublas=no from --with-cublas=auto
-if test "x$with_cuda" = xno; then
-	if test "x$with_cublas" = xauto; then
+# --disable-cuda set --disable-cublas from auto
+if test "x$enable_cuda" = xno; then
+	if test "x$enable_cublas" = xauto; then
 		AC_MSG_NOTICE([^^^ disable CUBLAS (no CUDA) ^^^])
-		with_cublas='no'
+		enable_cublas='no'
 	fi
 fi
 # cublas req cuda
-if test "x$with_cublas" = xyes; then
-	if test "x$with_cuda" = xno; then
+if test "x$enable_cublas" = xyes; then
+	if test "x$enable_cuda" = xno; then
 		AC_MSG_ERROR(CUBLAS was required without CUDA?!)
 	fi
 fi
-# --with-cublas=yes set --with-cuda=yes from --with-cuda=auto
-if test "x$with_cublas" = xyes; then
-	if test "x$with_cuda" = xauto; then
+# --with-cublas=yes set --enable-cuda from auto
+if test "x$enable_cublas" = xyes; then
+	if test "x$enable_cuda" = xauto; then
 		AC_MSG_NOTICE([^^^ forcing CUDA on (CUBLAS required) ^^^])
-		with_cuda='yes'
+		enable_cuda='yes'
 	fi
 fi
 # BLAS
@@ -83,7 +103,7 @@ AC_MSG_RESULT([$with_blas])
 AC_MSG_NOTICE(+++------------+++)
 AC_MSG_NOTICE(+++ check MPI. +++)
 AC_MSG_NOTICE(+++------------+++)
-if test "x$with_mpi" != xno; then
+if test "x$enable_mpi" != xno; then
 	AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
 	AC_MSG_CHECKING([if current compiler ($CC) is MPI-able])
 	AC_LANG_PUSH(C)
@@ -125,7 +145,7 @@ else
 	AC_MSG_NOTICE(^^^ REQUESTED: NO MPI ^^^)
 fi
 #FAIL MPI if we need to (ie user asked for MPI but none could be found)
-if test "x$with_mpi" = xyes; then
+if test "x$enable_mpi" = xyes; then
 	if test "x$pkg_mpi" != xyes -a "x$use_mpicc" = xnone; then
 		AC_MSG_ERROR(MPI was requested with --use-mpi=yes but no MPI found!)
 	fi
@@ -163,9 +183,9 @@ fi
 AC_MSG_NOTICE(+++---------------+++)
 AC_MSG_NOTICE(+++ check OpenMP. +++)
 AC_MSG_NOTICE(+++---------------+++)
-#if not --with-omp=no test for OpenMP header
+#if not --disable-omp test for OpenMP header
 use_omp="unused"
-if test "x$with_omp" != xno -a "x$with_omp" != xnone; then
+if test "x$enable_omp" != xno -a "x$enable_omp" != xnone; then
 	AC_CHECK_HEADERS([omp.h],[use_omp='yes'], [use_omp='no'])
 else
 	use_omp=no
@@ -177,7 +197,7 @@ if test "x$use_omp" = xyes; then
 	AC_OPENMP
 	AC_SUBST(OPENMP_CFLAGS)
 	AC_MSG_NOTICE(^^^ OpenMP detected and configured ^^^)
-	CFLAGS="${CFLAGS} ${OPENMP_CFLAGS}"
+	CFLAGS+=" ${OPENMP_CFLAGS}"
 	AC_LANG_POP()
 	# _OMP switch is also necessary!
 	CFLAGS+=" -D_OMP"
@@ -186,9 +206,9 @@ else
 	CFLAGS+=" -Wno-unknown-pragmas"
 fi
 #FAIL OMP if we need to (ie user asked for OMP but omp.h could not be found)
-if test "x$with_omp" = xyes; then
+if test "x$enable_omp" = xyes; then
 	if test "x$use_omp" != xyes; then
-		AC_MSG_ERROR(OMP was requested with --use-omp=yes but no omp.h header was not found!)
+		AC_MSG_ERROR(OMP was requested with --enable-omp but no omp.h header was not found!)
 	fi
 fi
 # ----
@@ -331,34 +351,71 @@ fi
 AC_MSG_NOTICE(+++-------------+++)
 AC_MSG_NOTICE(+++ check CUDA. +++)
 AC_MSG_NOTICE(+++-------------+++)
-if test "x$with_cuda" != xno -a "x$with_cuda" != xnone; then
+AC_CHECK_PROGS([use_nvcc], [nvcc], [none])
+if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
 	auto_cuda=no
-	AC_CHECK_HEADERS([cuda_runtime.h],[auto_cuda='yes'])
+	AC_MSG_CHECKING([if CUDA include PATH was given])
+	AS_IF([test "x$with_cuda_include" != "xauto"], [
+	  AC_MSG_RESULT(yes)
+	  AC_MSG_NOTICE(adding ${with_cuda_include} to CFLAGS)
+	  CFLAGS+=" -I${with_cuda_include}"
+	],AC_MSG_RESULT(no))
+	AC_MSG_CHECKING([if CUDA library PATH was given])
+	AS_IF([test "x$with_cuda_lib" != "xauto"], [
+	  AC_MSG_RESULT(yes)
+	  AC_MSG_NOTICE(adding ${with_cuda_lib} to LDFLAGS)
+	  LDFLAGS+=" -L${with_cuda_lib}"
+	],AC_MSG_RESULT(no))
+	# TODO: replace that _guess_ with a proper test
+	# because it might not be the case in future...
+	if test "x$is_icc" != xyes; then
+		# gcc require libstdc++ (icc doesn't)
+		AC_CHECK_LIB(stdc++, main, , AC_MSG_ERROR([$CC require missing libstdc++ to compile CUDA code]))
+	fi
+	AC_SEARCH_LIBS([cudaGetDeviceCount],[cudart],[auto_cuda='yes'],[auto_cuda='no'])
 	# fail if we have to
-	if test "x$with_cuda" = xyes -a "x$auto_cuda" != xyes; then
-		AC_MSG_ERROR(CUDA was requested with --use-cuda=yes but no cuda_runtime.h header was not found!)
+	if test "x$enable_cuda" = xyes -a "x$auto_cuda" != xyes; then
+		AC_MSG_ERROR(CUDA was requested with --enable-cuda but libcudart was not found!)
+	fi
+	AC_CHECK_HEADERS([cuda_runtime.h],[auto_cuda='yes'],[auto_cuda='no'])
+	# fail if we have to
+	if test "x$enable_cuda" = xyes -a "x$auto_cuda" != xyes; then
+		AC_MSG_ERROR(CUDA was requested with --enable-cuda but cuda_runtime.h header was not found!)
 	fi
 	if test "x$auto_cuda" = xyes; then
-		AC_CHECK_PROGS(use_nvcc, nvcc, none)
-		if test "x$use_nvcc" != xnone; then
-			#do we have cuda_runtime?
-			nvcc_cmp='ok'
-			AC_MSG_CHECKING([if CUDA compiler ($use_nvcc) is OK])
-			AC_MSG_RESULT([$nvcc_cmp])
-			NVCC="$use_nvcc"
-			AC_SUBST(NVCC)
-			CFLAGS+=" -D_CUDA"
-			NVCCFLAGS+="-w --device-w --default-stream per-thread --use_fast_math -lineinfo -D_CUDA"
-			AC_SUBST(NVCCFLAGS)
-			LDFLAGS+=" -lcudart -lstdc++"
+		if test "x$use_nvcc" = xnone; then
+			AC_MSG_ERROR(CUDA was requested with --enable-cuda but nvcc compiler was not found!)
 		fi
+		NVCC="$use_nvcc"
+		AC_SUBST(NVCC)
+		CFLAGS+=" -D_CUDA"
+		NVCCFLAGS+="-w --device-w --default-stream per-thread --use_fast_math -lineinfo -D_CUDA"
+		#now (and only now) check for cublas
+		if test "x$enable_cublas" != xno; then
+			AC_CHECK_HEADERS([cublas_v2.h],[auto_cublas='yes'],[auto_cublas='no'])
+			if test "x$enable_cublas" = xyes -a "x$auto_cublas" != xyes; then
+				AC_MSG_ERROR(CUBLAS was requested with --enable-cublas but cublas_v2.h header was not found!)
+			fi
+			AC_SEARCH_LIBS([cublasDgemv],[cublas],[auto_cublas='yes'],[auto_cublas='no'])
+			if test "x$auto_cublas" = xyes; then
+				CFLAGS+=" -D_CUBLAS"
+				NVCCFLAGS+=" -D_CUBLAS"
+			else
+				AC_MSG_NOTICE(^^^ WARNING: could not configure CUBLAS ^^^)
+			fi
+		else
+			AC_MSG_NOTICE(^^^^ REQUESTED: NO CUBLAS ^^^)
+		fi
+		AC_SUBST(NVCCFLAGS)
+	else
+		AC_MSG_NOTICE(^^^ WARNING: could not configure CUDA ^^^)
 	fi
 else
+	use_nvcc='none'
 	AC_MSG_NOTICE(^^^ REQUESTED: NO CUDA ^^^)
 fi
-AM_CONDITIONAL([HAVE_CUDA], [test "x$nvcc_cmp" = "xok"])
+AM_CONDITIONAL([HAVE_CUDA], [test "x$use_nvcc" != "xnone"])
 AC_SUBST(HAVE_CUDA)
-
 # ---------
 # Makefiles
 # ---------
@@ -368,3 +425,20 @@ src/libhpnn.pc
 src/Makefile
 tests/Makefile
 ])
+# -------
+# SUMMARY
+# -------
+AC_MSG_NOTICE(+++---------+++)
+AC_MSG_NOTICE(+++ SUMMARY +++)
+AC_MSG_NOTICE(+++---------+++)
+AC_MSG_NOTICE(>>> CC = $CC )
+AC_MSG_NOTICE(>>> CFLAGS = $CFLAGS )
+AC_MSG_NOTICE(>>> LDFLAGS = $LDFLAGS )
+AC_MSG_NOTICE(>>> LIBS = $LIBS )
+
+
+
+
+
+
+

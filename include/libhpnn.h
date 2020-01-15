@@ -37,6 +37,7 @@ typedef enum {
 /*+++ library runtime parameters +++*/
 /*----------------------------------*/
 typedef struct {
+	nn_cap capability;
 	SHORT nn_verbose;
 	BOOL  nn_dry;
 	UINT  nn_num_threads;
@@ -90,6 +91,7 @@ void _NN(set,verbose)(SHORT verbosity);
 void _NN(get,verbose)(SHORT *verbosity);
 void _NN(toggle,dry)();
 nn_cap _NN(get,capabilities)();
+void _NN(unset,capability)(nn_cap capability);
 BOOL _NN(init,OMP)();
 BOOL _NN(init,MPI)();
 BOOL _NN(init,CUDA)();
