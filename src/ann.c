@@ -127,6 +127,7 @@ if(stream==0) {
 	ptr+=6;SKIP_BLANK(ptr);
 	allocate=0;
 	STRDUP_REPORT(ptr,name,allocate);
+	if(name==NULL) STRDUP_REPORT("noname",name,allocate);/*to appease static analysis*/
 	/*strip extra '\n'*/
 	ptr=&(name[0]);
 	while(*ptr!='\0'){
@@ -184,6 +185,14 @@ if(stream==0) {
 		_OUT(stderr,"ANN kernel ERROR: missing parameter line!\n");
 		goto FAIL;
 	}
+	if(n_out<1){
+		_OUT(stderr,"ANN kernel ERROR: wrong parameter n_output<1!\n");
+		goto FAIL;
+	}
+	if(n_hid<1){
+		_OUT(stderr,"ANN kernel ERROR: wrong parameter n_hiddens<1!\n");
+		goto FAIL;
+	}
 	/*allocate everything*/
 	ALLOC_REPORT(kernel,1,_kernel,allocate);
 	KERN.name=name;name=NULL;
@@ -233,11 +242,19 @@ _OUT(stdout,"n_output=%i\n",n_out);
 				goto FAIL;
 			}
 			GET_UINT(idx,ptr,ptr2);/*this is hidden index*/
-			if((ptr2==NULL)||(idx<1)) {
-				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer index definition\n");
+			if(ptr2==NULL) {
+				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer index definition!\n");
+				goto FAIL;
+			}
+			if(idx==0){
+				_OUT(stderr,"ANN kernel ERROR: wrong hidden layer index (=0)!\n");
 				goto FAIL;
 			}
 			idx--;/*start counting from 1*/
+			if(idx>n_hid){
+				_OUT(stderr,"ANN kernel ERROR: wrong hidden layer index (> n_hiddens)!\n");
+				goto FAIL;
+			}
 			/*check neuron number for consistency*/
 			ptr=ptr2+1;
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
@@ -274,6 +291,11 @@ do{
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
 		_OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		goto FAIL;
+	}
+	if(n_par>KERN.hiddens[idx].n_inputs){
+		_OUT(stderr,"ANN kernel ERROR: neuron has more input (%i) than expected (%i)! (hidden layer %i, neuron %i)\n",
+		n_par,KERN.hiddens[idx].n_inputs,idx+1,jdx+1);
 		goto FAIL;
 	}
 	READLINE(fp,line);/*weights line*/
@@ -580,6 +602,28 @@ if(stream==0){/*only master writes*/
 }/*end of master*/
 MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT for master*/
 #endif /*_MPI*/
+}
+/*-------------------------------------*/
+/*+++ validate parameters of kernel +++*/
+/* (to appease the static analysis) +++*/
+/*-------------------------------------*/
+BOOL ann_validate_kernel(_kernel *kernel){
+	UINT idx;
+	if(KERN.n_inputs<1) return FALSE;
+	if(KERN.n_outputs<1) return FALSE;
+	if(KERN.n_hiddens<1) return FALSE;
+	if(KERN.in==NULL) return FALSE;
+	for(idx=0;idx<KERN.n_hiddens;idx++){
+		if(KERN.hiddens[idx].n_neurons<1) return FALSE;
+		if(KERN.hiddens[idx].n_inputs<1) return FALSE;
+		if(KERN.hiddens[idx].weights==NULL) return FALSE;
+		if(KERN.hiddens[idx].vec==NULL) return FALSE;
+	}
+	if(KERN.output.n_neurons<1) return FALSE;
+	if(KERN.output.n_inputs<1) return FALSE;
+	if(KERN.output.weights==NULL) return FALSE;
+	if(KERN.output.vec==NULL) return FALSE;
+	return TRUE;
 }
 /*----------------------------*/
 /*+++ activation functions +++*/
@@ -1581,6 +1625,7 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 	DOUBLE Epr=0.;
 	DOUBLE **delta_ptr;
 	/*keep a track of mem*/
+	if(!ann_validate_kernel(kernel)) return 0.;
 	UINT64 allocate=0.;
 	ALLOC_REPORT(delta_ptr,KERN.n_hiddens+1,DOUBLE *,allocate);/*+1 for OUTPUT*/
 	ALLOC_REPORT(delta_ptr[KERN.n_hiddens],KERN.n_outputs,DOUBLE,allocate);

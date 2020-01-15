@@ -923,6 +923,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
 		_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
+		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
@@ -1031,6 +1032,7 @@ void _NN(kernel,run)(nn_def *neural){
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
 		_OUT(stdout,"TESTING FILE: %s\t",curr_file);
+		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
 		switch (neural->type){
