@@ -166,6 +166,22 @@ return 0;
 ]])],[is_icc='yes'], [is_icc='no'])
 AC_LANG_POP()
 AC_MSG_RESULT([$is_icc])
+#determine if compiler is clang
+AC_MSG_CHECKING([if current compiler ($CC) is clang compiler])
+AC_LANG_PUSH(C)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <stdio.h>
+]],[[
+#ifndef __clang__
+#error "NOT CLANG"
+#endif
+return 0;
+]])],[is_clang='yes'], [is_clang='no'])
+AC_LANG_POP()
+AC_MSG_RESULT([$is_clang])
+if test "x$is_clang" = xyes; then
+	CFLAGS+=" -Wno-absolute-value"
+fi
 # ------------
 # INIT LIBTOOL
 # ------------
