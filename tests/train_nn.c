@@ -55,6 +55,7 @@ void dump_help(){
 int main (int argc, char *argv[]){
 	UINT  idx, jdx;
 	FILE   *output;
+	BOOL have_filename=FALSE;
 #ifdef _OMP
 	UINT  n_o, n_b;
 #endif /*_OMP*/
@@ -84,6 +85,7 @@ int main (int argc, char *argv[]){
 					case 'h':
 						dump_help();
 						_NN(deinit,all)();
+						FREE(nn_filename);
 						return 0;
 					case 'v':
 						_NN(inc,verbose)();
@@ -193,7 +195,9 @@ int main (int argc, char *argv[]){
 				}
 			}else{
 				/*not a switch, then must be a file name!*/
+				if(have_filename) goto FAIL;
 				STRDUP(argv[idx],nn_filename);
+				have_filename=TRUE;/*only 1 allowed*/
 				goto next_arg;
 				/*rest of the command line is ignored!*/
 			}
@@ -204,6 +208,7 @@ next_arg:
 	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
 	/*load configuration file*/
 	neural=_NN(conf,load)(nn_filename);
+	FREE(nn_filename);
 	if(neural==NULL) {
 		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
 		goto FAIL;
@@ -236,5 +241,6 @@ next_arg:
 	return 0;
 FAIL:
 	_NN(deinit,all)();
+	FREE(nn_filename);
 	return -1;
 }

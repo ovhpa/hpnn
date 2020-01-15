@@ -778,9 +778,6 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 	UINT idx;
 	FILE *fp;
 	/**/
-	n_in=0;
-	n_out=0;
-	/**/
 	fp=fopen(filename,"r");
 	if(fp==NULL) return FALSE;
 	READLINE(fp,line);
@@ -939,6 +936,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 			case NN_TRAIN_BP:
 				res=ann_train_BP((_kernel *)neural->kernel,tr_in,tr_out,
 					0.000001);/*TODO: set as parameter*/
+				break;
 			case NN_TRAIN_CG:
 			default:
 				res=0.;
@@ -959,6 +957,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		FREE(tr_in);
 		FREE(tr_out);
 	}
+	FREE(curr_dir);
 	FREE(flist);
 	return TRUE;
 }
@@ -1057,16 +1056,14 @@ void _NN(kernel,run)(nn_def *neural){
 		case NN_TYPE_LNN:
 		case NN_TYPE_PNN:
 		case NN_TYPE_UKN:
-			res=0.;/*not ready yet*/
-			break;
 		default:
-			/*can't happen*/
-			res=0.;
+			break;
 		}
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
 	}
+	FREE(curr_dir);
 	FREE(flist);
 }
 

@@ -92,6 +92,7 @@ _kernel *ann_load(CHAR *f_kernel){
 	n_out=0;
 	n_hid=0;
 	n_par=0;
+	name=NULL;
 	kernel=NULL;
 	parameter=NULL;
 	/*mpi*/
@@ -411,6 +412,22 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	return kernel;
 load_kernel_fail:
 	MPI_BAIL_SEND;
+	/*un-allocate kernel*/
+	if(kernel!=NULL){
+		if(KERN.name!=NULL) FREE(KERN.name);
+		if(KERN.in!=NULL) FREE(KERN.in);
+		if(KERN.output.weights!=NULL) FREE(KERN.output.weights);
+		if(KERN.output.vec!=NULL) FREE(KERN.output.vec);
+		if(KERN.hiddens!=NULL){
+			for(idx=0;idx<KERN.n_hiddens;idx++){
+				if(KERN.hiddens[idx].weights!=NULL) FREE(KERN.hiddens[idx].weights);
+				if(KERN.hiddens[idx].vec!=NULL) FREE(KERN.hiddens[idx].vec);
+			}
+			FREE(KERN.hiddens);
+		}
+		FREE(kernel);
+	}
+	FREE(name);
 	FREE(parameter);
 	FREE(line);
 	fclose(fp);
@@ -1019,9 +1036,9 @@ _HT;
 	}
 #else /*_MPI*/
 #pragma omp parallel for private(jdx,kdx) _NT
-	for(jdx=0;jdx<KERN.output.n_inputs;jdx++){
-#define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(KERN.output.n_inputs,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
-		UNROLL_FOR(0,KERN.output.n_neurons,ANN_UNROLL,WD,kdx);
+	for(jdx=0;jdx<M;jdx++){
+#define OP_WD(ix) delta_ptr[KERN.n_hiddens-1][jdx]+=KERN.output.weights[_2D_IDX(M,ix,jdx)]*delta_ptr[KERN.n_hiddens][ix]
+		UNROLL_FOR(0,N,ANN_UNROLL,WD,kdx);
 #undef OP_WD
 		delta_ptr[KERN.n_hiddens-1][jdx]*=ann_dact(KERN.hiddens[KERN.n_hiddens-1].vec[jdx]);
 	}
@@ -1323,16 +1340,16 @@ _HT;
 	}
 #else /*_MPI*/
 #pragma omp parallel for private(idx,jdx) _NT
-	for(idx=0;idx<KERN.output.n_neurons;idx++){
-#define OP_DH(ix) KERN.output.weights[_2D_IDX(KERN.output.n_inputs,idx,ix)]+=\
+	for(idx=0;idx<N;idx++){
+#define OP_DH(ix) KERN.output.weights[_2D_IDX(M,idx,ix)]+=\
 	LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
-		UNROLL_FOR(0,KERN.output.n_inputs,ANN_UNROLL,DH,jdx);
+		UNROLL_FOR(0,M,ANN_UNROLL,DH,jdx);
 #undef OP_DH
 	}
 #endif /*_MPI*/
 #endif /*PBLAS*/
 #ifdef _MPI
-//	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS*/
+//	MPI_Barrier(MPI_COMM_WORLD);//WAIT FOR ALL TASKS
 #endif /*_MPI*/
 /*^^^ hiddens*/
 	for(idx=(KERN.n_hiddens-1);idx>0;idx--){
