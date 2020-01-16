@@ -207,14 +207,14 @@ next_arg:
 		STRDUP("./nn.conf",nn_filename);
 	}
 	/*load configuration file*/
-	neural=_NN(conf,load)(nn_filename);
+	neural=_NN(load,conf)(nn_filename);
 	FREE(nn_filename);
 	if(neural==NULL) {
 		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
 		goto FAIL;
 	}
 	/*setup done, run kernel*/
-	_NN(kernel,run)(neural);
+	_NN(run,kernel)(neural);
 	/*deinit*/
 	_NN(deinit,all)();
 	return 0;

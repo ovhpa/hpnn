@@ -211,7 +211,7 @@ next_arg:
 #endif
 	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
 	/*load configuration file*/
-	neural=_NN(conf,load)(nn_filename);
+	neural=_NN(load,conf)(nn_filename);
 	FREE(nn_filename);
 	if(neural==NULL) {
 		_OUT(stderr,"FAILED to read NN configuration file! (ABORTING)\n");
@@ -223,10 +223,10 @@ next_arg:
 		_OUT(stderr,"FAILED to open kernel.tmp for WRITE!\n");
 		goto FAIL;
 	}
-	_NN(kernel,dump)(neural,output);
+	_NN(dump,kernel)(neural,output);
 	fclose(output);
 	/*perform training*/
-	if(!_NN(kernel,train)(neural)){
+	if(!_NN(train,kernel)(neural)){
 		_OUT(stderr,"FAILED to train kernel!\n");
 		goto FAIL;
 	}
@@ -236,10 +236,8 @@ next_arg:
 		_OUT(stderr,"FAILED to open kernel.tmp for WRITE!\n");
 		goto FAIL;
 	}
-	_NN(kernel,dump)(neural,output);
+	_NN(dump,kernel)(neural,output);
 	fclose(output);	
-	/*dump config*/
-//	dump_conf(stdout,neural);
 	/*deinit*/
 	_NN(deinit,all)();
 	return 0;

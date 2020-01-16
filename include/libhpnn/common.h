@@ -56,7 +56,6 @@
  * mail: hubert.valencia _at_ imass.nagoya-u.ac.jp */
 
 #include "unroll.def"
-
 /*defines*/
 #if defined(__GNUC__) || (defined(__ICC) && (__ICC >= 600))
 #define FUNCTION __PRETTY_FUNCTION__
@@ -113,7 +112,10 @@
 		exit(-1);\
 	}\
 }while(0)
-#define FREE(pointer) g_free(pointer)
+#define FREE(pointer) do{\
+	g_free(pointer);\
+	pointer=NULL;\
+}while(0)
 #define STRDUP(src,dest) do{\
 	dest=g_strdup(str);\
 }while(0)

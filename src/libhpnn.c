@@ -547,11 +547,7 @@ void _NN(get,tests_directory)(nn_def *conf,CHAR **tests){
 char *_NN(return,tests_directory)(nn_def *conf){
 	return _CONF.tests;
 }
-
-
-
-/*load neural network definition file*/
-nn_def *_NN(conf,load)(CHAR *filename){
+nn_def *_NN(load,conf)(CHAR *filename){
 #define FAIL read_conf_fail
 	PREP_READLINE();
 	CHAR *line=NULL;
@@ -559,15 +555,15 @@ nn_def *_NN(conf,load)(CHAR *filename){
 	UINT *parameter;
 	UINT *n_hiddens;
 	UINT64 allocate;
-	nn_def  *neural;
+	nn_def  *conf;
 	BOOL is_ok;
 	UINT   idx;
 	FILE   *fp;
 	/*init*/
 	allocate=0;
 	n_hiddens=NULL;
-	ALLOC_REPORT(neural,1,nn_def,allocate);
-	_NN(init,conf)(neural);
+	ALLOC_REPORT(conf,1,nn_def,allocate);
+	_NN(init,conf)(conf);
 	ALLOC(parameter,3,UINT);
 	/**/
 	fp=fopen(filename,"r");
@@ -583,7 +579,7 @@ nn_def *_NN(conf,load)(CHAR *filename){
 			ptr+=6;SKIP_BLANK(ptr);
 			/*process line (remove comment and \n)*/
 			STR_CLEAN(ptr);
-			STRDUP_REPORT(ptr,neural->name,allocate);
+			STRDUP_REPORT(ptr,_CONF.name,allocate);
 		}
 		ptr=STRFIND("[type",line);
 		if(ptr!=NULL){
@@ -591,15 +587,15 @@ nn_def *_NN(conf,load)(CHAR *filename){
 			ptr+=6;SKIP_BLANK(ptr);
 			switch (*ptr){
 			case 'L':
-				neural->type=NN_TYPE_LNN;
+				_CONF.type=NN_TYPE_LNN;
 				break;
 			case 'P':
-				neural->type=NN_TYPE_PNN;
+				_CONF.type=NN_TYPE_PNN;
 				break;
 			case 'A':
 				/*fallthrough*/
 			default:
-				neural->type=NN_TYPE_ANN;
+				_CONF.type=NN_TYPE_ANN;
 				break;
 			}
 		}
@@ -610,13 +606,13 @@ nn_def *_NN(conf,load)(CHAR *filename){
 			if((STRFIND("generate",line)!=NULL)
 			 ||(STRFIND("GENERATE",line)!=NULL)){
 NN_OUT(stdout,"generating kernel!\n");
-				neural->need_init=TRUE;
+				_CONF.need_init=TRUE;
 			}else{
 NN_OUT(stdout,"loading kernel!\n");
-				neural->need_init=FALSE;
+				_CONF.need_init=FALSE;
 				STR_CLEAN(ptr);
-				STRDUP_REPORT(ptr,neural->f_kernel,allocate);
-				if(neural->f_kernel==NULL){
+				STRDUP_REPORT(ptr,_CONF.f_kernel,allocate);
+				if(_CONF.f_kernel==NULL){
 					NN_ERROR(stderr,"Malformed NN configuration file!\n");
 					NN_ERROR(stderr,"keyword: init, can't read filename: %s\n",ptr);
 					goto FAIL;
@@ -631,7 +627,7 @@ NN_OUT(stdout,"loading kernel!\n");
 				NN_ERROR(stderr,"keyword: seed, value: %s\n",ptr);
 				goto FAIL;
 			}
-			GET_UINT(neural->seed,ptr,ptr2);
+			GET_UINT(_CONF.seed,ptr,ptr2);
 		}
 		ptr=STRFIND("[input",line);
 		if(ptr!=NULL){
@@ -687,14 +683,14 @@ NN_OUT(stdout,"loading kernel!\n");
 			ptr+=7;SKIP_BLANK(ptr);
 			switch (*ptr){
 				case 'B':
-					if(*(ptr+2)=='M') neural->train=NN_TRAIN_BPM;
-					else neural->train=NN_TRAIN_BP;
+					if(*(ptr+2)=='M') _CONF.train=NN_TRAIN_BPM;
+					else _CONF.train=NN_TRAIN_BP;
 					break;
 				case 'C':
-					neural->train=NN_TRAIN_CG;
+					_CONF.train=NN_TRAIN_CG;
 					break;
 				default:
-					neural->train=NN_TRAIN_UKN;
+					_CONF.train=NN_TRAIN_UKN;
 			}
 		}
 		ptr=STRFIND("[sample_dir",line);
@@ -702,24 +698,24 @@ NN_OUT(stdout,"loading kernel!\n");
 			/*get the sample directory {"dir"}*/
 			ptr+=12;SKIP_BLANK(ptr);
 			STR_CLEAN(ptr);
-			STRDUP_REPORT(ptr,neural->samples,allocate);
+			STRDUP_REPORT(ptr,_CONF.samples,allocate);
 		}
 		ptr=STRFIND("[test_dir",line);
 		if(ptr!=NULL){
 			/*get the test directory {"dir"}*/
 			ptr+=10;SKIP_BLANK(ptr);
 			STR_CLEAN(ptr);
-			STRDUP_REPORT(ptr,neural->tests,allocate);
+			STRDUP_REPORT(ptr,_CONF.tests,allocate);
 		}
 		READLINE(fp,line);
 	}while(!feof(fp));
 	/*checks*/
-	if(neural->type==NN_TYPE_UKN){
+	if(_CONF.type==NN_TYPE_UKN){
 		NN_ERROR(stderr,"Malformed NN configuration file!\n");
 		NN_ERROR(stderr,"keyword: type; unknown or missing...\n");
 		goto FAIL;
 	}
-	if(neural->need_init==TRUE){
+	if(_CONF.need_init==TRUE){
 		if(parameter[0]==0){
 			NN_ERROR(stderr,"Malformed NN configuration file!\n");
 			NN_ERROR(stderr,"keyword: input; wrong or missing...\n");
@@ -735,7 +731,7 @@ NN_OUT(stdout,"loading kernel!\n");
 			NN_ERROR(stderr,"keyword: output; wrong or missing...\n");
 			goto FAIL;
 		}
-		is_ok=_NN(kernel,generate)(neural,parameter[0],parameter[1],
+		is_ok=_NN(generate,kernel)(conf,parameter[0],parameter[1],
 				parameter[2],n_hiddens);
 		if(!is_ok){
 			NN_ERROR(stderr,"FAILED to generate NN kernel!\n");
@@ -743,13 +739,13 @@ NN_OUT(stdout,"loading kernel!\n");
 			goto FAIL;
 		}
 	}else{
-		is_ok=_NN(kernel,load)(neural);
+		is_ok=_NN(load,kernel)(conf);
 		if(!is_ok){
 			NN_ERROR(stderr,"FAILED to load the NN kernel!\n");
 			goto FAIL;
 		}
 	}
-	if(neural->kernel==NULL){
+	if(_CONF.kernel==NULL){
 		NN_ERROR(stderr,"Initialization or load of NN kernel FAILED!\n");
 		goto FAIL;
 	}
@@ -757,25 +753,24 @@ NN_OUT(stdout,"loading kernel!\n");
 	FREE(n_hiddens);
 	fclose(fp);
 NN_OUT(stdout,"NN definition allocation: %lu (bytes)\n",allocate);
-	return neural;
+	return conf;
 read_conf_fail:
-	FREE(neural->name);neural->name=NULL;
-	FREE(neural->samples);neural->samples=NULL;
-	FREE(neural->tests);neural->tests=NULL;
-	FREE(neural);
+	FREE(_CONF.name);
+	FREE(_CONF.samples);
+	FREE(_CONF.tests);
+	FREE(conf);
 	FREE(parameter);
 	FREE(n_hiddens);
 	return NULL;
 #undef FAIL
 }
-
-void _NN(conf,dump)(FILE *fp,nn_def *neural){
+void _NN(dump,conf)(nn_def *conf,FILE *fp){
 	UINT n_hiddens;
 	UINT idx;
 	if(fp==NULL) return;
 	NN_WRITE(fp,"# NN configuration\n");
-	NN_WRITE(fp,"[name] %s\n",neural->name);
-	switch(neural->type){
+	NN_WRITE(fp,"[name] %s\n",_CONF.name);
+	switch(_CONF.type){
 		case NN_TYPE_LNN:
 			NN_WRITE(fp,"[type] LNN\n");
 			break;
@@ -786,18 +781,18 @@ void _NN(conf,dump)(FILE *fp,nn_def *neural){
 		default:
 			NN_WRITE(fp,"[type] ANN\n");
 	}
-	if(neural->need_init) NN_WRITE(fp,"[init] generate\n");
-	else NN_WRITE(fp,"[init] %s\n",neural->f_kernel);
-	NN_WRITE(fp,"[seed] %i\n",neural->seed);
-	NN_WRITE(fp,"[inputs] %i\n",_NN(get,n_inputs)(neural));
-	n_hiddens=_NN(get,n_hiddens)(neural);
+	if(_CONF.need_init) NN_WRITE(fp,"[init] generate\n");
+	else NN_WRITE(fp,"[init] %s\n",_CONF.f_kernel);
+	NN_WRITE(fp,"[seed] %i\n",_CONF.seed);
+	NN_WRITE(fp,"[inputs] %i\n",_NN(get,n_inputs)(conf));
+	n_hiddens=_NN(get,n_hiddens)(conf);
 	NN_WRITE(fp,"[hiddens] ");
 	for(idx=0;idx<n_hiddens;idx++){
-		NN_WRITE(fp,"%i ",_NN(get,h_neurons)(neural,idx));
+		NN_WRITE(fp,"%i ",_NN(get,h_neurons)(conf,idx));
 	}
 	NN_WRITE(fp,"\n");
-	NN_WRITE(fp,"[outputs] %i\n",_NN(get,n_outputs)(neural));
-	switch(neural->train){
+	NN_WRITE(fp,"[outputs] %i\n",_NN(get,n_outputs)(conf));
+	switch(_CONF.train){
 		case NN_TRAIN_BP:
 			NN_WRITE(fp,"[train] BP\n");
 			break;
@@ -811,8 +806,8 @@ void _NN(conf,dump)(FILE *fp,nn_def *neural){
 			NN_WRITE(fp,"[train] none\n");
 	}
 
-	if(neural->samples!=NULL) NN_WRITE(fp,"[sample_dir] %s\n",neural->samples);
-	if(neural->tests!=NULL) NN_WRITE(fp,"[test_dir] %s\n",neural->tests);
+	if(_CONF.samples!=NULL) NN_WRITE(fp,"[sample_dir] %s\n",_CONF.samples);
+	if(_CONF.tests!=NULL) NN_WRITE(fp,"[test_dir] %s\n",_CONF.tests);
 }
 /*----------------------------*/
 /*+++ manipulate NN kernel +++*/
@@ -829,72 +824,25 @@ void _NN(free,kernel)(nn_def *conf){
                 return;
         }
 }
-
-
-
-
-
-
-
-#undef _CONF
-
-
-
-/*----------------------------*/
-/*+++ Access NN parameters +++*/
-/*----------------------------*/
-UINT _NN(get,n_inputs)(nn_def *neural){
-	switch (neural->type){
+BOOL _NN(generate,kernel)(nn_def *conf,...){
+	va_list ap;
+	switch (_CONF.type){
 	case NN_TYPE_ANN:
-		return ((_kernel *)neural->kernel)->n_inputs;
-	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
-	case NN_TYPE_UKN:
-	default:
-		return 0;
-	}
-}
-UINT _NN(get,n_hiddens)(nn_def *neural){
-	switch (neural->type){
-	case NN_TYPE_ANN:
-		return ((_kernel *)neural->kernel)->n_hiddens;
-	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
-	case NN_TYPE_UKN:
-	default:
-		return 0;
-	}
-}
-UINT _NN(get,n_outputs)(nn_def *neural){
-	switch (neural->type){
-	case NN_TYPE_ANN:
-		return ((_kernel *)neural->kernel)->n_outputs;
-	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
-	case NN_TYPE_UKN:
-	default:
-		return 0;
-	}
-}
-UINT _NN(get,h_neurons)(nn_def *neural,UINT layer){
-	switch (neural->type){
-	case NN_TYPE_ANN:
-		return ((_kernel *)neural->kernel)->hiddens[layer].n_neurons;
-	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
-	case NN_TYPE_UKN:
-	default:
-		return 0;
-	}
-}
-/*GENERAL*/
-BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,
-							UINT n_outputs,UINT *hiddens){
-	switch (neural->type){
-	case NN_TYPE_ANN:
-		neural->kernel=(void *)ann_generate(&(neural->seed),n_inputs,n_hiddens,
+		{
+		int n_args=4;
+		UINT n_inputs;
+		UINT n_hiddens;
+		UINT n_outputs;
+		UINT *hiddens;
+		va_start(ap,n_args);
+		n_inputs=va_arg(ap,UINT);
+		n_hiddens=va_arg(ap,UINT);
+		n_outputs=va_arg(ap,UINT);
+		hiddens=va_arg(ap,UINT*);
+		_CONF.kernel=(void *)ann_generate(&(_CONF.seed),n_inputs,n_hiddens,
 			n_outputs,hiddens);
-		if(neural->kernel==NULL) return FALSE;
+		if(_CONF.kernel==NULL) return FALSE;
+		}
 		return TRUE;
 	case NN_TYPE_LNN:
 	case NN_TYPE_PNN:
@@ -903,11 +851,11 @@ BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,
 		return FALSE;
 	}
 }
-BOOL _NN(kernel,load)(nn_def *neural){
-	switch (neural->type){
+BOOL _NN(load,kernel)(nn_def *conf){
+	switch (_CONF.type){
 	case NN_TYPE_ANN:
-		neural->kernel=(void *)ann_load(neural->f_kernel);
-		if(neural->kernel==NULL) return FALSE;
+		_CONF.kernel=(void *)ann_load(_CONF.f_kernel);
+		if(_CONF.kernel==NULL) return FALSE;
 		return TRUE;
 	case NN_TYPE_LNN:
 	case NN_TYPE_PNN:
@@ -916,11 +864,10 @@ BOOL _NN(kernel,load)(nn_def *neural){
 		return FALSE;
 	}
 }
-
-void _NN(kernel,dump)(nn_def *neural,FILE *output){
-	switch (neural->type){
+void _NN(dump,kernel)(nn_def *conf, FILE *output){
+	switch (_CONF.type){
 	case NN_TYPE_ANN:
-		ann_dump((_kernel *)neural->kernel,output);
+		ann_dump((_kernel *)_CONF.kernel,output);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_PNN:
@@ -929,8 +876,57 @@ void _NN(kernel,dump)(nn_def *neural,FILE *output){
 		return;
 	}
 }
-
-BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
+/*----------------------------*/
+/*+++ Access NN parameters +++*/
+/*----------------------------*/
+UINT _NN(get,n_inputs)(nn_def *conf){
+	switch (_CONF.type){
+	case NN_TYPE_ANN:
+		return ((_kernel *)_CONF.kernel)->n_inputs;
+	case NN_TYPE_LNN:
+	case NN_TYPE_PNN:
+	case NN_TYPE_UKN:
+	default:
+		return 0;
+	}
+}
+UINT _NN(get,n_hiddens)(nn_def *conf){
+	switch (_CONF.type){
+	case NN_TYPE_ANN:
+		return ((_kernel *)_CONF.kernel)->n_hiddens;
+	case NN_TYPE_LNN:
+	case NN_TYPE_PNN:
+	case NN_TYPE_UKN:
+	default:
+		return 0;
+	}
+}
+UINT _NN(get,n_outputs)(nn_def *conf){
+	switch (_CONF.type){
+	case NN_TYPE_ANN:
+		return ((_kernel *)_CONF.kernel)->n_outputs;
+	case NN_TYPE_LNN:
+	case NN_TYPE_PNN:
+	case NN_TYPE_UKN:
+	default:
+		return 0;
+	}
+}
+UINT _NN(get,h_neurons)(nn_def *conf,UINT layer){
+	switch (_CONF.type){
+	case NN_TYPE_ANN:
+		return ((_kernel *)_CONF.kernel)->hiddens[layer].n_neurons;
+	case NN_TYPE_LNN:
+	case NN_TYPE_PNN:
+	case NN_TYPE_UKN:
+	default:
+		return 0;
+	}
+}
+/*------------------*/
+/*+++ sample I/O +++*/
+/*------------------*/
+BOOL _NN(read,sample)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 #define FAIL nn_sample_read_fail
 	PREP_READLINE();
 	CHAR *line=NULL;
@@ -1003,9 +999,10 @@ nn_sample_read_fail:
 	return FALSE;
 #undef FAIL
 }
-
-
-BOOL _NN(kernel,train)(nn_def *neural){
+/*---------------------*/
+/*+++ execute NN OP +++*/
+/*---------------------*/
+BOOL _NN(train,kernel)(nn_def *conf){
 	DIR_S *directory;
 	CHAR  *curr_file;
 	CHAR   *curr_dir;
@@ -1023,12 +1020,12 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	curr_dir =NULL;
 	flist = NULL;
 	/**/
-	if(neural->type==NN_TYPE_UKN) return FALSE;
+	if(_CONF.type==NN_TYPE_UKN) return FALSE;
 	/*initialize momentum*/
-	switch (neural->type){
+	switch (_CONF.type){
 	case NN_TYPE_ANN:
-		if(neural->train==NN_TRAIN_BPM)
-			ann_momentum_init((_kernel *)neural->kernel);
+		if(_CONF.train==NN_TRAIN_BPM)
+			ann_momentum_init((_kernel *)_CONF.kernel);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_PNN:
@@ -1037,13 +1034,13 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		NN_ERROR(stdout,"unimplemented NN type!\n");
 	}
 	/*process sample files*/
-	OPEN_DIR(directory,neural->samples);
+	OPEN_DIR(directory,_CONF.samples);
 	if(directory==NULL){
 		NN_ERROR(stderr,"can't open sample directory: %s\n",
-			neural->samples);
+			_CONF.samples);
 		return FALSE;
 	}
-	STRCAT(curr_dir,neural->samples,"/");
+	STRCAT(curr_dir,_CONF.samples,"/");
 	/*count the number of file in directory*/
 	FILE_FROM_DIR(directory,curr_file);
 	file_number=0;
@@ -1071,8 +1068,8 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	if(is_ok){
 		NN_ERROR(stderr,"trying to close %s directory. IGNORED\n",curr_dir);
 	}
-	if(neural->seed==0) neural->seed=time(NULL);
-	srandom(neural->seed);
+	if(_CONF.seed==0) _CONF.seed=time(NULL);
+	srandom(_CONF.seed);
 	jdx=0;
 	while(jdx<file_number){
 		/*get a random number between 0 and file_number-1*/
@@ -1086,17 +1083,17 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		NN_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
-		_NN(sample,read)(tmp,&tr_in,&tr_out);
-		switch (neural->type){
+		_NN(read,sample)(tmp,&tr_in,&tr_out);
+		switch (_CONF.type){
 		case NN_TYPE_ANN:
 			/*do all case of type*/
-			switch (neural->train){
+			switch (_CONF.train){
 			case NN_TRAIN_BPM:
-				res=ann_train_BPM((_kernel *)neural->kernel,tr_in,tr_out,
+				res=ann_train_BPM((_kernel *)_CONF.kernel,tr_in,tr_out,
 					0.2,0.00001);/*TODO: set as parameters*/
 				break;
 			case NN_TRAIN_BP:
-				res=ann_train_BP((_kernel *)neural->kernel,tr_in,tr_out,
+				res=ann_train_BP((_kernel *)_CONF.kernel,tr_in,tr_out,
 					0.000001);/*TODO: set as parameter*/
 				break;
 			case NN_TRAIN_CG:
@@ -1123,8 +1120,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	FREE(flist);
 	return TRUE;
 }
-
-void _NN(kernel,run)(nn_def *neural){
+void _NN(run,kernel)(nn_def *conf){
 	DIR_S *directory;
 	CHAR  *curr_file;
 	CHAR   *curr_dir;
@@ -1143,15 +1139,15 @@ void _NN(kernel,run)(nn_def *neural){
 	curr_dir =NULL;
 	flist = NULL;
 	/**/
-	if(neural->type==NN_TYPE_UKN) return;
+	if(_CONF.type==NN_TYPE_UKN) return;
 	/*process sample files*/
-	OPEN_DIR(directory,neural->tests);
+	OPEN_DIR(directory,_CONF.tests);
 	if(directory==NULL){
 		NN_ERROR(stderr,"can't open sample directory: %s\n",
-			neural->samples);
+			_CONF.samples);
 		return;
 	}
-	STRCAT(curr_dir,neural->tests,"/");
+	STRCAT(curr_dir,_CONF.tests,"/");
 	/*count the number of file in directory*/
 	FILE_FROM_DIR(directory,curr_file);
 	file_number=0;
@@ -1179,11 +1175,11 @@ void _NN(kernel,run)(nn_def *neural){
 	if(is_ok){
 		NN_ERROR(stderr,"trying to close %s directory. IGNORED\n",curr_dir);
 	}
-	if(neural->seed==0) neural->seed=time(NULL);
-	srandom(neural->seed);
+	if(_CONF.seed==0) _CONF.seed=time(NULL);
+	srandom(_CONF.seed);
 	jdx=0;
 	while(jdx<file_number){
-#define _K ((_kernel *)(neural->kernel))
+#define _K ((_kernel *)(_CONF.kernel))
 		/*get a random number between 0 and file_number-1*/
 		idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
 		while(flist[idx]==NULL){
@@ -1195,8 +1191,8 @@ void _NN(kernel,run)(nn_def *neural){
 		NN_OUT(stdout,"TESTING FILE: %s\t",curr_file);
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
-		_NN(sample,read)(tmp,&tr_in,&tr_out);
-		switch (neural->type){
+		_NN(read,sample)(tmp,&tr_in,&tr_out);
+		switch (_CONF.type){
 		case NN_TYPE_ANN:
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
 			ann_kernel_run(_K);
@@ -1230,4 +1226,4 @@ void _NN(kernel,run)(nn_def *neural){
 	FREE(flist);
 }
 
-
+#undef _CONF

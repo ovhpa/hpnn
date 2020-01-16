@@ -169,37 +169,31 @@ char *_NN(return,samples_directory)(nn_def *conf);
 void _NN(set,tests_directory)(nn_def *conf,CHAR *tests);
 void _NN(get,tests_directory)(nn_def *conf,CHAR **tests);
 char *_NN(return,tests_directory)(nn_def *conf);
-
-
-
-
-
-nn_def *_NN(conf,load)(CHAR *filename);
-void _NN(conf,dump)(FILE *fp,nn_def *neural);
+nn_def *_NN(load,conf)(CHAR *filename);
+void _NN(dump,conf)(nn_def *conf,FILE *fp);
 /*----------------------------*/
 /*+++ manipulate NN kernel +++*/
 /*----------------------------*/
 void _NN(free,kernel)(nn_def *conf);
-
-
-
+BOOL _NN(generate,kernel)(nn_def *conf,...);
+BOOL _NN(load,kernel)(nn_def *conf);
+void _NN(dump,kernel)(nn_def *conf, FILE *output);
 /*----------------------------*/
 /*+++ Access NN parameters +++*/
 /*----------------------------*/
-UINT _NN(get,n_inputs)(nn_def *neural);
-UINT _NN(get,n_hiddens)(nn_def *neural);
-UINT _NN(get,n_outputs)(nn_def *neural);
-UINT _NN(get,h_neurons)(nn_def *neural,UINT layer);
+UINT _NN(get,n_inputs)(nn_def *conf);
+UINT _NN(get,n_hiddens)(nn_def *conf);
+UINT _NN(get,n_outputs)(nn_def *conf);
+UINT _NN(get,h_neurons)(nn_def *conf,UINT layer);
+/*------------------*/
+/*+++ sample I/O +++*/
+/*------------------*/
+BOOL _NN(read,sample)(CHAR *filename,DOUBLE **in,DOUBLE **out);
 /*---------------------*/
-/*+++ manipulate NN +++*/
+/*+++ execute NN OP +++*/
 /*---------------------*/
-/*TODO: type dependent*/
-BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,
-							UINT n_outputs,UINT *hiddens);
-BOOL _NN(kernel,load)(nn_def *neural);
-void _NN(kernel,dump)(nn_def *neural, FILE *output);
-BOOL _NN(kernel,train)(nn_def *neural);
-void _NN(kernel,run)(nn_def *neural);
+BOOL _NN(train,kernel)(nn_def *conf);
+void _NN(run,kernel)(nn_def *conf);
 
 
 #endif/*LIBHPNN_H*/
