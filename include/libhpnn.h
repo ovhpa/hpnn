@@ -145,10 +145,31 @@ cudastreams *_NN(get,cudas)();
 /*---------------------*/
 void _NN(init,conf)(nn_def *conf);
 void _NN(deinit,conf)(nn_def *conf);
-
 void _NN(set,name)(nn_def *conf,const CHAR *name);
 void _NN(get,name)(nn_def *conf,CHAR **name);
 char *_NN(return,name)(nn_def *conf);
+void _NN(set,type)(nn_def *conf,nn_type type);
+void _NN(get,type)(nn_def *conf,nn_type *type);
+nn_type _NN(return,type)(nn_def *conf);
+void _NN(set,need_init)(nn_def *conf,BOOL need_init);
+void _NN(get,need_init)(nn_def *conf,BOOL *need_init);
+BOOL _NN(return,need_init)(nn_def *conf);
+void _NN(set,seed)(nn_def *conf,UINT seed);
+void _NN(get,seed)(nn_def *conf,UINT *seed);
+UINT _NN(return,seed)(nn_def *conf);
+void _NN(set,kernel_filename)(nn_def *conf,CHAR *f_kernel);
+void _NN(get,kernel_filename)(nn_def *conf,CHAR **f_kernel);
+char *_NN(return,kernel_filename)(nn_def *conf);
+void _NN(set,train)(nn_def *conf,nn_train train);
+void _NN(get,train)(nn_def *conf,nn_train *train);
+nn_train _NN(return,train)(nn_def *conf);
+void _NN(set,samples_directory)(nn_def *conf,CHAR *samples);
+void _NN(get,samples_directory)(nn_def *conf,CHAR **samples);
+char *_NN(return,samples_directory)(nn_def *conf);
+void _NN(set,tests_directory)(nn_def *conf,CHAR *tests);
+void _NN(get,tests_directory)(nn_def *conf,CHAR **tests);
+char *_NN(return,tests_directory)(nn_def *conf);
+
 
 
 

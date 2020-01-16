@@ -466,12 +466,90 @@ void _NN(set,name)(nn_def *conf,const CHAR *name){
 void _NN(get,name)(nn_def *conf,CHAR **name){
 	/*will initialize and return name*/
 	/*USER need to free name! --OVHPA*/
-	if(*name!=NULL) FREE(*name);
+	FREE(*name);
 	STRDUP(_CONF.name,*name);
 }
 char *_NN(return,name)(nn_def *conf){
 	return _CONF.name;
 }
+void _NN(set,type)(nn_def *conf,nn_type type){
+	_CONF.type=type;
+}
+void _NN(get,type)(nn_def *conf,nn_type *type){
+	*type=_CONF.type;
+}
+nn_type _NN(return,type)(nn_def *conf){
+	return _CONF.type;
+}
+void _NN(set,need_init)(nn_def *conf,BOOL need_init){
+	_CONF.need_init=need_init;
+}
+void _NN(get,need_init)(nn_def *conf,BOOL *need_init){
+	*need_init=_CONF.need_init;
+}
+BOOL _NN(return,need_init)(nn_def *conf){
+	return _CONF.need_init;
+}
+void _NN(set,seed)(nn_def *conf,UINT seed){
+	_CONF.seed=seed;
+}
+void _NN(get,seed)(nn_def *conf,UINT *seed){
+	*seed=_CONF.seed;
+}
+UINT _NN(return,seed)(nn_def *conf){
+	return _CONF.seed;
+}
+void _NN(set,kernel_filename)(nn_def *conf,CHAR *f_kernel){
+        FREE(_CONF.f_kernel);
+        STRDUP(f_kernel,_CONF.f_kernel);
+}
+void _NN(get,kernel_filename)(nn_def *conf,CHAR **f_kernel){
+	/*will initialize and return f_kernel*/
+	/*USER need to free f_kernel! --OVHPA*/
+	FREE(*f_kernel);
+	STRDUP(_CONF.f_kernel,*f_kernel);
+}
+char *_NN(return,kernel_filename)(nn_def *conf){
+	return _CONF.f_kernel;
+}
+void _NN(set,train)(nn_def *conf,nn_train train){
+	_CONF.train=train;
+}
+void _NN(get,train)(nn_def *conf,nn_train *train){
+	*train=_CONF.train;
+}
+nn_train _NN(return,train)(nn_def *conf){
+	return _CONF.train;
+}
+void _NN(set,samples_directory)(nn_def *conf,CHAR *samples){
+        FREE(_CONF.samples);
+        STRDUP(samples,_CONF.samples);
+}
+void _NN(get,samples_directory)(nn_def *conf,CHAR **samples){
+	/*will initialize and return samples*/
+	/*USER need to free samples! --OVHPA*/
+	FREE(*samples);
+	STRDUP(_CONF.samples,*samples);
+}
+char *_NN(return,samples_directory)(nn_def *conf){
+	return _CONF.samples;
+}
+void _NN(set,tests_directory)(nn_def *conf,CHAR *tests){
+        FREE(_CONF.tests);
+        STRDUP(tests,_CONF.tests);
+}
+void _NN(get,tests_directory)(nn_def *conf,CHAR **tests){
+	/*will initialize and return tests*/
+	/*USER need to free tests! --OVHPA*/
+	FREE(*tests);
+	STRDUP(_CONF.tests,*tests);
+}
+char *_NN(return,tests_directory)(nn_def *conf){
+	return _CONF.tests;
+}
+
+
+
 /*load neural network definition file*/
 nn_def *_NN(conf,load)(CHAR *filename){
 #define FAIL read_conf_fail
