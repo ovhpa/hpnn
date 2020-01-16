@@ -53,7 +53,7 @@
 /*GLOBAL VARIABLE: there it a unique runtime per run
  *  for which each use of library routine refers to.*/
 nn_runtime lib_runtime;
-/*new defs to take into account verbosity*/
+/*new defs to take into account verbosity
 #define NN_DBG(_file,...) do{\
 	if(lib_runtime.nn_verbose>2){\
 		_OUT((_file),"NN(DBG): ");\
@@ -77,6 +77,7 @@ nn_runtime lib_runtime;
 	_OUT((_file), __VA_ARGS__);\
 }while(0)
 #define NN_WRITE _OUT
+*/
 /*------------------*/
 /*+++ NN methods +++*/
 /*------------------*/
@@ -88,6 +89,7 @@ nn_runtime lib_runtime;
 void _NN(inc,verbose)(){
 	if(lib_runtime.nn_verbose>2) return;
         lib_runtime.nn_verbose++;
+	NN_DBG(stdout,"verbosity set to %i.\n",lib_runtime.nn_verbose);
 }
 void _NN(dec,verbose)(){
 	if(lib_runtime.nn_verbose<1) return;
@@ -98,6 +100,9 @@ void _NN(set,verbose)(SHORT verbosity){
 }
 void _NN(get,verbose)(SHORT *verbosity){
 	*verbosity=lib_runtime.nn_verbose;
+}
+int _NN(return,verbose)(){
+	return lib_runtime.nn_verbose;
 }
 void _NN(toggle,dry)(){
         lib_runtime.nn_dry^=lib_runtime.nn_dry;
@@ -148,6 +153,20 @@ void _NN(unset,capability)(nn_cap capability){
 	default:
 		return;
 	}
+}
+void _NN(init,runtime)(){
+	lib_runtime.capability=_NN(get,capabilities)();
+	lib_runtime.nn_verbose=0;
+	lib_runtime.nn_dry=FALSE;
+	lib_runtime.nn_num_threads=1;
+	lib_runtime.nn_num_blas =  1;
+	lib_runtime.nn_num_tasks = 1;
+	lib_runtime.cudas.n_gpu =  1;
+#ifndef _CUBLAS
+	lib_runtime.cudas.cuda_handle  =  0;
+#endif
+	lib_runtime.cudas.cuda_n_streams =1;
+	lib_runtime.cudas.cuda_streams=NULL;
 }
 BOOL _NN(init,OMP)(){
 #ifndef _OMP
@@ -228,7 +247,9 @@ BOOL _NN(init,BLAS)(){
 }
 int _NN(init,all)(){
 	BOOL is_ok=FALSE;
-	nn_cap capability = _NN(get,capabilities)();
+	nn_cap capability;
+	_NN(init,runtime)();
+	capability = lib_runtime.capability;
 	if(capability & NN_CAP_OMP) {
 		is_ok|=_NN(init,OMP)();
 	}
@@ -298,9 +319,9 @@ int _NN(deinit,all)(){
 	if(is_ok) return 0;
 	else return -1;
 }
-/*--------------------------*/
-/*+++ set/get parameters +++*/
-/*--------------------------*/
+/*------------------------------*/
+/*+++ set/get lib parameters +++*/
+/*------------------------------*/
 BOOL _NN(set,omp_threads)(UINT n_threads){
 #ifndef _OMP
 	NN_WARN(stdout,"failed to set OMP num_threads (no capability).\n");
@@ -412,6 +433,45 @@ cudastreams *_NN(get,cudas)(){
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/
+#define _CONF (*conf)
+void _NN(init,conf)(nn_def *conf){
+	/*init default conf*/
+	_CONF.rr=&lib_runtime;
+	_CONF.name=NULL;
+	_CONF.type=NN_TYPE_UKN;
+	_CONF.need_init=FALSE;
+	_CONF.seed=0;
+	_CONF.kernel=NULL;
+	_CONF.f_kernel=NULL;
+	_CONF.train=NN_TRAIN_UKN;
+	_CONF.samples=NULL;
+	_CONF.tests=NULL;
+}
+void _NN(deinit,conf)(nn_def *conf){
+	_CONF.rr=NULL;/*detach runtime*/
+	if(_CONF.name!=NULL) FREE(_CONF.name);
+	_CONF.type=NN_TYPE_UKN;
+	_CONF.need_init=FALSE;
+	_CONF.seed=0;
+	if(_CONF.kernel!=NULL) _NN(free,kernel)(conf);
+	if(_CONF.f_kernel!=NULL) FREE(_CONF.f_kernel);
+	_CONF.train=NN_TRAIN_UKN;
+	if(_CONF.samples!=NULL) FREE(_CONF.samples);
+	if(_CONF.tests!=NULL) FREE(_CONF.tests);
+}
+void _NN(set,name)(nn_def *conf,const CHAR *name){
+	FREE(_CONF.name);
+	STRDUP(name,_CONF.name);
+}
+void _NN(get,name)(nn_def *conf,CHAR **name){
+	/*will initialize and return name*/
+	/*USER need to free name! --OVHPA*/
+	if(*name!=NULL) FREE(*name);
+	STRDUP(_CONF.name,*name);
+}
+char *_NN(return,name)(nn_def *conf){
+	return _CONF.name;
+}
 /*load neural network definition file*/
 nn_def *_NN(conf,load)(CHAR *filename){
 #define FAIL read_conf_fail
@@ -429,14 +489,12 @@ nn_def *_NN(conf,load)(CHAR *filename){
 	allocate=0;
 	n_hiddens=NULL;
 	ALLOC_REPORT(neural,1,nn_def,allocate);
-	neural->need_init=FALSE;
-	neural->train=NN_TRAIN_UKN;
-	neural->type=NN_TYPE_UKN;
+	_NN(init,conf)(neural);
 	ALLOC(parameter,3,UINT);
 	/**/
 	fp=fopen(filename,"r");
 	if(!fp){
-		_OUT(stderr,"Error opening configuration file: %s\n",filename);
+		NN_ERROR(stderr,"Error opening configuration file: %s\n",filename);
 		goto FAIL;
 	}
 	READLINE(fp,line);/*first line is usually a comment*/
@@ -473,16 +531,16 @@ nn_def *_NN(conf,load)(CHAR *filename){
 			ptr+=6;SKIP_BLANK(ptr);
 			if((STRFIND("generate",line)!=NULL)
 			 ||(STRFIND("GENERATE",line)!=NULL)){
-_OUT(stdout,"NN generating kernel!\n");
+NN_OUT(stdout,"generating kernel!\n");
 				neural->need_init=TRUE;
 			}else{
-_OUT(stdout,"NN loading kernel!\n");
+NN_OUT(stdout,"loading kernel!\n");
 				neural->need_init=FALSE;
 				STR_CLEAN(ptr);
 				STRDUP_REPORT(ptr,neural->f_kernel,allocate);
 				if(neural->f_kernel==NULL){
-					_OUT(stderr,"Malformed NN configuration file!\n");
-					_OUT(stderr,"keyword: init, can't read filename: %s\n",ptr);
+					NN_ERROR(stderr,"Malformed NN configuration file!\n");
+					NN_ERROR(stderr,"keyword: init, can't read filename: %s\n",ptr);
 					goto FAIL;
 				}
 			}
@@ -491,8 +549,8 @@ _OUT(stdout,"NN loading kernel!\n");
 		if(ptr!=NULL){
 			ptr+=6;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"Malformed NN configuration file!\n");
-				_OUT(stderr,"keyword: seed, value: %s\n",ptr);
+				NN_ERROR(stderr,"Malformed NN configuration file!\n");
+				NN_ERROR(stderr,"keyword: seed, value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(neural->seed,ptr,ptr2);
@@ -502,8 +560,8 @@ _OUT(stdout,"NN loading kernel!\n");
 			/*get number of inputs {integer}*/
 			ptr+=7;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"Malformed NN configuration file!\n");
-				_OUT(stderr,"keyword: input, value: %s\n",ptr);
+				NN_ERROR(stderr,"Malformed NN configuration file!\n");
+				NN_ERROR(stderr,"keyword: input, value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(parameter[0],ptr,ptr2);
@@ -515,8 +573,8 @@ _OUT(stdout,"NN loading kernel!\n");
 			ptr+=8;SKIP_BLANK(ptr);
 			/*count the number of integers -> n_hiddens*/
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"Malformed NN configuration file!\n");
-				_OUT(stderr,"keyword: hidden, value: %s\n",ptr);
+				NN_ERROR(stderr,"Malformed NN configuration file!\n");
+				NN_ERROR(stderr,"keyword: hidden, value: %s\n",ptr);
 				goto FAIL;
 			}
 			parameter[1]=1;ptr2=ptr;
@@ -539,8 +597,8 @@ _OUT(stdout,"NN loading kernel!\n");
 			/*get the number of output {integer}*/
 			ptr+=8;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"Malformed NN configuration file!\n");
-				_OUT(stderr,"keyword: output, value: %s\n",ptr);
+				NN_ERROR(stderr,"Malformed NN configuration file!\n");
+				NN_ERROR(stderr,"keyword: output, value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(parameter[2],ptr,ptr2);
@@ -579,48 +637,48 @@ _OUT(stdout,"NN loading kernel!\n");
 	}while(!feof(fp));
 	/*checks*/
 	if(neural->type==NN_TYPE_UKN){
-		_OUT(stderr,"Malformed NN configuration file!\n");
-		_OUT(stderr,"keyword: type; unknown or missing...\n");
+		NN_ERROR(stderr,"Malformed NN configuration file!\n");
+		NN_ERROR(stderr,"keyword: type; unknown or missing...\n");
 		goto FAIL;
 	}
 	if(neural->need_init==TRUE){
 		if(parameter[0]==0){
-			_OUT(stderr,"Malformed NN configuration file!\n");
-			_OUT(stderr,"keyword: input; wrong or missing...\n");
+			NN_ERROR(stderr,"Malformed NN configuration file!\n");
+			NN_ERROR(stderr,"keyword: input; wrong or missing...\n");
 			goto FAIL;
 		}
 		if(parameter[1]==0){
-			_OUT(stderr,"Malformed NN configuration file!\n");
-			_OUT(stderr,"keyword: hidden; wrong or missing...\n");
+			NN_ERROR(stderr,"Malformed NN configuration file!\n");
+			NN_ERROR(stderr,"keyword: hidden; wrong or missing...\n");
 			goto FAIL;
 		}
 		if(parameter[2]==0){
-			_OUT(stderr,"Malformed NN configuration file!\n");
-			_OUT(stderr,"keyword: output; wrong or missing...\n");
+			NN_ERROR(stderr,"Malformed NN configuration file!\n");
+			NN_ERROR(stderr,"keyword: output; wrong or missing...\n");
 			goto FAIL;
 		}
 		is_ok=_NN(kernel,generate)(neural,parameter[0],parameter[1],
 				parameter[2],n_hiddens);
 		if(!is_ok){
-			_OUT(stderr,"FAILED to generate NN kernel!\n");
-			_OUT(stderr,"keyword: type; unsupported...\n");
+			NN_ERROR(stderr,"FAILED to generate NN kernel!\n");
+			NN_ERROR(stderr,"keyword: type; unsupported...\n");
 			goto FAIL;
 		}
 	}else{
 		is_ok=_NN(kernel,load)(neural);
 		if(!is_ok){
-			_OUT(stderr,"FAILED to load the NN kernel!\n");
+			NN_ERROR(stderr,"FAILED to load the NN kernel!\n");
 			goto FAIL;
 		}
 	}
 	if(neural->kernel==NULL){
-		_OUT(stderr,"Initialization or load of NN kernel FAILED!\n");
+		NN_ERROR(stderr,"Initialization or load of NN kernel FAILED!\n");
 		goto FAIL;
 	}
 	FREE(parameter);
 	FREE(n_hiddens);
 	fclose(fp);
-_OUT(stdout,"NN definition allocation: %lu (bytes)\n",allocate);
+NN_OUT(stdout,"NN definition allocation: %lu (bytes)\n",allocate);
 	return neural;
 read_conf_fail:
 	FREE(neural->name);neural->name=NULL;
@@ -637,47 +695,72 @@ void _NN(conf,dump)(FILE *fp,nn_def *neural){
 	UINT n_hiddens;
 	UINT idx;
 	if(fp==NULL) return;
-	_OUT(fp,"# NN configuration\n");
-	_OUT(fp,"[name] %s\n",neural->name);
+	NN_WRITE(fp,"# NN configuration\n");
+	NN_WRITE(fp,"[name] %s\n",neural->name);
 	switch(neural->type){
 		case NN_TYPE_LNN:
-			_OUT(fp,"[type] LNN\n");
+			NN_WRITE(fp,"[type] LNN\n");
 			break;
 		case NN_TYPE_PNN:
-			_OUT(fp,"[type] PNN\n");
+			NN_WRITE(fp,"[type] PNN\n");
 			break;
 		case NN_TYPE_ANN:
 		default:
-			_OUT(fp,"[type] ANN\n");
+			NN_WRITE(fp,"[type] ANN\n");
 	}
-	if(neural->need_init) _OUT(fp,"[init] generate\n");
-	else _OUT(fp,"[init] %s\n",neural->f_kernel);
-	_OUT(fp,"[seed] %i\n",neural->seed);
-	_OUT(fp,"[inputs] %i\n",_NN(get,n_inputs)(neural));
+	if(neural->need_init) NN_WRITE(fp,"[init] generate\n");
+	else NN_WRITE(fp,"[init] %s\n",neural->f_kernel);
+	NN_WRITE(fp,"[seed] %i\n",neural->seed);
+	NN_WRITE(fp,"[inputs] %i\n",_NN(get,n_inputs)(neural));
 	n_hiddens=_NN(get,n_hiddens)(neural);
-	_OUT(fp,"[hiddens] ");
+	NN_WRITE(fp,"[hiddens] ");
 	for(idx=0;idx<n_hiddens;idx++){
-		_OUT(fp,"%i ",_NN(get,h_neurons)(neural,idx));
+		NN_WRITE(fp,"%i ",_NN(get,h_neurons)(neural,idx));
 	}
-	_OUT(fp,"\n");
-	_OUT(fp,"[outputs] %i\n",_NN(get,n_outputs)(neural));
+	NN_WRITE(fp,"\n");
+	NN_WRITE(fp,"[outputs] %i\n",_NN(get,n_outputs)(neural));
 	switch(neural->train){
 		case NN_TRAIN_BP:
-			_OUT(fp,"[train] BP\n");
+			NN_WRITE(fp,"[train] BP\n");
 			break;
 		case NN_TRAIN_BPM:
-			_OUT(fp,"[train] BPM\n");
+			NN_WRITE(fp,"[train] BPM\n");
 			break;
 		case NN_TRAIN_CG:
-			_OUT(fp,"[train] CG\n");
+			NN_WRITE(fp,"[train] CG\n");
 			break;
 		default:
-			_OUT(fp,"[train] none\n");
+			NN_WRITE(fp,"[train] none\n");
 	}
 
-	if(neural->samples!=NULL) _OUT(fp,"[sample_dir] %s\n",neural->samples);
-	if(neural->tests!=NULL) _OUT(fp,"[test_dir] %s\n",neural->tests);
+	if(neural->samples!=NULL) NN_WRITE(fp,"[sample_dir] %s\n",neural->samples);
+	if(neural->tests!=NULL) NN_WRITE(fp,"[test_dir] %s\n",neural->tests);
 }
+/*----------------------------*/
+/*+++ manipulate NN kernel +++*/
+/*----------------------------*/
+void _NN(free,kernel)(nn_def *conf){
+        switch (_CONF.type){
+        case NN_TYPE_ANN:
+		ann_kernel_free((_kernel *)_CONF.kernel);
+		break;
+        case NN_TYPE_LNN:
+        case NN_TYPE_PNN:
+        case NN_TYPE_UKN:
+        default:
+                return;
+        }
+}
+
+
+
+
+
+
+
+#undef _CONF
+
+
 
 /*----------------------------*/
 /*+++ Access NN parameters +++*/
@@ -782,7 +865,7 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 	if(fp==NULL) return FALSE;
 	READLINE(fp,line);
 	if(line==NULL){
-		_OUT(stderr,"NN ERROR: sample %s read failed!\n",filename);
+		NN_ERROR(stderr,"sample %s read failed!\n",filename);
 		return FALSE;
 	}
 	do{
@@ -791,12 +874,12 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 			/*read inputs*/
 			ptr+=7;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"NN ERR: sample %s input read failed!\n",filename);
+				NN_ERROR(stderr,"sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			GET_UINT(n_in,ptr,ptr2);
 			if(n_in==0){
-				_OUT(stderr,"NN ERR: sample %s input read failed!\n",filename);
+				NN_ERROR(stderr,"sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			READLINE(fp,line);/*line immediately after should contain input*/
@@ -814,12 +897,12 @@ BOOL _NN(sample,read)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 			/*read outputs*/
 			ptr+=8;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"NN ERR: sample %s output read failed!\n",filename);
+				NN_ERROR(stderr,"sample %s output read failed!\n",filename);
 				goto FAIL;
 			}
 			GET_UINT(n_out,ptr,ptr2);
 			if(n_out==0){
-				_OUT(stderr,"NN ERR: sample %s input read failed!\n",filename);
+				NN_ERROR(stderr,"sample %s input read failed!\n",filename);
 				goto FAIL;
 			}
 			READLINE(fp,line);/*line immediately after should contain input*/
@@ -873,12 +956,12 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	case NN_TYPE_PNN:
 	case NN_TYPE_UKN:
 	default:
-		_OUT(stdout,"NN type not ready!\n");
+		NN_ERROR(stdout,"unimplemented NN type!\n");
 	}
 	/*process sample files*/
 	OPEN_DIR(directory,neural->samples);
 	if(directory==NULL){
-		_OUT(stderr,"NN ERR: can't open sample directory: %s\n",
+		NN_ERROR(stderr,"can't open sample directory: %s\n",
 			neural->samples);
 		return FALSE;
 	}
@@ -908,7 +991,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 	}
 	CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		_OUT(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+		NN_ERROR(stderr,"trying to close %s directory. IGNORED\n",curr_dir);
 	}
 	if(neural->seed==0) neural->seed=time(NULL);
 	srandom(neural->seed);
@@ -922,7 +1005,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
+		NN_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
@@ -953,7 +1036,7 @@ BOOL _NN(kernel,train)(nn_def *neural){
 			/*can't happen*/
 			res=0.;
 		}
-		if(res>0.1) _OUT(stdout,"#");
+		if(res>0.1) NN_DBG(stdout,"bad optimization!\n");
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
@@ -986,7 +1069,7 @@ void _NN(kernel,run)(nn_def *neural){
 	/*process sample files*/
 	OPEN_DIR(directory,neural->tests);
 	if(directory==NULL){
-		_OUT(stderr,"NN ERR: can't open sample directory: %s\n",
+		NN_ERROR(stderr,"can't open sample directory: %s\n",
 			neural->samples);
 		return;
 	}
@@ -1016,7 +1099,7 @@ void _NN(kernel,run)(nn_def *neural){
 	}
         CLOSE_DIR(directory,is_ok);
 	if(is_ok){
-		_OUT(stderr,"ERROR: trying to close %s directory. IGNORED\n",curr_dir);
+		NN_ERROR(stderr,"trying to close %s directory. IGNORED\n",curr_dir);
 	}
 	if(neural->seed==0) neural->seed=time(NULL);
 	srandom(neural->seed);
@@ -1031,7 +1114,7 @@ void _NN(kernel,run)(nn_def *neural){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		_OUT(stdout,"TESTING FILE: %s\t",curr_file);
+		NN_OUT(stdout,"TESTING FILE: %s\t",curr_file);
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(sample,read)(tmp,&tr_in,&tr_out);
@@ -1049,9 +1132,9 @@ void _NN(kernel,run)(nn_def *neural){
 
 			}
 			res*=0.5;
-			_OUT(stdout," init=%15.10f",res);
-			if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
-			else _OUT(stdout," FAIL!\n");
+			NN_OUT(stdout," init=%15.10f",res);
+			if(is_ok==TRUE) NN_OUT(stdout," SUCCESS!\n");
+			else NN_OUT(stdout," FAIL!\n");
 			fflush(stdout);
 			break;
 #undef _K

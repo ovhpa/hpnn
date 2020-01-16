@@ -82,6 +82,30 @@ typedef struct {
 /*+++ NN methods +++*/
 /*------------------*/
 #define _NN(a,b) nn_##a##_##b
+/*new defs to take into account verbosity*/
+#define NN_DBG(_file,...) do{\
+	if((_NN(return,verbose)())>2){\
+		_OUT((_file),"NN(DBG): ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_OUT(_file,...) do{\
+	if((_NN(return,verbose)())>1){\
+		_OUT((_file),"NN: ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_WARN(_file,...) do{\
+	if((_NN(return,verbose)())>0){\
+		_OUT((_file),"NN(WARN): ");\
+		_OUT((_file), __VA_ARGS__);\
+	}\
+}while(0)
+#define NN_ERROR(_file,...) do{\
+	_OUT((_file),"NN(ERR): ");\
+	_OUT((_file), __VA_ARGS__);\
+}while(0)
+#define NN_WRITE _OUT
 /*--------------------------*/
 /*+++ initialize library +++*/
 /*--------------------------*/
@@ -89,6 +113,7 @@ void _NN(inc,verbose)();
 void _NN(dec,verbose)();
 void _NN(set,verbose)(SHORT verbosity);
 void _NN(get,verbose)(SHORT *verbosity);
+int _NN(return,verbose)();
 void _NN(toggle,dry)();
 nn_cap _NN(get,capabilities)();
 void _NN(unset,capability)(nn_cap capability);
@@ -102,9 +127,9 @@ BOOL _NN(deinit,MPI)();
 BOOL _NN(deinit,CUDA)();
 BOOL _NN(deinit,BLAS)();
 int  _NN(deinit,all)();
-/*--------------------------*/
-/*+++ set/get parameters +++*/
-/*--------------------------*/
+/*------------------------------*/
+/*+++ set/get lib parameters +++*/
+/*------------------------------*/
 BOOL _NN(set,omp_threads)(UINT n_threads);
 BOOL _NN(get,omp_threads)(UINT *n_threads);
 int _NN(return,omp_threads)();
@@ -118,8 +143,25 @@ cudastreams *_NN(get,cudas)();
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/
+void _NN(init,conf)(nn_def *conf);
+void _NN(deinit,conf)(nn_def *conf);
+
+void _NN(set,name)(nn_def *conf,const CHAR *name);
+void _NN(get,name)(nn_def *conf,CHAR **name);
+char *_NN(return,name)(nn_def *conf);
+
+
+
+
 nn_def *_NN(conf,load)(CHAR *filename);
 void _NN(conf,dump)(FILE *fp,nn_def *neural);
+/*----------------------------*/
+/*+++ manipulate NN kernel +++*/
+/*----------------------------*/
+void _NN(free,kernel)(nn_def *conf);
+
+
+
 /*----------------------------*/
 /*+++ Access NN parameters +++*/
 /*----------------------------*/
@@ -130,11 +172,13 @@ UINT _NN(get,h_neurons)(nn_def *neural,UINT layer);
 /*---------------------*/
 /*+++ manipulate NN +++*/
 /*---------------------*/
+/*TODO: type dependent*/
 BOOL _NN(kernel,generate)(nn_def *neural,UINT n_inputs,UINT n_hiddens,
 							UINT n_outputs,UINT *hiddens);
 BOOL _NN(kernel,load)(nn_def *neural);
 void _NN(kernel,dump)(nn_def *neural, FILE *output);
 BOOL _NN(kernel,train)(nn_def *neural);
 void _NN(kernel,run)(nn_def *neural);
+
 
 #endif/*LIBHPNN_H*/

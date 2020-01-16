@@ -145,6 +145,20 @@ void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,
 /*-----------------*/
 extern "C"{
 #define _K (*kernel)
+/*---------------------------------------*/
+/*+++ de-allocate CUDA-part of kernel +++*/
+/*---------------------------------------*/
+void scuda_ann_deallocate(_kernel *kernel){
+	int idx;
+	CUDA_FREE(_K.cuda_in);
+	for(idx=0;idx<_K.n_hiddens;idx++){
+		CUDA_FREE(_K.hiddens[idx].cuda_w);
+		CUDA_FREE(_K.hiddens[idx].cuda_v);
+	}
+	CUDA_FREE(_K.output.cuda_w);
+	CUDA_FREE(_K.output.cuda_v);
+	CUDA_FREE(_K.tmp_gpu);
+}
 /*------------------------------------*/
 /*+++ allocate CUDA-part of kernel +++*/
 /*------------------------------------*/
@@ -171,6 +185,32 @@ void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
 			_K.max_index=_K.hiddens[idx].n_neurons;
 	CUDA_ALLOC_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
 	_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
+}
+/*--------------------------*/
+/*+++ free CUDA-momentum +++*/
+/*--------------------------*/
+void scuda_ann_free_momentum(_kernel *kernel){
+	int idx;
+	if(_K.cuda_dw==NULL) return;
+	for(idx=0;idx<_K.n_hiddens;idx++)
+		CUDA_FREE(_K.cuda_dw[idx]);
+	CUDA_FREE(_K.cuda_dw[_K.n_hiddens]);
+	FREE(_K.cuda_dw);
+}
+/*------------------------------*/
+/*+++ allocate CUDA-momentum +++*/
+/*------------------------------*/
+void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas){
+	int allocate;
+	int idx;
+	allocate=0;
+        ALLOC_REPORT(_K.cuda_dw,_K.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
+	_OUT(stdout,"[CPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+	allocate=0;
+        CUDA_ALLOC_REPORT(_K.cuda_dw[_K.n_hiddens],_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
+        for(idx=0;idx<_K.n_hiddens;idx++)
+                CUDA_ALLOC_REPORT(_K.cuda_dw[idx],_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,DOUBLE,allocate);
+        _OUT(stdout,"[GPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 }
 /*----------------------------------------*/
 /*+++ transfer weights from CPU to GPU +++*/

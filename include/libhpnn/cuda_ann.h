@@ -23,8 +23,10 @@
 #if __cplusplus
 extern "C" {
 #endif
-
+void scuda_ann_deallocate(_kernel *kernel);
 void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas);
+void scuda_ann_free_momentum(_kernel *kernel);
+void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas);
 void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas);
 void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas);
 

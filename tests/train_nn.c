@@ -88,6 +88,7 @@ int main (int argc, char *argv[]){
 						FREE(nn_filename);
 						return 0;
 					case 'v':
+						_OUT(stdout,"increasing verbosity\n");
 						_NN(inc,verbose)();
 						jdx++;
 						break;
@@ -184,7 +185,6 @@ int main (int argc, char *argv[]){
 							goto FAIL;
 						}
 						if(n_s<1) n_s=1;
-						_NN(set,cuda_streams)(n_s);
 						goto next_arg;/*no combination is allowed*/
 #endif /*_CUDA*/
 					default:
@@ -205,6 +205,10 @@ next_arg:
 		idx++;
 		}
 	}
+#ifdef _CUDA
+	if(n_s<1) n_s=1;
+	_NN(set,cuda_streams)(n_s);
+#endif
 	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
 	/*load configuration file*/
 	neural=_NN(conf,load)(nn_filename);

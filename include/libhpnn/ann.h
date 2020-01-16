@@ -65,6 +65,7 @@ typedef struct {
 #endif
 } _kernel;
 /*functions*/
+void ann_kernel_free(_kernel *kernel);
 _kernel *ann_load(CHAR *f_kernel);
 _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens);
 void ann_dump(_kernel *kernel,FILE *out);
@@ -72,7 +73,6 @@ void ann_kernel_run(_kernel *kernel);
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train);
 void ann_momentum_init(_kernel *kernel);
 void ann_raz_momentum(_kernel *kernel);
-void ann_empty_momentum(_kernel *kernel);
 DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha);
 DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
 DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);

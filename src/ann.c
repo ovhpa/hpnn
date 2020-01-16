@@ -66,12 +66,51 @@
 #else
 #define _NT
 #endif
+/*make life easier*/
+#define KERN (*kernel)
+/*-----------------------*/
+/*+++ free ANN kernel +++*/
+/*-----------------------*/
+void ann_kernel_free(_kernel *kernel){
+	UINT idx;
+	if(kernel==NULL) return;
+#ifdef _CUDA
+	scuda_ann_deallocate(kernel);
+	scuda_ann_free_momentum(kernel);
+#endif /*_CUDA*/
+	/*un-allocate kernel*/
+	if(KERN.name!=NULL) FREE(KERN.name);
+	if(KERN.in!=NULL) FREE(KERN.in);
+	if(KERN.output.weights!=NULL) FREE(KERN.output.weights);
+	if(KERN.output.vec!=NULL) FREE(KERN.output.vec);
+	if(KERN.hiddens!=NULL){
+		for(idx=0;idx<KERN.n_hiddens;idx++){
+			if(KERN.hiddens[idx].weights!=NULL) FREE(KERN.hiddens[idx].weights);
+			if(KERN.hiddens[idx].vec!=NULL) FREE(KERN.hiddens[idx].vec);
+		}
+		FREE(KERN.hiddens);
+	}
+	/*empty momentum (if any)*/
+	if(KERN.dw!=NULL);
+	FREE(KERN.dw[KERN.n_hiddens]);
+	for(idx=0;idx<KERN.n_hiddens;idx++){
+		FREE(KERN.dw[idx]);
+		KERN.dw[idx]=NULL;
+	}
+	FREE(KERN.dw);
+	/*zero parameters*/
+	KERN.n_inputs=0;
+	KERN.n_hiddens=0;
+	KERN.n_outputs=0;
+	KERN.max_index=0;
+	/*if used...*/
+	FREE(KERN.tmp_cpu);
+}
 /*---------------------------------*/
 /*+++ load ANN kernel from file +++*/
 /*---------------------------------*/
 _kernel *ann_load(CHAR *f_kernel){
 #define FAIL load_kernel_fail
-#define KERN (*kernel)
 	PREP_READLINE();
 	CHAR *line=NULL;
 	CHAR *ptr,*ptr2;
@@ -1573,12 +1612,7 @@ void ann_momentum_init(_kernel *kernel){
 	}
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
-	UINT64 gpu_alloc=0.;
-	ALLOC_REPORT(KERN.cuda_dw,KERN.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
-	CUDA_ALLOC_REPORT(KERN.cuda_dw[KERN.n_hiddens],KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,gpu_alloc);
-	for(idx=0;idx<KERN.n_hiddens;idx++)
-		CUDA_ALLOC_REPORT(KERN.cuda_dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,gpu_alloc);
-	_OUT(stdout,"CUDA MOMENTUM ALLOC: %lu (bytes)\n",gpu_alloc);
+	scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
 #endif
 	_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 }
@@ -1590,19 +1624,6 @@ void ann_raz_momentum(_kernel *kernel){
 	memset(KERN.dw[0],0,sizeof(DOUBLE)*KERN.output.n_inputs*KERN.output.n_neurons);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		memset(KERN.dw[idx],0,sizeof(DOUBLE)*KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons);
-}
-/*----------------------------*/
-/*+++ FREE momentum arrays +++*/
-/*----------------------------*/
-void ann_empty_momentum(_kernel *kernel){
-	UINT idx;
-	FREE(KERN.dw[KERN.n_hiddens]);
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		FREE(KERN.dw[idx]);
-		KERN.dw[idx]=NULL;
-	}
-	FREE(KERN.dw);
-	KERN.dw=NULL;
 }
 /*---------------------------------*/
 /*+++ momentum back-propagation +++*/
@@ -2076,3 +2097,4 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	return dEp;
 }
 
+#undef KERN
