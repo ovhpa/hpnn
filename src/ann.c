@@ -91,13 +91,14 @@ void ann_kernel_free(_kernel *kernel){
 		FREE(KERN.hiddens);
 	}
 	/*empty momentum (if any)*/
-	if(KERN.dw!=NULL);
-	FREE(KERN.dw[KERN.n_hiddens]);
-	for(idx=0;idx<KERN.n_hiddens;idx++){
-		FREE(KERN.dw[idx]);
-		KERN.dw[idx]=NULL;
+	if(KERN.dw!=NULL){
+		FREE(KERN.dw[KERN.n_hiddens]);
+		for(idx=0;idx<KERN.n_hiddens;idx++){
+			FREE(KERN.dw[idx]);
+			KERN.dw[idx]=NULL;
+		}
+		FREE(KERN.dw);
 	}
-	FREE(KERN.dw);
 	/*zero parameters*/
 	KERN.n_inputs=0;
 	KERN.n_hiddens=0;
@@ -153,14 +154,14 @@ if(stream==0) {
 #endif /*_MPI*/
 	fp=fopen(f_kernel,"r");
 	if(!fp){
-		_OUT(stderr,"Error opening kernel file: %s\n",f_kernel);
+		NN_ERROR(stderr,"Error opening kernel file: %s\n",f_kernel);
 		MPI_BAIL_SEND;
 		return NULL;
 	}
 	READLINE(fp,line);/*line 1: name (SKIP)*/
 	ptr=STRFIND("[name]",line);
 	if(ptr==NULL){
-		_OUT(stderr,"ANN kernel ERROR: kernel file should start with [name] keyword!\n");
+		NN_ERROR(stderr,"ANN kernel ERROR: kernel file should start with [name] keyword!\n");
 		goto FAIL;
 	}
 	ptr+=6;SKIP_BLANK(ptr);
@@ -180,7 +181,7 @@ if(stream==0) {
 			ptr=&(line[0]);SKIP_BLANK(ptr);
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"ANN kernel ERROR: malformed parameter line!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: malformed parameter line!\n");
 				goto FAIL;
 			}
 			/*now we need to get each parameters*/
@@ -195,7 +196,7 @@ if(stream==0) {
 			/*there is n_par-2 hidden layers and 1 output*/
 			n_par--;
 			if(n_par<2){
-				_OUT(stderr,"ANN kernel ERROR: parameter line has too few parameters!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: parameter line has too few parameters!\n");
 				goto FAIL;
 			}
 			n_hid=n_par-1;
@@ -211,7 +212,7 @@ if(stream==0) {
 				ptr=ptr2+1;SKIP_BLANK(ptr);
 			}
 			if(jdx==0){
-				_OUT(stderr,"ANN kernel ERROR: zero in parameter line!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: zero in parameter line!\n");
 				goto FAIL;
 			}
 			n_out=parameter[n_par-1];
@@ -221,15 +222,15 @@ if(stream==0) {
 		READLINE(fp,line);
 	}while(!feof(fp));
 	if(n_in==0) {
-		_OUT(stderr,"ANN kernel ERROR: missing parameter line!\n");
+		NN_ERROR(stderr,"ANN kernel ERROR: missing parameter line!\n");
 		goto FAIL;
 	}
 	if(n_out<1){
-		_OUT(stderr,"ANN kernel ERROR: wrong parameter n_output<1!\n");
+		NN_ERROR(stderr,"ANN kernel ERROR: wrong parameter n_output<1!\n");
 		goto FAIL;
 	}
 	if(n_hid<1){
-		_OUT(stderr,"ANN kernel ERROR: wrong parameter n_hiddens<1!\n");
+		NN_ERROR(stderr,"ANN kernel ERROR: wrong parameter n_hiddens<1!\n");
 		goto FAIL;
 	}
 	/*allocate everything*/
@@ -259,12 +260,12 @@ if(stream==0) {
 	ALLOC_REPORT(KERN.output.vec,n_out,DOUBLE,allocate);
 	/*end of allocations*/
 #ifdef _MPI
-_OUT(stdout,"For each MPI thread, ");
+NN_OUT(stdout,"For each MPI thread, ");
 #endif /*_MPI*/
-_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
-_OUT(stdout,"n_input=%i ",n_in);
-for(jdx=0;jdx<n_par-1;jdx++) _OUT(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
-_OUT(stdout,"n_output=%i\n",n_out);
+NN_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
+NN_OUT(stdout,"n_input=%i ",n_in);
+for(jdx=0;jdx<n_par-1;jdx++) NN_COUT(stdout,"n_hidden[%i]=%i ",jdx,parameter[jdx]);
+NN_COUT(stdout,"n_output=%i\n",n_out);
 #ifndef _MPI
 	FREE(parameter);
 #endif /*_MPI*/
@@ -277,21 +278,21 @@ _OUT(stdout,"n_output=%i\n",n_out);
 //			[hidden X] Y -> hidden layer X has Y neurons
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer definition\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: malformed hidden layer definition\n");
 				goto FAIL;
 			}
 			GET_UINT(idx,ptr,ptr2);/*this is hidden index*/
 			if(ptr2==NULL) {
-				_OUT(stderr,"ANN kernel ERROR: malformed hidden layer index definition!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: malformed hidden layer index definition!\n");
 				goto FAIL;
 			}
 			if(idx==0){
-				_OUT(stderr,"ANN kernel ERROR: wrong hidden layer index (=0)!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: wrong hidden layer index (=0)!\n");
 				goto FAIL;
 			}
 			idx--;/*start counting from 1*/
 			if(idx>n_hid){
-				_OUT(stderr,"ANN kernel ERROR: wrong hidden layer index (> n_hiddens)!\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: wrong hidden layer index (> n_hiddens)!\n");
 				goto FAIL;
 			}
 			/*check neuron number for consistency*/
@@ -299,7 +300,7 @@ _OUT(stdout,"n_output=%i\n",n_out);
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			GET_UINT(jdx,ptr,ptr2);
 			if(jdx!=KERN.hiddens[idx].n_neurons){
-				_OUT(stderr,"ANN kernel ERROR: inconsistent neuron number - layer %i n_neurons=%i (expected %i)\n",
+				NN_ERROR(stderr,"ANN kernel ERROR: inconsistent neuron number - layer %i n_neurons=%i (expected %i)\n",
 					idx+1,jdx,KERN.hiddens[idx].n_neurons);
 				goto FAIL;
 			}
@@ -309,31 +310,31 @@ jdx=0;
 do{
 	ptr=STRFIND("[neuron",line);
 	if(ptr==NULL){
-		_OUT(stderr,"ANN kernel ERROR: neuron definition missing! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron definition missing! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 	if(!ISDIGIT(*ptr)) {
-		_OUT(stderr,"ANN kernel ERROR: missing neuron number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: missing neuron number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is neuron number*/
 	if(n_par<1) {
-		_OUT(stderr,"ANN kernel ERROR: neuron number<1 (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron number<1 (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	ptr=ptr2+1;SKIP_BLANK(ptr);
 	if(!ISDIGIT(*ptr)) {
-		_OUT(stderr,"ANN kernel ERROR: neuron has no input number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron has no input number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
-		_OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	if(n_par>KERN.hiddens[idx].n_inputs){
-		_OUT(stderr,"ANN kernel ERROR: neuron has more input (%i) than expected (%i)! (hidden layer %i, neuron %i)\n",
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron has more input (%i) than expected (%i)! (hidden layer %i, neuron %i)\n",
 		n_par,KERN.hiddens[idx].n_inputs,idx+1,jdx+1);
 		goto FAIL;
 	}
@@ -357,13 +358,13 @@ do{
 		if(ptr!=NULL){
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				_OUT(stderr,"ANN kernel ERROR: malformed output layer definition\n");
+				NN_ERROR(stderr,"ANN kernel ERROR: malformed output layer definition\n");
 				goto FAIL;
 			}
 			/*check neuron number for consistency*/
 			GET_UINT(idx,ptr,ptr2);/*this is the number of output*/
 			if((ptr2==NULL)||(idx!=KERN.output.n_neurons)) {
-				_OUT(stderr,"ANN kernel ERROR: inconsistent neuron number for output - n_neurons=%i (expected %i)\n",
+				NN_ERROR(stderr,"ANN kernel ERROR: inconsistent neuron number for output - n_neurons=%i (expected %i)\n",
 					idx,KERN.output.n_neurons);
 				goto FAIL;
 			}
@@ -373,27 +374,27 @@ jdx=0;
 do{
 	ptr=STRFIND("[neuron",line);
 	if(ptr==NULL){
-		_OUT(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
 		goto FAIL;
 	}
 	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 	if(!ISDIGIT(*ptr)) {
-		_OUT(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
 	if(n_par<1) {
-		_OUT(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
 		goto FAIL;
 	}
 	ptr=ptr2+1;SKIP_BLANK(ptr);
 	if(!ISDIGIT(*ptr)) {
-		_OUT(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
-		_OUT(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
 		goto FAIL;
 	}
 	READLINE(fp,line);
@@ -537,7 +538,7 @@ if(stream==0){/*master kernel generation*/
 	KERN.output.n_inputs=hiddens[n_hiddens-1];
 	ALLOC_REPORT(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
-	_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
+	NN_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
 	/*randomly fill hidden weights*/
 	for(idx=0;idx<n_hiddens;idx++){
 		for(jdx=0;jdx<KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons;jdx++){
@@ -614,28 +615,28 @@ if(stream==0){/*only master writes*/
 	/*sync weights back*/
 	scuda_ann_weights_G2C(kernel,_NN(get,cudas)());
 #endif /*_CUDA*/
-	_OUT(out,"[name] %s\n",KERN.name);
-	_OUT(out,"[param] %i",KERN.n_inputs);
-	for(idx=0;idx<KERN.n_hiddens;idx++) _OUT(out," %i",KERN.hiddens[idx].n_neurons);
-	_OUT(out," %i\n",KERN.output.n_neurons);
-	_OUT(out,"[input] %i\n",KERN.n_inputs);
+	NN_WRITE(out,"[name] %s\n",KERN.name);
+	NN_WRITE(out,"[param] %i",KERN.n_inputs);
+	for(idx=0;idx<KERN.n_hiddens;idx++) NN_WRITE(out," %i",KERN.hiddens[idx].n_neurons);
+	NN_WRITE(out," %i\n",KERN.output.n_neurons);
+	NN_WRITE(out,"[input] %i\n",KERN.n_inputs);
 	for(idx=0;idx<KERN.n_hiddens;idx++) {
-		_OUT(out,"[hidden %i] %i\n",idx+1,KERN.hiddens[idx].n_neurons);
+		NN_WRITE(out,"[hidden %i] %i\n",idx+1,KERN.hiddens[idx].n_neurons);
 		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-			_OUT(out,"[neuron %i] %i\n",jdx+1,KERN.hiddens[idx].n_inputs);
-			_OUT(out,"%17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]);
+			NN_WRITE(out,"[neuron %i] %i\n",jdx+1,KERN.hiddens[idx].n_inputs);
+			NN_WRITE(out,"%17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]);
 			for(kdx=1;kdx<KERN.hiddens[idx].n_inputs;kdx++)
-				_OUT(out," %17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]);
-			_OUT(out,"\n");
+				NN_WRITE(out," %17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]);
+			NN_WRITE(out,"\n");
 		}
 	}
-	_OUT(out,"[output] %i\n",KERN.n_outputs);
+	NN_WRITE(out,"[output] %i\n",KERN.n_outputs);
 	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-		_OUT(out,"[neuron %i] %i\n",jdx+1,KERN.output.n_inputs);
-		_OUT(out,"%17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]);
+		NN_WRITE(out,"[neuron %i] %i\n",jdx+1,KERN.output.n_inputs);
+		NN_WRITE(out,"%17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]);
 		for(kdx=1;kdx<KERN.output.n_inputs;kdx++)
-			_OUT(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
-		_OUT(out,"\n");
+			NN_WRITE(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
+		NN_WRITE(out,"\n");
 	}
 #ifdef _MPI
 }/*end of master*/
@@ -1348,7 +1349,7 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 /*+++ I - forward is _supposed_ to be done already +++*/
 	Ep=ann_kernel_train_error(kernel,train);
-//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
+//	NN_DBG(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 	ann_kernel_train_delta(kernel,train,delta_ptr);
 /*+++ III - back propagation +++*/
@@ -1589,7 +1590,7 @@ _HT;
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
 	Epr=ann_kernel_train_error(kernel,train);
-//	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
+//	NN_DBG(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ V - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
@@ -1614,7 +1615,7 @@ void ann_momentum_init(_kernel *kernel){
 	/*allocate everything in CUDA*/
 	scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
 #endif
-	_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+	NN_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 }
 /*------------------------------*/
 /*+++ zeroes momentum arrays +++*/
@@ -1654,7 +1655,7 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 		ALLOC_REPORT(delta_ptr[idx],KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 /*+++ I - forward is _supposed_ to be done already +++*/
 	Ep=ann_kernel_train_error(kernel,train);
-//	_OUT(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
+//	NN_DBG(stdout,"TRAINING INITIAL ERROR: %.15f\n",Ep);
 /*+++ II - calculate deltas +++*/
 	ann_kernel_train_delta(kernel,train,delta_ptr);
 /*+++ III - back propagation +++*/
@@ -1954,7 +1955,7 @@ _HT;
 /*+++ IV - update error +++*/
 	ann_kernel_run(kernel);
 	Epr=ann_kernel_train_error(kernel,train);
-//	_OUT(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
+//	NN_DBG(stdout,"TRAINING UPDATED ERROR: %.15f\n",Epr);
 /*+++ IV - cleanup +++*/
 	for(idx=0;idx<(KERN.n_hiddens+1);idx++){
 		FREE(delta_ptr[idx]);
@@ -1992,7 +1993,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
 #endif /*_CUDA*/
-	_OUT(stdout," init=%15.10f",dEp);
+	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
 #ifdef _CUDA
@@ -2000,7 +2001,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();
-//		_OUT(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+//		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else /*_CUDA*/
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
@@ -2015,14 +2016,14 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		}
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
-			if(is_ok==TRUE) _OUT(stdout," OK");
-			else _OUT(stdout," NO");
+			if(is_ok==TRUE) NN_COUT(stdout," OK");
+			else NN_COUT(stdout," NO");
 		}
 		if(iter>10239) break;/*failsafe number of wrong iteration*/
 	}while((dEp > delta)||(!(is_ok==TRUE)));
-	_OUT(stdout," N_ITER=%8i",iter);
-	if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
-	else _OUT(stdout," FAIL!\n");
+	NN_COUT(stdout," N_ITER=%8i",iter);
+	if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
+	else NN_COUT(stdout," FAIL!\n");
 	fflush(stdout);
 #ifdef _CUDA
 	CUDA_FREE(train_gpu);
@@ -2060,14 +2061,14 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
 	dEp*=0.5;
 #endif /*_CUDA*/
-	_OUT(stdout," init=%15.10f",dEp);
+	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
 #ifdef _CUDA
 		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
-//		_OUT(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+//		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else /*_CUDA*/
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
 #endif /*_CUDA*/
@@ -2082,14 +2083,14 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		}
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
-			if(is_ok==TRUE) _OUT(stdout," OK");
-			else _OUT(stdout," NO");
+			if(is_ok==TRUE) NN_COUT(stdout," OK");
+			else NN_COUT(stdout," NO");
 		}
 		if(iter>10239) break;/*failsafe number of wrong iteration*/	
 	}while((dEp > delta)||(!(is_ok==TRUE)));
-	_OUT(stdout," N_ITER=%8i",iter);
-	if(is_ok==TRUE) _OUT(stdout," SUCCESS!\n");
-	else _OUT(stdout," FAIL!\n");
+	NN_COUT(stdout," N_ITER=%8i",iter);
+	if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
+	else NN_COUT(stdout," FAIL!\n");
 	fflush(stdout);
 #ifdef _CUDA
 	CUDA_FREE(train_gpu);

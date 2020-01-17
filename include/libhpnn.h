@@ -95,6 +95,11 @@ typedef struct {
 		_OUT((_file), __VA_ARGS__);\
 	}\
 }while(0)
+#define NN_COUT(_file,...) do{\
+        if((_NN(return,verbose)())>1){\
+                _OUT((_file), __VA_ARGS__);\
+        }\
+}while(0)
 #define NN_WARN(_file,...) do{\
 	if((_NN(return,verbose)())>0){\
 		_OUT((_file),"NN(WARN): ");\

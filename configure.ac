@@ -56,16 +56,6 @@ AC_ARG_ENABLE([cublas],
 	[],
 	[enable_cublas=auto])
 AC_MSG_RESULT([$enable_cublas])
-
-
-
-#AC_MSG_CHECKING([if CUBLAS was required])
-#AC_ARG_WITH([cublas],
-#            [AS_HELP_STRING([--with-cublas],
-#              [compile with [CUBLAS] support @<:@default=auto@:>@])],
-#            [],
-#            [with_cublas=auto])
-#AC_MSG_RESULT([$with_cublas])
 # switch "magic"
 # --disable-cuda set --disable-cublas from auto
 if test "x$enable_cuda" = xno; then
@@ -96,6 +86,17 @@ AC_ARG_WITH([blas],
             [],
             [with_blas=auto])
 AC_MSG_RESULT([$with_blas])
+AC_ARG_WITH([blas_include],
+	    [AS_HELP_STRING([--with-blas-include],
+		[specify [BLAS] include path])],
+	    [],
+	    [with_blas_include=auto])
+AC_ARG_WITH([blas_lib],
+	    [AS_HELP_STRING([--with-blas-lib],
+		[specify [BLAS] library path])],
+	    [],
+	    [with_blas_lib=auto])
+# ENDOF: switches
 # -------
 # OpenMPI
 # -------
@@ -233,8 +234,25 @@ fi
 AC_MSG_NOTICE(+++-------------+++)
 AC_MSG_NOTICE(+++ check BLAS. +++)
 AC_MSG_NOTICE(+++-------------+++)
-#use mkl if available
+# PUSH LIBS, CFLAGS, and LDFLAGS in case no BLAS can be configured
+ORIG_LIBS="$LIBS"
+ORIG_CFLAGS="$CFLAGS"
+ORIG_LDFLAGS="$LDFLAGS"
 auto_blas='none'
+if test "x$with_blas" != xno -o "x$with_blas" != xnone; then
+	AC_MSG_CHECKING([if BLAS include PATH was given])
+	AS_IF([test "x$with_blas_include" != "xauto"], [
+	  AC_MSG_RESULT(yes)
+	  AC_MSG_NOTICE(adding ${with_blas_include} to CFLAGS)
+	  CFLAGS+=" -I${with_blas_include}"
+	],AC_MSG_RESULT(no))
+	AC_MSG_CHECKING([if BLAS library PATH was given])
+	AS_IF([test "x$with_blas_lib" != "xauto"], [
+	  AC_MSG_RESULT(yes)
+	  AC_MSG_NOTICE(adding ${with_blas_lib} to LDFLAGS)
+	  LDFLAGS+=" -L${with_blas_lib}"
+	],AC_MSG_RESULT(no))
+fi
 if test "x$with_blas" = xauto; then
 	AC_CHECK_HEADERS([mkl.h mkl_cblas.h],[auto_blas='mkl'])
 	AS_UNSET([ac_cv_header_mkl_h])
@@ -295,11 +313,59 @@ if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
 					if test "x$can_mkl" = xyes; then
 						CFLAGS+=" -D_MKL -DPBLAS"
 					else
-						AC_MSG_ERROR(MKL was requested with --use-blas=mkl but LDFLAGS can't bet set!)
+						if test "x$with_blas" = xmkl; then
+							AC_MSG_ERROR(MKL was requested with --with-blas=mkl but LDFLAGS can't bet set!)
+						else
+							AC_MSG_NOTICE(MKL was found be could not be configured)
+							#PULL LIBS
+							LIBS="$ORIG_LIBS"
+							AC_SEARCH_LIBS([cblas_dgemv],[openblaso openblas],[auto_blas='openblas'])
+							AS_UNSET([ac_cv_func_cblas_dgemv])
+							if test "x$auto_blas" = xopenblas; then
+								AC_MSG_NOTICE([^^^ auto_blas: found OPENBLAS (will try it instead of MKL) ^^^])
+							else
+								AC_SEARCH_LIBS([ATL_dgemv],[tatlas satlas],[auto_blas='atlas'])
+								AS_UNSET([ac_cv_func_ATL_dgemv])
+								if test "x$auto_blas" = xatlas; then
+									AC_MSG_NOTICE([^^^ auto_blas: found ATLAS (will try it instead of MKL) ^^^])
+								else
+									AC_MSG_NOTICE([^^^ auto_blas: could not find other BLAS (disable BLAS)^^^])
+									#PULL LIBS, CFLAGS, LDFLAGS
+									LIBS="$ORIG_LIBS"
+									CFLAGS="$ORIG_CFLAGS"
+									LDFLAGS="$ORIG_LDFLAGS"
+								fi
+							fi
+						fi
 					fi
 				fi
 			else
-				AC_MSG_ERROR(MKL was requested with --use-blas=mkl but mkl.h can't be found!)
+				if test "x$with_blas" = xmkl; then
+					AC_MSG_ERROR(MKL was requested with --with-blas=mkl but mkl.h can't be found!)
+				else
+					AC_MSG_NOTICE(MKL could not be configured)
+					#PULL LIBS
+					LIBS="$ORIG_LIBS"
+					AC_SEARCH_LIBS([cblas_dgemv],[openblaso openblas],[auto_blas='openblas'])
+					AS_UNSET([ac_cv_func_cblas_dgemv])
+					if test "x$auto_blas" = xopenblas; then
+						AC_MSG_NOTICE([^^^ auto_blas: found OPENBLAS (will try it instead of MKL) ^^^])
+					else
+						#PULL LIBS
+						LIBS="$ORIG_LIBS"
+						AC_SEARCH_LIBS([ATL_dgemv],[tatlas satlas],[auto_blas='atlas'])
+						AS_UNSET([ac_cv_func_ATL_dgemv])
+						if test "x$auto_blas" = xatlas; then
+							AC_MSG_NOTICE([^^^ auto_blas: found ATLAS (will try it instead of MKL) ^^^])
+						else
+							AC_MSG_NOTICE([^^^ auto_blas: could not find other BLAS (disable BLAS)^^^])
+							#PULL LIBS, CFLAGS, LDFLAGS
+							LIBS="$ORIG_LIBS"
+							CFLAGS="$ORIG_CFLAGS"
+							LDFLAGS="$ORIG_LDFLAGS"
+						fi
+					fi
+				fi
 			fi
 		fi
 	fi
@@ -324,7 +390,24 @@ if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
 				CFLAGS+=" -DPBLAS"
 			fi
 		else
-			AC_MSG_ERROR(OPENBLAS was requested with --use-blas=openblas but cblas.h can't be found!)
+			if test "x$with_blas" = xopenblas; then
+				AC_MSG_ERROR(OPENBLAS was requested with --with-blas=openblas but cblas.h can't be found!)
+			else
+				AC_MSG_NOTICE(OPENBLAS be could not be configured)
+				#PULL LIBS
+				LIBS="$ORIG_LIBS"
+				AC_SEARCH_LIBS([ATL_dgemv],[tatlas satlas],[auto_blas='atlas'])
+				AS_UNSET([ac_cv_func_ATL_dgemv])
+				if test "x$auto_blas" = xatlas; then
+					AC_MSG_NOTICE([^^^ auto_blas: found ATLAS (will try it instead of MKL) ^^^])
+				else
+					AC_MSG_NOTICE([^^^ auto_blas: could not find other BLAS (disable BLAS)^^^])
+					#PULL LIBS, CFLAGS, LDFLAGS
+					LIBS="$ORIG_LIBS"
+					CFLAGS="$ORIG_CFLAGS"
+					LDFLAGS="$ORIG_LDFLAGS"
+				fi
+			fi
 		fi
 	fi
 	if test "x$with_blas" = xatlas -o "x$auto_blas" = xatlas; then
@@ -353,7 +436,16 @@ if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
 				CFLAGS+=" -DPBLAS"
 			fi
 		else
-			AC_MSG_ERROR(CBLAS was requested with --use-blas=atlas but cblas.h can't be found!)
+			if test "x$with_blas" = xatlas; then
+				AC_MSG_ERROR(ATLAS was requested with --with-blas=atlas but cblas.h can't be found!)
+			else
+				AC_MSG_NOTICE(ATLAS be could not be configured)
+				AC_MSG_NOTICE([^^^ auto_blas: could not find other BLAS (disable BLAS)^^^])
+				#PULL LIBS, CFLAGS, LDFLAGS
+				LIBS="$ORIG_LIBS"
+				CFLAGS="$ORIG_CFLAGS"
+				LDFLAGS="$ORIG_LDFLAGS"
+			fi
 		fi
 	fi
 else
@@ -382,6 +474,8 @@ if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
 	  AC_MSG_NOTICE(adding ${with_cuda_lib} to LDFLAGS)
 	  LDFLAGS+=" -L${with_cuda_lib}"
 	],AC_MSG_RESULT(no))
+	# PUSH LIBS (to manage lib added but can't configure)
+	ORIG_LIBS="$LIBS"
 	# TODO: replace that _guess_ with a proper test
 	# because it might not be the case in future...
 	if test "x$is_icc" != xyes; then
@@ -412,12 +506,15 @@ if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
 			if test "x$enable_cublas" = xyes -a "x$auto_cublas" != xyes; then
 				AC_MSG_ERROR(CUBLAS was requested with --enable-cublas but cublas_v2.h header was not found!)
 			fi
+			#push LIBS in case CUBLAS can't be found
+			ORIG_LIBS="$LIBS"
 			AC_SEARCH_LIBS([cublasDgemv],[cublas],[auto_cublas='yes'],[auto_cublas='no'])
 			if test "x$auto_cublas" = xyes; then
 				CFLAGS+=" -D_CUBLAS"
 				NVCCFLAGS+=" -D_CUBLAS"
 			else
 				AC_MSG_NOTICE(^^^ WARNING: could not configure CUBLAS ^^^)
+				LIBS="$ORIG_LIBS"
 			fi
 		else
 			AC_MSG_NOTICE(^^^^ REQUESTED: NO CUBLAS ^^^)
@@ -425,6 +522,8 @@ if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
 		AC_SUBST(NVCCFLAGS)
 	else
 		AC_MSG_NOTICE(^^^ WARNING: could not configure CUDA ^^^)
+		use_nvcc='none'
+		LIBS="$ORIG_LIBS"
 	fi
 else
 	use_nvcc='none'
@@ -451,7 +550,10 @@ AC_MSG_NOTICE(>>> CC = $CC )
 AC_MSG_NOTICE(>>> CFLAGS = $CFLAGS )
 AC_MSG_NOTICE(>>> LDFLAGS = $LDFLAGS )
 AC_MSG_NOTICE(>>> LIBS = $LIBS )
-
+if test "x$use_nvcc" != xnone; then
+	AC_MSG_NOTICE(>>> NVCC = $NVCC )
+	AC_MSG_NOTICE(>>> NVCCFLAGS = $NVCCFLAGS )
+fi
 
 
 

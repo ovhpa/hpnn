@@ -53,31 +53,6 @@
 /*GLOBAL VARIABLE: there it a unique runtime per run
  *  for which each use of library routine refers to.*/
 nn_runtime lib_runtime;
-/*new defs to take into account verbosity
-#define NN_DBG(_file,...) do{\
-	if(lib_runtime.nn_verbose>2){\
-		_OUT((_file),"NN(DBG): ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
-}while(0)
-#define NN_OUT(_file,...) do{\
-	if(lib_runtime.nn_verbose>1){\
-		_OUT((_file),"NN: ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
-}while(0)
-#define NN_WARN(_file,...) do{\
-	if(lib_runtime.nn_verbose>0){\
-		_OUT((_file),"NN(WARN): ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
-}while(0)
-#define NN_ERROR(_file,...) do{\
-	_OUT((_file),"NN(ERR): ");\
-	_OUT((_file), __VA_ARGS__);\
-}while(0)
-#define NN_WRITE _OUT
-*/
 /*------------------*/
 /*+++ NN methods +++*/
 /*------------------*/
@@ -829,12 +804,11 @@ BOOL _NN(generate,kernel)(nn_def *conf,...){
 	switch (_CONF.type){
 	case NN_TYPE_ANN:
 		{
-		int n_args=4;
 		UINT n_inputs;
 		UINT n_hiddens;
 		UINT n_outputs;
 		UINT *hiddens;
-		va_start(ap,n_args);
+		va_start(ap,conf);
 		n_inputs=va_arg(ap,UINT);
 		n_hiddens=va_arg(ap,UINT);
 		n_outputs=va_arg(ap,UINT);
@@ -1206,9 +1180,9 @@ void _NN(run,kernel)(nn_def *conf){
 
 			}
 			res*=0.5;
-			NN_OUT(stdout," init=%15.10f",res);
-			if(is_ok==TRUE) NN_OUT(stdout," SUCCESS!\n");
-			else NN_OUT(stdout," FAIL!\n");
+			NN_COUT(stdout," init=%15.10f",res);
+			if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
+			else NN_COUT(stdout," FAIL!\n");
 			fflush(stdout);
 			break;
 #undef _K

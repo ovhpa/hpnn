@@ -88,7 +88,6 @@ int main (int argc, char *argv[]){
 						FREE(nn_filename);
 						return 0;
 					case 'v':
-						_OUT(stdout,"increasing verbosity\n");
 						_NN(inc,verbose)();
 						jdx++;
 						break;
