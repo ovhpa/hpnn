@@ -46,17 +46,174 @@ compiler- you can still use the library with -I and -L switches:
 % gcc -I/path/include my_prog.c -L/path/lib -lhpnn
 ```
 
-I-2 Specific libraries
-**********************
+I-2 Advanced installation
+*************************
 
 libhpnn relies on effective BLAS, OpenMP, MPI, and CUDA libraries. On most cases
-this means that a simple installation similar to the previous section will _not_
-leads to an optimized libhpnn.
+the simple installation, in the above I-1 section, will lead to a libhpnn linked
+to the directly accessible libraries.  There will be some cases however in which
+a user might want to link libhpnn to specific libraries or to a different set of
+libraries in case many BLAS, CUDA, OpenMP, or MPI implementations are installed.
+In such cases, the `autogen.sh`, and likewise `configure` programs can take some
+arguments. Here is a short list:
 
-I-3 Compilers
-*************
+`--enable-mpi`
+	This will enable MPI compilation for inter-node communications.
+	It require an accessible MPI compiler (often mpicc).
+`--with-mpicc=mpiCC`
+	This will specify the MPI compiler (here mpiCC).
+
+  NOTE: by default, with no --with-mpicc switch `autogen.sh` of `configure` will
+try to determine the presence of a valid MPI compiler. If one is found it should
+be use by REPLACING the standard compiler in the $CC environement variable! This
+is also the case when --with-mpicc=mpiCC is provided - in such case CC=mpiCC.
+
+`--disable-mpi`
+	This will remove the use (and detection) of mpicc compiler. It will also
+remove MPI support in libhppn, even if the compiler is MPI-able.
+
+  NOTE: it IS recommended to switch off MPI when no inter-node communications is
+needed.  Using MPI on a single node with more that 1 MPI thread is generally not
+a good idea.
+
+WARNING: if no --enable-mpi (or --disable-mpi) is provided, the default behavior
+is to silently add a `--enable-mpi=auto` to configure. In such cases MPI will be
+use if found.
+
+`--enable-omp`
+	This will enable OpenMP in libhpnn, for intra-node communications.
+`--disable-omp`
+	This will disable OpenMP in libhpnn.
+
+  NOTE:  it is generally a good idea to enable OpenMP implementation in libhpnn.
+Especially it is safe to use with MPI and CUDA implementation.
+
+WARNING: similarly to MPI, no switch silently add `--enable-omp=auto`.
+
+`--enable-cuda`
+	This will turn on the CUDA in libhpnn, for GPGPU calculations.
+`--disable-cuda`
+	This will disable CUDA in libhpnn.
+
+`--enable-cublas`
+	This will enable CUBLAS in libhpnn for GPGPU calculations,  given that a
+	valid CUDA library has been detected.
+`--disable-cublas`
+	This will disable CUBLAS in libhpnn.
+
+  NOTE: CUDA implementation in libhpnn is independent of the CUBLAS library. The
+latter add a performance boost compared to the naive CUDA implementation that is
+significant enough that there should no case where --disable-cublas makes sense.
+
+WARNING: omitting all CUDA and/or CUBLAS options will set them to auto,  only to
+be used when detected. If CUDA is not detected, CUBLAS won't be probe.
+
+`--with-cuda-include=PATH`
+	This will set PATH as an include path for CUDA headers: `cuda_runtime.h`
+and CUBLAS headers: cublas_v2.h which are mandatory for CUDA/CUBLAS.
+`--with-cuda-lib=PATH`
+	This will set PATH as an include path for CUDA libraries: libcudart, and
+CUBLAS libraries: libcublas which are also mandatory for CUDA/CUBLAS.
+
+`--with-blas=auto`
+	This will determine the BLAS 'flavor' which libhpnn will link.  Possible
+values are, in decreasing order of their `auto` preference:
+
+| option | reference                                   |
+|:-------|:--------------------------------------------|
+|mkl	 |[intel](https://software.intel.com/en-us/mkl)|
+|openblas|[OB](https://www.openblas.net)               |
+|atlas   |[atlas](http://math-atlas.sourceforge.net)   |
+
+  NOTE: it is always a good idea to use an optimized BLAS library instead of the
+naive implementation. Moreover, user should pay attention that their BLAS flavor
+actually allow parallel implementation, which are:
+
+| library | parallel implementation |
+|:--------|:------------------------|
+|mkl      | -mkl=parallel  is used  |
+|openblas | libopenblaso available  |
+|atlas    | libtatlas   is present  |
+
+In case a parallel BLAS library isn`t available, a serial implementation will be
+used in libhpnn, at a performance cost.
 
 
+`--with-blas-include=PATH`
+	This will set PATH as an include path for BLAS headers: `cblas.h`, or in
+case of `mkl`: `mkl.h` and `mkl_cblas.h`
+`--with-blas-lib`
+	This will set PATH as an include path for BLAS libraries: `libopenblaso`
+in case of parallel openblas (libopenblas if serial),  `libmkl_gf_lp64`, and the
+generic `libmkl_gnu_thread`, and `libmkl_core` for mkl library or the convenient
+`-mkl=parallel` switch if intel compiler is used; and `libtatlas` for atlas BLAS
+implementation (libsatlas if serial).
 
+Many more options will be available in the future, as libhpnn is extend to other
+target systems...
+
+I-3 Failure and reports
+***********************
+
+When unexpected failed configuration and/or failed compilation happen, users are
+welcomed to filled a BUG report [here](https://github.com/ovhpa/hpnn/issues).
+
+If, under normal circumstances, libhpnn failed to configure:
+Please include the config.log in the BUG report.
+
+Example report:
+_______________
+
+**Describe the bug**
+libhpnn autogen.sh failed.
+
+A clear and concise description of what the bug is.
+
+**To Reproduce**
+Steps to reproduce the behavior:
+1- unzipped libhpnn.zip downloaded from github
+2- change to libhpnn directoy
+3- type ./autogen.sh
+
+**Expected behavior**
+autogen.sh should have configured libhpnn.
+
+**Actual behavior**
+autogen.sh failed with the following error:
+
+**Screenshots**
+none taken
+
+**Desktop (please complete the following information):**
+ - OS: GNU/Linux
+ - libhpnn capability (no configure flags)
+
+See attached config.log
+
+--------------------------------------------
+Don't forget to include the config.log file!
+--------------------------------------------
+
+For a failed compilation, in addition to the config.log, a useful BUG report can
+contain the result of the `make all` command. The following will produce it:
+
+```
+make distclean
+./configure [insert your custom options]
+make V=1 all &> make.log
+```
+
+Please join the config.log and make.log files to your report.
+
+-------------------
+III Un-installation
+-------------------
+
+`make install` will install libhpnn in the directory given by `--prefix=PATH`.
+
+To uninstall libhpnn, from the directory where the `make install` was typed, one
+can use the `make uninstall` command. Note that if the user doesn't want to keep
+the compilation directory around, it is possible to install again libhpnn in the
+same PATH directory, then to uninstall it.
 
 
