@@ -21,6 +21,11 @@ AC_ARG_ENABLE([mpi],
 	[],
 	[enable_mpi=auto])
 AC_MSG_RESULT([$enable_mpi])
+AC_ARG_WITH([mpicc],
+	    [AS_HELP_STRING([--with-mpicc],
+		[specify [MPI] compiler])],
+	    [],
+	    [with_mpicc=auto])
 # OMP
 AC_MSG_CHECKING([if OMP was required])
 AC_ARG_ENABLE([omp],
@@ -105,7 +110,11 @@ AC_MSG_NOTICE(+++------------+++)
 AC_MSG_NOTICE(+++ check MPI. +++)
 AC_MSG_NOTICE(+++------------+++)
 if test "x$enable_mpi" != xno; then
-	AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
+	if test "x$with_mpicc" = xauto; then
+		AC_CHECK_PROGS(use_mpicc, mpicc hcc mpxlc_r mpxlc mpcc cmpicc, none)
+	else
+		use_mpicc="$with_mpicc"
+	fi
 	AC_MSG_CHECKING([if current compiler ($CC) is MPI-able])
 	AC_LANG_PUSH(C)
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
@@ -114,8 +123,7 @@ if test "x$enable_mpi" != xno; then
 ]],[[
 MPI_Init(NULL, NULL);
 MPI_Finalize();
-return 0;
-]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
+return 0;]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
 	AC_LANG_POP()
 	AC_MSG_RESULT([$mpicc_gcc])
 	if test "x$mpicc_gcc" = xno; then
@@ -130,13 +138,17 @@ return 0;
 ]],[[
 MPI_Init(NULL, NULL);
 MPI_Finalize();
-return 0;
-]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
+return 0;]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
 		AC_LANG_POP()
 		AC_MSG_RESULT([$mpicc_gcc])
 		if test "x$mpicc_gcc" = xno; then
-			AC_MSG_NOTICE(^^^ $use_mpicc detected but not usable, swiching back to $PUSH_CC)
-			CC="$ORIG_CC"
+			if test "x$enable_mpi" = xauto; then
+				AC_MSG_NOTICE(^^^ $use_mpicc detected but not usable, swiching back to $PUSH_CC)
+				CC="$ORIG_CC"
+				enable_mpi="no"
+			else
+				AC_MSG_ERROR(MPI was requested with --enable-mpi but no mpicc found!)
+			fi
 		else
 			AC_MSG_NOTICE(^^^ WARNING: CC compiler is now $CC ^^^)
 			CFLAGS+=" -D_MPI"
@@ -147,8 +159,8 @@ else
 fi
 #FAIL MPI if we need to (ie user asked for MPI but none could be found)
 if test "x$enable_mpi" = xyes; then
-	if test "x$pkg_mpi" != xyes -a "x$use_mpicc" = xnone; then
-		AC_MSG_ERROR(MPI was requested with --use-mpi=yes but no MPI found!)
+	if test "x$use_mpicc" = xnone; then
+		AC_MSG_ERROR(MPI was requested with --enable-mpi but no MPI found!)
 	fi
 fi
 # --------
@@ -554,9 +566,53 @@ if test "x$use_nvcc" != xnone; then
 	AC_MSG_NOTICE(>>> NVCC = $NVCC )
 	AC_MSG_NOTICE(>>> NVCCFLAGS = $NVCCFLAGS )
 fi
+#try to give a full configure command
+configure_cmd="./configure "
+#MPI
+if test "x$enable_mpi" != xno; then
+	configure_cmd+="--enable-mpi "
+	if test "x$with_mpicc" != xauto; then
+		configure_cmd+="--with-mpicc=${with_mpicc} "
+	fi
+else
+	configure_cmd+="--disable-mpi "
+fi
+#OMP
+if test "x$use_omp" = xyes; then
+	configure_cmd+="--enable-omp "
+fi
+#BLAS
+if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
+	#determine which BLAS
+	if test "x$with_blas" = xmkl -o "x$auto_blas" = xmkl; then
+		configure_cmd+="--with-blas=mkl "
+	fi
+	if test "x$with_blas" = xopenblas -o "x$auto_blas" = xopenblas; then
+		configure_cmd+="--with-blas=openblas "
+	fi
+	if test "x$with_blas" = xatlas -o "x$auto_blas" = xatlas; then
+		configure_cmd+="--with-blas=atlas "
+	fi
+	if test "x$with_blas_include" != "xauto"; then
+		configure_cmd+=" --with-blas-include=${with_blas_include}"
+	fi
+	if test "x$with_blas_lib" != "xauto"; then
+		configure_cmd+=" --with-blas-lib=${with_blas_lib}"
+	fi
+fi
+#CUDA
+if test "x$use_nvcc" != xnone; then
+	configure_cmd+="--enable-cuda "
 
-
-
-
-
-
+	if test "x$with_cuda_include" != "xauto"; then
+		configure_cmd+=" --with-cuda-include=${with_cuda_include}"
+	fi
+	if test "x$with_cuda_lib" != "xauto"; then
+		configure_cmd+=" --with-cuda-lib=${with_cuda_lib}"
+	fi
+fi
+AC_MSG_NOTICE(>>> configure COMMAND:)
+AC_MSG_RESULT($configure_cmd)
+AC_MSG_NOTICE(+++------------------+++)
+AC_MSG_NOTICE(+++ ENDOF: configure +++)
+AC_MSG_NOTICE(+++------------------+++)
