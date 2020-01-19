@@ -564,8 +564,8 @@ nn_def *_NN(load,conf)(CHAR *filename){
 			case 'L':
 				_CONF.type=NN_TYPE_LNN;
 				break;
-			case 'P':
-				_CONF.type=NN_TYPE_PNN;
+			case 'S':
+				_CONF.type=NN_TYPE_SNN;
 				break;
 			case 'A':
 				/*fallthrough*/
@@ -749,8 +749,8 @@ void _NN(dump,conf)(nn_def *conf,FILE *fp){
 		case NN_TYPE_LNN:
 			NN_WRITE(fp,"[type] LNN\n");
 			break;
-		case NN_TYPE_PNN:
-			NN_WRITE(fp,"[type] PNN\n");
+		case NN_TYPE_SNN:
+			NN_WRITE(fp,"[type] SNN\n");
 			break;
 		case NN_TYPE_ANN:
 		default:
@@ -793,7 +793,7 @@ void _NN(free,kernel)(nn_def *conf){
 		ann_kernel_free((_kernel *)_CONF.kernel);
 		break;
         case NN_TYPE_LNN:
-        case NN_TYPE_PNN:
+        case NN_TYPE_SNN:
         case NN_TYPE_UKN:
         default:
                 return;
@@ -819,7 +819,7 @@ BOOL _NN(generate,kernel)(nn_def *conf,...){
 		}
 		return TRUE;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return FALSE;
@@ -832,7 +832,7 @@ BOOL _NN(load,kernel)(nn_def *conf){
 		if(_CONF.kernel==NULL) return FALSE;
 		return TRUE;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return FALSE;
@@ -844,7 +844,7 @@ void _NN(dump,kernel)(nn_def *conf, FILE *output){
 		ann_dump((_kernel *)_CONF.kernel,output);
 		break;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return;
@@ -858,7 +858,7 @@ UINT _NN(get,n_inputs)(nn_def *conf){
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_inputs;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -869,7 +869,7 @@ UINT _NN(get,n_hiddens)(nn_def *conf){
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_hiddens;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -880,7 +880,7 @@ UINT _NN(get,n_outputs)(nn_def *conf){
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_outputs;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -891,7 +891,7 @@ UINT _NN(get,h_neurons)(nn_def *conf,UINT layer){
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->hiddens[layer].n_neurons;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -1002,7 +1002,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 			ann_momentum_init((_kernel *)_CONF.kernel);
 		break;
 	case NN_TYPE_LNN:
-	case NN_TYPE_PNN:
+	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		NN_ERROR(stdout,"unimplemented NN type!\n");
@@ -1077,7 +1077,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 			}
 			break;
 		case NN_TYPE_LNN:
-		case NN_TYPE_PNN:
+		case NN_TYPE_SNN:
 		case NN_TYPE_UKN:
 			res=0.;/*not ready yet*/
 			break;
@@ -1187,7 +1187,7 @@ void _NN(run,kernel)(nn_def *conf){
 			break;
 #undef _K
 		case NN_TYPE_LNN:
-		case NN_TYPE_PNN:
+		case NN_TYPE_SNN:
 		case NN_TYPE_UKN:
 		default:
 			break;

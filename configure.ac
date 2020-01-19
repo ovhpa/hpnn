@@ -87,7 +87,7 @@ AC_MSG_CHECKING([if specific BLAS was required])
 AC_ARG_WITH([blas],
             [AS_HELP_STRING([--with-blas],
               [determine which BLAS flavor to use @<:@default=auto@:>@\
-		valid values: [auto,yes,no,none,openblas,mkl,atlas]])],
+		valid values: [auto,no,none,openblas,mkl,atlas]])],
             [],
             [with_blas=auto])
 AC_MSG_RESULT([$with_blas])

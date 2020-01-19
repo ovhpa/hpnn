@@ -51,7 +51,7 @@ typedef struct {
 typedef enum {
 	NN_TYPE_ANN = 0,	/*feed-forward, activation base nn*/
 	NN_TYPE_LNN = 1,	/*feed-forward, activation (hidden) + linear (output)*/
-	NN_TYPE_PNN = 2,	/*feed-forward, probability base nn*/
+	NN_TYPE_SNN = 2,	/*NN_TYPE_ANN + softmax*/
 	NN_TYPE_UKN =-1,	/*unknown*/
 } nn_type;
 /*-------------------------*/
