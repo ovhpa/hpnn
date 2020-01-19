@@ -98,7 +98,13 @@ The NN\_TYPE\_ANN is optimized for:
 - [x] MPI/OpenMP combination (for multi-nodes/multi-CPUs/multi-cores configurations.
 - [ ] MPI/CUDA for GPGPU capable multi-nodes (work in progress).
 
-### Linear activation ANN (NN\_TYPE\_LNN)
+### Probabilistic results SNN (NN\_TYPE\_SNN)
+
+The NN\_TYPE\_SNN (in which S stands for 'softmax') is also simple feed-forward topology (see above) which only differ from the NN\_TYPE\_ANN by the output layer.
+In this ANN type, the output activation is determine by the softmax exponential activation function.
+
+Activation function is of sigmoid type for all but output layers.
+
 
 Incoming...
 
