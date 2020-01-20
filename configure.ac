@@ -153,6 +153,9 @@ return 0;]])],[mpicc_gcc='yes'], [mpicc_gcc='no'])
 			AC_MSG_NOTICE(^^^ WARNING: CC compiler is now $CC ^^^)
 			CFLAGS+=" -D_MPI"
 		fi
+	else
+		# $use_mpicc IS current CC compiler
+		CFLAGS+=" -D_MPI"
 	fi
 else
 	AC_MSG_NOTICE(^^^ REQUESTED: NO MPI ^^^)

@@ -338,6 +338,14 @@ BOOL _NN(get,mpi_tasks)(UINT *n_tasks){
 	return TRUE;
 #endif
 }
+BOOL _NN(get,curr_mpi_task)(UINT *task){
+#ifndef _MPI
+	return FALSE;
+#else
+	MPI_Comm_rank(MPI_COMM_WORLD,task);
+	return TRUE;
+#endif
+}
 BOOL _NN(set,cuda_streams)(UINT n_streams){
 #ifndef _CUDA
 	return FALSE;

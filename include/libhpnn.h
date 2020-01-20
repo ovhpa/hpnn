@@ -138,8 +138,10 @@ int  _NN(deinit,all)();
 BOOL _NN(set,omp_threads)(UINT n_threads);
 BOOL _NN(get,omp_threads)(UINT *n_threads);
 int _NN(return,omp_threads)();
+/*TODO: we might define a MPI_COMM_xxx for the next 3 functions*/
 BOOL _NN(set,mpi_tasks)(UINT n_tasks);
 BOOL _NN(get,mpi_tasks)(UINT *n_tasks);
+BOOL _NN(get,curr_mpi_task)(UINT *task);
 BOOL _NN(set,cuda_streams)(UINT n_streams);
 BOOL _NN(get,cuda_streams)(UINT *n_streams);
 BOOL _NN(set,omp_blas)(UINT n_blas);

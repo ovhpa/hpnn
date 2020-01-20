@@ -17,10 +17,11 @@ otherincludedir = $(includedir)/libhpnn
 otherinclude_HEADERS = $(top_srcdir)/include/libhpnn/common.h \
 	$(top_srcdir)/include/libhpnn/unroll.def \
 	$(top_srcdir)/include/libhpnn/ann.h \
-	$(top_srcdir)/include/libhpnn/cuda_ann.h
+	$(top_srcdir)/include/libhpnn/cuda_ann.h \
+	$(top_srcdir)/include/libhpnn/snn.h 
 
 libhpnn_la_SOURCES = \
-	libhpnn.c ann.c
+	libhpnn.c ann.c snn.c
 
 if HAVE_CUDA
 libhpnn_la_SOURCES += cuda_ann.cu

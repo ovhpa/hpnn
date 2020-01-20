@@ -139,9 +139,9 @@ _kernel *ann_load(CHAR *f_kernel){
 #ifdef _MPI
 	int bailout=0;
 	UINT N,M,ndx;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #define MPI_BAIL_SEND for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD)
 #define MPI_BAIL_RECV MPI_Recv(&bailout,1,MPI_INT,0,10,MPI_COMM_WORLD,MPI_STATUS_IGNORE)
 #else /*_MPI*/
@@ -503,9 +503,9 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 	DOUBLE temp_rnd;
 #ifdef _MPI
 	UINT N,M;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 #ifdef _MPI
 if(stream==0){/*master kernel generation*/
@@ -604,9 +604,9 @@ void ann_dump(_kernel *kernel,FILE *out){
 	UINT jdx;
 	UINT kdx;
 #ifdef _MPI
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 if(stream==0){/*only master writes*/
 #endif /*_MPI*/
 	if (kernel==NULL) return;
@@ -684,10 +684,10 @@ void ann_kernel_run(_kernel *kernel){
 	UINT kdx;
 #endif
 #ifdef _MPI
-	int n_streams,stream;
+	UINT n_streams,stream;
 	UINT red,rem;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 	/*simple, one pass kernel*/
 /*+++ I - input +++*/
@@ -977,9 +977,9 @@ DOUBLE ann_kernel_train_error(_kernel *kernel, const DOUBLE *train){
 	UINT idx,N;
 #ifdef _MPI
 	UINT red,rem;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 	N=KERN.n_outputs;
 #ifdef _MPI
@@ -1013,9 +1013,9 @@ void ann_kernel_train_delta(_kernel *kernel,const DOUBLE *train, DOUBLE **delta_
         UINT idx, jdx;
 #ifdef _MPI
 	UINT red, rem;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 /*^^^ output*/
 	N=KERN.output.n_neurons;
@@ -1337,9 +1337,9 @@ DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
 	DOUBLE Epr=0.;
 #ifdef _MPI
 	UINT red, rem;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 	/*keep a track of mem*/
 	UINT64 allocate=0.;
@@ -1633,9 +1633,9 @@ DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alph
 	UINT idx,N,M;
 #ifdef _MPI
 	UINT red, rem;
-	int n_streams,stream;
-	MPI_Comm_size(MPI_COMM_WORLD,&n_streams);
-	MPI_Comm_rank(MPI_COMM_WORLD,&stream);
+	UINT n_streams,stream;
+	_NN(get,mpi_tasks)(&n_streams);
+	_NN(get,curr_mpi_task)(&stream);
 #endif /*_MPI*/
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
