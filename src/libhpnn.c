@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <inttypes.h>
 #include <math.h>
 #include <time.h>
@@ -50,6 +51,7 @@
 /*^^^main header*/
 #include <libhpnn.h>
 #include <libhpnn/ann.h>
+#include <libhpnn/snn.h>
 /*GLOBAL VARIABLE: there it a unique runtime per run
  *  for which each use of library routine refers to.*/
 nn_runtime lib_runtime;
@@ -797,11 +799,12 @@ void _NN(dump,conf)(nn_def *conf,FILE *fp){
 /*----------------------------*/
 void _NN(free,kernel)(nn_def *conf){
         switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
         case NN_TYPE_ANN:
 		ann_kernel_free((_kernel *)_CONF.kernel);
 		break;
         case NN_TYPE_LNN:
-        case NN_TYPE_SNN:
         case NN_TYPE_UKN:
         default:
                 return;
@@ -810,6 +813,8 @@ void _NN(free,kernel)(nn_def *conf){
 BOOL _NN(generate,kernel)(nn_def *conf,...){
 	va_list ap;
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		{
 		UINT n_inputs;
@@ -827,7 +832,6 @@ BOOL _NN(generate,kernel)(nn_def *conf,...){
 		}
 		return TRUE;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return FALSE;
@@ -835,12 +839,13 @@ BOOL _NN(generate,kernel)(nn_def *conf,...){
 }
 BOOL _NN(load,kernel)(nn_def *conf){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		_CONF.kernel=(void *)ann_load(_CONF.f_kernel);
 		if(_CONF.kernel==NULL) return FALSE;
 		return TRUE;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return FALSE;
@@ -848,11 +853,12 @@ BOOL _NN(load,kernel)(nn_def *conf){
 }
 void _NN(dump,kernel)(nn_def *conf, FILE *output){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		ann_dump((_kernel *)_CONF.kernel,output);
 		break;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return;
@@ -863,10 +869,11 @@ void _NN(dump,kernel)(nn_def *conf, FILE *output){
 /*----------------------------*/
 UINT _NN(get,n_inputs)(nn_def *conf){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_inputs;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -874,10 +881,11 @@ UINT _NN(get,n_inputs)(nn_def *conf){
 }
 UINT _NN(get,n_hiddens)(nn_def *conf){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_hiddens;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -885,10 +893,11 @@ UINT _NN(get,n_hiddens)(nn_def *conf){
 }
 UINT _NN(get,n_outputs)(nn_def *conf){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->n_outputs;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -896,10 +905,11 @@ UINT _NN(get,n_outputs)(nn_def *conf){
 }
 UINT _NN(get,h_neurons)(nn_def *conf,UINT layer){
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		return ((_kernel *)_CONF.kernel)->hiddens[layer].n_neurons;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		return 0;
@@ -1005,12 +1015,13 @@ BOOL _NN(train,kernel)(nn_def *conf){
 	if(_CONF.type==NN_TYPE_UKN) return FALSE;
 	/*initialize momentum*/
 	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
 	case NN_TYPE_ANN:
 		if(_CONF.train==NN_TRAIN_BPM)
 			ann_momentum_init((_kernel *)_CONF.kernel);
 		break;
 	case NN_TYPE_LNN:
-	case NN_TYPE_SNN:
 	case NN_TYPE_UKN:
 	default:
 		NN_ERROR(stdout,"unimplemented NN type!\n");
@@ -1068,7 +1079,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		_NN(read,sample)(tmp,&tr_in,&tr_out);
 		switch (_CONF.type){
 		case NN_TYPE_ANN:
-			/*do all case of type*/
+			/*check training*/
 			switch (_CONF.train){
 			case NN_TRAIN_BPM:
 				res=ann_train_BPM((_kernel *)_CONF.kernel,tr_in,tr_out,
@@ -1086,6 +1097,21 @@ BOOL _NN(train,kernel)(nn_def *conf){
 			break;
 		case NN_TYPE_LNN:
 		case NN_TYPE_SNN:
+			/*check training*/
+			switch (_CONF.train){
+			case NN_TRAIN_BPM:
+				res=snn_train_BPM((_kernel *)_CONF.kernel,tr_in,tr_out,
+					0.2,0.00001);/*TODO: set as parameters*/
+				break;
+			case NN_TRAIN_BP:
+				res=snn_train_BP((_kernel *)_CONF.kernel,tr_in,tr_out,
+					0.000001);/*TODO: set as parameter*/
+				break;
+			case NN_TRAIN_CG:
+			default:
+				res=0.;
+				break;
+			}
 		case NN_TYPE_UKN:
 			res=0.;/*not ready yet*/
 			break;
@@ -1113,6 +1139,7 @@ void _NN(run,kernel)(nn_def *conf){
 	CHAR     **flist;
 	CHAR  *tmp,**ptr;
 	UINT is_ok;
+	UINT guess;
 	UINT   idx;
 	UINT   jdx;
 	DOUBLE res;
@@ -1193,9 +1220,27 @@ void _NN(run,kernel)(nn_def *conf){
 			else NN_COUT(stdout," FAIL!\n");
 			fflush(stdout);
 			break;
-#undef _K
 		case NN_TYPE_LNN:
 		case NN_TYPE_SNN:
+			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+			snn_kernel_run(_K);
+			res=0.;guess=0;is_ok=0.;
+			NN_DBG(stdout," CLASS | PROBABILITY (%%)\n");
+			NN_DBG(stdout,"-------|----------------\n");
+			for(idx=0;idx<_K->n_outputs;idx++){
+				NN_DBG(stdout," %5i | %15.10f\n",idx,_K->output.vec[idx]*100.);
+				if(_K->output.vec[idx]>res) {
+					res=_K->output.vec[idx];
+					guess=idx;
+				}
+				if(tr_out[idx]>0.1) is_ok=idx;
+			}
+			NN_DBG(stdout,"-------|----------------\n");
+			NN_COUT(stdout, " BEST CLASS idx=%i P=%15.10f",guess+1,res*100);
+			if(guess==is_ok) NN_COUT(stdout," [PASS]\n");
+			else NN_COUT(stdout," [FAIL idx=%i]\n",is_ok+1);
+			fflush(stdout);
+			break;
 		case NN_TYPE_UKN:
 		default:
 			break;
@@ -1206,6 +1251,7 @@ void _NN(run,kernel)(nn_def *conf){
 	}
 	FREE(curr_dir);
 	FREE(flist);
+#undef _K
 }
 
 #undef _CONF
