@@ -99,7 +99,7 @@ nn_cap _NN(get,capabilities)(){
 	res+=(1<<3);
 #endif
 	/*(1<<4) is reserved for OCL*/
-#ifdef _PBLAS
+#ifdef PBLAS
 	res+=(1<<5);
 #elif defined(SBLAS)
 	res+=(1<<6);
@@ -205,41 +205,44 @@ BOOL _NN(init,CUDA)(){
 #endif
 }
 BOOL _NN(init,BLAS)(){
-#ifdef PBLAS
-#ifdef _MKL
-        mkl_set_dynamic(0);
-#endif /*_MKL*/
-	NN_OUT(stdout,"USING PBLAS.\n");
-	return TRUE;
-#elif defined(SBLAS)
-#ifdef _MKL
-        mkl_set_dynamic(0);
-#endif /*_MKL*/
-	NN_OUT(stdout,"USING SBLAS.\n");
-	return TRUE;
-#else /*no PBLAS no SBLAS*/
+#if !defined (PBLAS) && !defined (SBLAS)
 	NN_WARN(stdout,"NOT USING BLAS.\n");
 	return FALSE;
-#endif
+#else /*PBLAS or SBLAS*/
+#ifdef _MKL
+        mkl_set_dynamic(0);
+        lib_runtime.nn_num_blas = mkl_domain_get_max_threads(MKL_DOMAIN_BLAS);
+#endif /*_MKL*/
+#ifdef _OPENBLAS
+        lib_runtime.nn_num_blas = openblas_get_num_threads();
+#endif /*_OPENBLAS*/
+#ifdef PBLAS
+	NN_DBG(stdout,"USING PBLAS.\n");
+#else /*PBLAS*/
+	NN_DBG(stdout,"USING SBLAS.\n");
+#endif /*PBLAS*/
+	return TRUE;
+#endif /*PBLAS or SBLAS*/
 }
-int _NN(init,all)(){
+int _NN(init,all)(UINT init_verbose){
 	BOOL is_ok=FALSE;
 	nn_cap capability;
 	_NN(init,runtime)();
+lib_runtime.nn_verbose=init_verbose;
 	capability = lib_runtime.capability;
-	if(capability & NN_CAP_OMP) {
-		is_ok|=_NN(init,OMP)();
-	}
 	if(capability & NN_CAP_MPI) {
 		is_ok|=_NN(init,MPI)();
+	}
+	if(capability & NN_CAP_OMP) {
+		is_ok|=_NN(init,OMP)();
 	}
 	if(capability & NN_CAP_CUDA) {
 		is_ok|=_NN(init,CUDA)();
 	}
 	if((capability & NN_CAP_PBLAS)||(capability & NN_CAP_SBLAS)){
 		is_ok|=_NN(init,BLAS)();
-
 	}
+lib_runtime.nn_verbose=0;
 	if(is_ok) return 0;
 	else return -1;
 }
@@ -269,8 +272,7 @@ BOOL _NN(deinit,CUDA)(){
 		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
 			cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
 	}
-	free(lib_runtime.cudas.cuda_streams);
-	lib_runtime.cudas.cuda_streams=NULL;
+	FREE(lib_runtime.cudas.cuda_streams);
 #ifdef _CUBLAS
 	cublasDestroy(lib_runtime.cudas.cuda_handle);
 #endif
@@ -361,8 +363,7 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 			for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
 				cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
 		}
-		free(lib_runtime.cudas.cuda_streams);
-		lib_runtime.cudas.cuda_streams=NULL;
+		FREE(lib_runtime.cudas.cuda_streams);
 	}
 	if(n_streams<2){
 		/*assign a unique "NULL" stream*/
@@ -397,9 +398,13 @@ BOOL _NN(set,omp_blas)(UINT n_blas){
 #if !defined (PBLAS) && !defined (SBLAS)
 	return FALSE;
 #else
-	lib_runtime.nn_num_blas=n_blas;
-#ifdef _OMP
-	omp_set_num_threads(lib_runtime.nn_num_threads);
+	lib_runtime.nn_num_blas = n_blas;
+/*note that atlas BLAS can't change the number of threads*/
+#ifdef _MKL
+	mkl_domain_set_num_threads(lib_runtime.nn_num_blas, MKL_DOMAIN_BLAS);
+#endif /*_MKL*/
+#ifdef _OPENBLAS
+	openblas_set_num_threads(lib_runtime.nn_num_blas);
 #endif
 	return TRUE;
 #endif

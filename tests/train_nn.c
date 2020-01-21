@@ -68,7 +68,7 @@ int main (int argc, char *argv[]){
 	CHAR *nn_filename = NULL;
 	nn_def    *neural = NULL;
 	/*init all*/
-	_NN(init,all)();
+	_NN(init,all)(3);
 /*parse arguments*/
 	if(argc<2) {
 		/*This is the default: neural network definition is taken from file nn.conf */
@@ -238,9 +238,11 @@ next_arg:
 	_NN(dump,kernel)(neural,output);
 	fclose(output);	
 	/*deinit*/
+	_NN(deinit,conf)(neural);
 	_NN(deinit,all)();
 	return 0;
 FAIL:
+	_NN(deinit,conf)(neural);
 	_NN(deinit,all)();
 	FREE(nn_filename);
 	return -1;

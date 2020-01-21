@@ -74,7 +74,7 @@ int main (int argc, char *argv[]){
 #endif
 	CHAR *nn_filename = NULL;
 	/*init all*/
-	_NN(init,all)();
+	_NN(init,all)(3);
 /*parse arguments*/
 	if(argc>1){
 		idx=1;
@@ -216,9 +216,11 @@ next_arg:
 	/*setup done, run kernel*/
 	_NN(run,kernel)(neural);
 	/*deinit*/
+	_NN(deinit,conf)(neural);
 	_NN(deinit,all)();
 	return 0;
 FAIL:
+	_NN(deinit,conf)(neural);
 	_NN(deinit,all)();
 	FREE(nn_filename);
 	return -1;

@@ -398,11 +398,11 @@ if test "x$with_blas" != xno -a "x$with_blas" != xnone; then
 					AC_MSG_NOTICE([^^^ !!!!!!!! WILL USE SEQUENTIAL OPENBLAS INSTEAD! ^^^])
 					AC_MSG_NOTICE([^^^ !!!!!!!! NOTE: PERFORMANCE WILL SUFFER (much)! ^^^])
 					AC_CHECK_FUNCS([cblas_ddot cblas_daxpy cblas_dscal cblas_dger])
-					CFLAGS+=" -DSBLAS"
+					CFLAGS+=" -D_OPENBLAS -DSBLAS"
 				fi
 			else
 				AC_CHECK_FUNCS([cblas_dgemv cblas_dger])
-				CFLAGS+=" -DPBLAS"
+				CFLAGS+=" -D_OPENBLAS -DPBLAS"
 			fi
 		else
 			if test "x$with_blas" = xopenblas; then

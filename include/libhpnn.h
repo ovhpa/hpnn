@@ -126,7 +126,7 @@ BOOL _NN(init,OMP)();
 BOOL _NN(init,MPI)();
 BOOL _NN(init,CUDA)();
 BOOL _NN(init,BLAS)();
-int  _NN(init,all)();
+int _NN(init,all)(UINT init_verbose);
 BOOL _NN(deinit,OMP)();
 BOOL _NN(deinit,MPI)();
 BOOL _NN(deinit,CUDA)();
