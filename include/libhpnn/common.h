@@ -231,8 +231,7 @@
 	_entry=readdir(dir);\
 	if(_entry==NULL) file=NULL;\
 	else {\
-		ALLOC(file,256,CHAR);\
-		memcpy(file,_entry->d_name,256);\
+		STRDUP(_entry->d_name,file);\
 	}\
 }while(0)
 #define CLOSE_DIR(dir,ok) do{\
