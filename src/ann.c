@@ -204,7 +204,7 @@ if(stream==0) {
 			ptr=&(line[0]);SKIP_BLANK(ptr);
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			GET_UINT(n_in,ptr,ptr2);ptr=ptr2+1;SKIP_BLANK(ptr);
-			ALLOC(parameter,n_par-1,UINT);
+			ALLOC(parameter,n_par,UINT);/*_BUG_ n_par-1 */
 			jdx=1;
 			for(idx=0;idx<n_par;idx++) {
 				GET_UINT(parameter[idx],ptr,ptr2);

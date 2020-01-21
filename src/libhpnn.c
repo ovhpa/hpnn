@@ -532,7 +532,7 @@ void _NN(get,tests_directory)(nn_def *conf,CHAR **tests){
 char *_NN(return,tests_directory)(nn_def *conf){
 	return _CONF.tests;
 }
-nn_def *_NN(load,conf)(CHAR *filename){
+nn_def *_NN(load,conf)(const CHAR *filename){
 #define FAIL read_conf_fail
 	PREP_READLINE();
 	CHAR *line=NULL;

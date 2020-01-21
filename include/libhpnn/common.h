@@ -172,11 +172,12 @@
 #define TRUE (1==1)
 #define FALSE (1==0)
 #define STRLEN(src,len) while((len<UINT_LEAST32_MAX)&&(src[len]!='\0')) len++
+/*the len+1 in line 4 is a place for '\0' similarily to strcpy*/
 #define STRDUP(src,dest) do{\
 	UINT __len=0;\
 	STRLEN(src,__len);\
 	if(__len!=0){\
-		ALLOC(dest,__len,CHAR);\
+		ALLOC(dest,__len+1,CHAR);\
 		__len--;\
 		while(__len>0) {\
 			dest[__len]=src[__len];\
@@ -191,7 +192,7 @@
 	UINT __len=0;\
 	STRLEN(src,__len);\
 	if(__len!=0){\
-		ALLOC(dest,__len,CHAR);\
+		ALLOC(dest,__len+1,CHAR);\
 		mem+=__len*sizeof(CHAR);\
 		__len--;\
 		while(__len>0) {\
