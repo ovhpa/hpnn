@@ -176,7 +176,7 @@ char *_NN(return,samples_directory)(nn_def *conf);
 void _NN(set,tests_directory)(nn_def *conf,CHAR *tests);
 void _NN(get,tests_directory)(nn_def *conf,CHAR **tests);
 char *_NN(return,tests_directory)(nn_def *conf);
-nn_def *_NN(load,conf)(CHAR *filename);
+nn_def *_NN(load,conf)(const CHAR *filename);
 void _NN(dump,conf)(nn_def *conf,FILE *fp);
 /*----------------------------*/
 /*+++ manipulate NN kernel +++*/
