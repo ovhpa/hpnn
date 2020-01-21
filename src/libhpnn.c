@@ -439,15 +439,15 @@ void _NN(init,conf)(nn_def *conf){
 }
 void _NN(deinit,conf)(nn_def *conf){
 	_CONF.rr=NULL;/*detach runtime*/
-	if(_CONF.name!=NULL) FREE(_CONF.name);
+	FREE(_CONF.name);
 	_CONF.type=NN_TYPE_UKN;
 	_CONF.need_init=FALSE;
 	_CONF.seed=0;
 	if(_CONF.kernel!=NULL) _NN(free,kernel)(conf);
-	if(_CONF.f_kernel!=NULL) FREE(_CONF.f_kernel);
+	FREE(_CONF.f_kernel);
 	_CONF.train=NN_TRAIN_UKN;
-	if(_CONF.samples!=NULL) FREE(_CONF.samples);
-	if(_CONF.tests!=NULL) FREE(_CONF.tests);
+	FREE(_CONF.samples);
+	FREE(_CONF.tests);
 }
 void _NN(set,name)(nn_def *conf,const CHAR *name){
 	FREE(_CONF.name);
@@ -456,7 +456,7 @@ void _NN(set,name)(nn_def *conf,const CHAR *name){
 void _NN(get,name)(nn_def *conf,CHAR **name){
 	/*will initialize and return name*/
 	/*USER need to free name! --OVHPA*/
-	FREE(*name);
+//	FREE(*name);
 	STRDUP(_CONF.name,*name);
 }
 char *_NN(return,name)(nn_def *conf){
@@ -496,7 +496,7 @@ void _NN(set,kernel_filename)(nn_def *conf,CHAR *f_kernel){
 void _NN(get,kernel_filename)(nn_def *conf,CHAR **f_kernel){
 	/*will initialize and return f_kernel*/
 	/*USER need to free f_kernel! --OVHPA*/
-	FREE(*f_kernel);
+//	FREE(*f_kernel);
 	STRDUP(_CONF.f_kernel,*f_kernel);
 }
 char *_NN(return,kernel_filename)(nn_def *conf){
@@ -518,7 +518,7 @@ void _NN(set,samples_directory)(nn_def *conf,CHAR *samples){
 void _NN(get,samples_directory)(nn_def *conf,CHAR **samples){
 	/*will initialize and return samples*/
 	/*USER need to free samples! --OVHPA*/
-	FREE(*samples);
+//	FREE(*samples);
 	STRDUP(_CONF.samples,*samples);
 }
 char *_NN(return,samples_directory)(nn_def *conf){
@@ -531,7 +531,7 @@ void _NN(set,tests_directory)(nn_def *conf,CHAR *tests){
 void _NN(get,tests_directory)(nn_def *conf,CHAR **tests){
 	/*will initialize and return tests*/
 	/*USER need to free tests! --OVHPA*/
-	FREE(*tests);
+//	FREE(*tests);
 	STRDUP(_CONF.tests,*tests);
 }
 char *_NN(return,tests_directory)(nn_def *conf){
@@ -573,7 +573,7 @@ nn_def *_NN(load,conf)(const CHAR *filename){
 		}
 		ptr=STRFIND("[type",line);
 		if(ptr!=NULL){
-			/*get type {"ANN", "PNN", ...}*/
+			/*get type {"ANN", "SNN", ...}*/
 			ptr+=6;SKIP_BLANK(ptr);
 			switch (*ptr){
 			case 'L':
@@ -699,6 +699,7 @@ NN_OUT(stdout,"loading kernel!\n");
 		}
 		READLINE(fp,line);
 	}while(!feof(fp));
+	fclose(fp);
 	/*checks*/
 	if(_CONF.type==NN_TYPE_UKN){
 		NN_ERROR(stderr,"Malformed NN configuration file!\n");
@@ -721,6 +722,12 @@ NN_OUT(stdout,"loading kernel!\n");
 			NN_ERROR(stderr,"keyword: output; wrong or missing...\n");
 			goto FAIL;
 		}
+		is_ok=TRUE;
+		for(idx=0;idx<parameter[1];idx++) is_ok=(is_ok && (n_hiddens[idx]!=0));
+		if(!is_ok) {
+			NN_ERROR(stderr,"Malformed NN configuration file!\n");
+			NN_ERROR(stderr,"keyword: hidden; some have a 0 neuron content!\n");
+		}
 		is_ok=_NN(generate,kernel)(conf,parameter[0],parameter[1],
 				parameter[2],n_hiddens);
 		if(!is_ok){
@@ -741,11 +748,11 @@ NN_OUT(stdout,"loading kernel!\n");
 	}
 	FREE(parameter);
 	FREE(n_hiddens);
-	fclose(fp);
 NN_OUT(stdout,"NN definition allocation: %lu (bytes)\n",allocate);
 	return conf;
 read_conf_fail:
 	FREE(_CONF.name);
+	FREE(_CONF.f_kernel);
 	FREE(_CONF.samples);
 	FREE(_CONF.tests);
 	FREE(conf);
@@ -772,7 +779,10 @@ void _NN(dump,conf)(nn_def *conf,FILE *fp){
 			NN_WRITE(fp,"[type] ANN\n");
 	}
 	if(_CONF.need_init) NN_WRITE(fp,"[init] generate\n");
-	else NN_WRITE(fp,"[init] %s\n",_CONF.f_kernel);
+	else {
+		if(_CONF.f_kernel!=NULL) NN_WRITE(fp,"[init] %s\n",_CONF.f_kernel);
+		else NN_WRITE(fp,"[init] INVALID <- this should trigger an error\n");
+	}
 	NN_WRITE(fp,"[seed] %i\n",_CONF.seed);
 	NN_WRITE(fp,"[inputs] %i\n",_NN(get,n_inputs)(conf));
 	n_hiddens=_NN(get,n_hiddens)(conf);
@@ -797,7 +807,9 @@ void _NN(dump,conf)(nn_def *conf,FILE *fp){
 	}
 
 	if(_CONF.samples!=NULL) NN_WRITE(fp,"[sample_dir] %s\n",_CONF.samples);
+	else NN_WRITE(fp,"[sample_dir] INVALID <- this should trigger an error\n");
 	if(_CONF.tests!=NULL) NN_WRITE(fp,"[test_dir] %s\n",_CONF.tests);
+	else NN_WRITE(fp,"[test_dir] INVALID <- this should trigger an error\n");
 }
 /*----------------------------*/
 /*+++ manipulate NN kernel +++*/
@@ -843,6 +855,7 @@ BOOL _NN(generate,kernel)(nn_def *conf,...){
 	}
 }
 BOOL _NN(load,kernel)(nn_def *conf){
+	if(_CONF.f_kernel==NULL) return FALSE;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
@@ -857,6 +870,7 @@ BOOL _NN(load,kernel)(nn_def *conf){
 	}
 }
 void _NN(dump,kernel)(nn_def *conf, FILE *output){
+	if(_CONF.f_kernel==NULL) return;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
@@ -873,6 +887,7 @@ void _NN(dump,kernel)(nn_def *conf, FILE *output){
 /*+++ Access NN parameters +++*/
 /*----------------------------*/
 UINT _NN(get,n_inputs)(nn_def *conf){
+	if(_CONF.f_kernel==NULL) return FALSE;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
@@ -885,6 +900,7 @@ UINT _NN(get,n_inputs)(nn_def *conf){
 	}
 }
 UINT _NN(get,n_hiddens)(nn_def *conf){
+	if(_CONF.f_kernel==NULL) return FALSE;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
@@ -897,6 +913,7 @@ UINT _NN(get,n_hiddens)(nn_def *conf){
 	}
 }
 UINT _NN(get,n_outputs)(nn_def *conf){
+	if(_CONF.f_kernel==NULL) return FALSE;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
@@ -909,10 +926,13 @@ UINT _NN(get,n_outputs)(nn_def *conf){
 	}
 }
 UINT _NN(get,h_neurons)(nn_def *conf,UINT layer){
+	if(_CONF.f_kernel==NULL) return FALSE;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
+		if(layer > ((_kernel *)_CONF.kernel)->n_hiddens) return FALSE;
+		if(((_kernel *)_CONF.kernel)->hiddens==NULL) return FALSE;
 		return ((_kernel *)_CONF.kernel)->hiddens[layer].n_neurons;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
@@ -932,11 +952,13 @@ BOOL _NN(read,sample)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 	UINT idx;
 	FILE *fp;
 	/**/
+	if(filename==NULL) return FALSE;
 	fp=fopen(filename,"r");
 	if(fp==NULL) return FALSE;
 	READLINE(fp,line);
 	if(line==NULL){
 		NN_ERROR(stderr,"sample %s read failed!\n",filename);
+		fclose(fp);
 		return FALSE;
 	}
 	do{
@@ -991,8 +1013,9 @@ BOOL _NN(read,sample)(CHAR *filename,DOUBLE **in,DOUBLE **out){
 	fclose(fp);
 	return TRUE;
 nn_sample_read_fail:
-	FREE(in);
-	FREE(out);
+	fclose(fp);
+	FREE(*in);
+	FREE(*out);
 	return FALSE;
 #undef FAIL
 }
@@ -1017,6 +1040,8 @@ BOOL _NN(train,kernel)(nn_def *conf){
 	curr_dir =NULL;
 	flist = NULL;
 	/**/
+	if(_CONF.kernel==NULL) return FALSE;
+	if(_CONF.samples==NULL) return FALSE;
 	if(_CONF.type==NN_TYPE_UKN) return FALSE;
 	/*initialize momentum*/
 	switch (_CONF.type){
@@ -1082,6 +1107,14 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(read,sample)(tmp,&tr_in,&tr_out);
+		FREE(tmp);
+		if((tr_in==NULL)||(tr_out==NULL)){
+			/*something went wrong, skipping*/
+			FREE(curr_file);
+			FREE(tr_in);
+			FREE(tr_out);
+			continue;
+		}
 		switch (_CONF.type){
 		case NN_TYPE_ANN:
 			/*check training*/
@@ -1153,6 +1186,8 @@ void _NN(run,kernel)(nn_def *conf){
 	curr_dir =NULL;
 	flist = NULL;
 	/**/
+	if(_CONF.kernel==NULL) return;
+	if(_CONF.tests==NULL) return;
 	if(_CONF.type==NN_TYPE_UKN) return;
 	/*process sample files*/
 	OPEN_DIR(directory,_CONF.tests);
@@ -1206,6 +1241,13 @@ void _NN(run,kernel)(nn_def *conf){
 		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(read,sample)(tmp,&tr_in,&tr_out);
+		FREE(tmp);
+		if((tr_in==NULL)||(tr_out==NULL)){
+			FREE(curr_file);
+			FREE(tr_in);
+			FREE(tr_out);
+			continue;
+		}
 		switch (_CONF.type){
 		case NN_TYPE_ANN:
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
@@ -1233,7 +1275,7 @@ void _NN(run,kernel)(nn_def *conf){
 			NN_DBG(stdout," CLASS | PROBABILITY (%%)\n");
 			NN_DBG(stdout,"-------|----------------\n");
 			for(idx=0;idx<_K->n_outputs;idx++){
-				NN_DBG(stdout," %5i | %15.10f\n",idx,_K->output.vec[idx]*100.);
+				NN_DBG(stdout," %5i | %15.10f\n",idx+1,_K->output.vec[idx]*100.);
 				if(_K->output.vec[idx]>res) {
 					res=_K->output.vec[idx];
 					guess=idx;
