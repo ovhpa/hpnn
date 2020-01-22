@@ -76,6 +76,7 @@ void ann_kernel_run(_kernel *kernel);
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train);
 void ann_momentum_init(_kernel *kernel);
 void ann_raz_momentum(_kernel *kernel);
+void ann_momentum_free(_kernel *kernel);
 DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha);
 DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
 DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);

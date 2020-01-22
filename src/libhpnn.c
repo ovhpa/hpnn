@@ -438,12 +438,13 @@ void _NN(init,conf)(nn_def *conf){
 	_CONF.tests=NULL;
 }
 void _NN(deinit,conf)(nn_def *conf){
+	if(_CONF.kernel!=NULL) _NN(free,kernel)(conf);
+	FREE(_CONF.kernel);
 	_CONF.rr=NULL;/*detach runtime*/
 	FREE(_CONF.name);
 	_CONF.type=NN_TYPE_UKN;
 	_CONF.need_init=FALSE;
 	_CONF.seed=0;
-	if(_CONF.kernel!=NULL) _NN(free,kernel)(conf);
 	FREE(_CONF.f_kernel);
 	_CONF.train=NN_TRAIN_UKN;
 	FREE(_CONF.samples);
@@ -1164,6 +1165,19 @@ BOOL _NN(train,kernel)(nn_def *conf){
 	}
 	FREE(curr_dir);
 	FREE(flist);
+	/*free momentum - if any*/
+	switch (_CONF.type){
+	case NN_TYPE_SNN:
+		/*fallthrough*/
+	case NN_TYPE_ANN:
+		if(_CONF.train==NN_TRAIN_BPM)
+			ann_momentum_free((_kernel *)_CONF.kernel);
+		break;
+	case NN_TYPE_LNN:
+	case NN_TYPE_UKN:
+	default:
+		NN_ERROR(stdout,"unimplemented NN type!\n");
+	}
 	return TRUE;
 }
 void _NN(run,kernel)(nn_def *conf){

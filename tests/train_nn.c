@@ -239,10 +239,12 @@ next_arg:
 	fclose(output);	
 	/*deinit*/
 	_NN(deinit,conf)(neural);
+	FREE(neural);
 	_NN(deinit,all)();
 	return 0;
 FAIL:
 	_NN(deinit,conf)(neural);
+	FREE(neural);
 	_NN(deinit,all)();
 	FREE(nn_filename);
 	return -1;

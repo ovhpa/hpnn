@@ -1626,6 +1626,20 @@ void ann_raz_momentum(_kernel *kernel){
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		memset(KERN.dw[idx],0,sizeof(DOUBLE)*KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons);
 }
+/*----------------------------*/
+/*+++ FREE momentum arrays +++*/
+/*----------------------------*/
+void ann_momentum_free(_kernel *kernel){
+	UINT idx;
+	/*FREE everything*/
+	for(idx=0;idx<KERN.n_hiddens;idx++) FREE(KERN.dw[idx]);
+	FREE(KERN.dw[KERN.n_hiddens]);
+	FREE(KERN.dw);
+#ifdef _CUDA
+	/*allocate everything in CUDA*/
+	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
+#endif
+}
 /*---------------------------------*/
 /*+++ momentum back-propagation +++*/
 /*---------------------------------*/
