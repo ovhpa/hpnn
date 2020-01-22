@@ -871,7 +871,7 @@ BOOL _NN(load,kernel)(nn_def *conf){
 	}
 }
 void _NN(dump,kernel)(nn_def *conf, FILE *output){
-	if(_CONF.f_kernel==NULL) return;
+	if(_CONF.kernel==NULL) return;
 	switch (_CONF.type){
 	case NN_TYPE_SNN:
 		/*fallthrough*/

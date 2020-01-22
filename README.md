@@ -78,10 +78,10 @@ In which an array (ie a vector containing values i) is given as an input and pas
 This simple topology in which each layer output is the input of the next layer is called a feed-forward layer.\
 To summarize, the following operation are done during the execution of a ANN:
 1 an input array is set
-2 for each neuron of the next layer, an activation function f() is applied to the sum s of all inputs multiplied by a weigth factor.
+2 for each neuron of the next layer, an activation function f() is applied to the sum s of all inputs multiplied by a weight factor.
 3 each output of the neuron gives a value y = f(s) which forms an output array.
 4 such array then becomes the input of the next layer, going back to step 2 until no layer but the output layer is left.
-5 for each neuron of the output layer, an activation function g() is applied to the sum s of all inputs multiplied by a weigth factor.
+5 for each neuron of the output layer, an activation function g() is applied to the sum s of all inputs multiplied by a weight factor.
 6 each output of the neuron gives a value o = g(s) which is the final value of the ANN.
 
 This methodology is detailed for each type of ANN in the following section.
@@ -126,7 +126,7 @@ g(s) = [ exp(s - 1.0) ] / sum_i ( exp(s_i - 1.0) )
 ```
 The activation function for hidden layers is the same 0-centered sigmoid, while the output uses the so called 'softmax' function.
 
-This ANN performs identically to the previous NN\_TYPE\_ANN but the output values sums to 1, and are within the `[0,1]` interval. For this reason, softmax is often associated to the probability of a given output to hold within a class, which such association is often an approximation (at best) or even errouneous.
+This ANN performs identically to the previous NN\_TYPE\_ANN but the output values sums to 1, and are within the `[0,1]` interval. For this reason, softmax is often associated to the probability of a given output to hold within a class, which such association is often an approximation (at best) or even erroneous.
 
 Training methods allowed for NN\_TYPE\_SNN are:
 - [x] simple back-propagation;

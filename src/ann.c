@@ -609,7 +609,14 @@ void ann_dump(_kernel *kernel,FILE *out){
 	_NN(get,curr_mpi_task)(&stream);
 if(stream==0){/*only master writes*/
 #endif /*_MPI*/
-	if (kernel==NULL) return;
+	if (kernel==NULL) {
+		NN_ERROR(stderr,"CAN'T SAVE KERNEL! kernel=NULL\n");
+#ifndef _MPI
+		return;
+#else /*_MPI*/
+		goto mpi_fail_safe;
+#endif /*_MPI*/
+	}
 /*before dumping, we need to sync*/
 #ifdef _CUDA
 	/*sync weights back*/
@@ -639,6 +646,7 @@ if(stream==0){/*only master writes*/
 		NN_WRITE(out,"\n");
 	}
 #ifdef _MPI
+mpi_fail_safe:
 }/*end of master*/
 MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT for master*/
 #endif /*_MPI*/
@@ -1956,7 +1964,7 @@ _HT;
 		}
 	}
 #else /*_MPI*/
-#pragma omp parallel for private(jdx) _NT
+#pragma omp parallel for private(jdx,kdx) _NT
 	for(jdx=0;jdx<N;jdx++){
 		for(kdx=0;kdx<M;kdx++){
 			KERN.dw[0][_2D_IDX(M,jdx,kdx)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[kdx];
