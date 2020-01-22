@@ -55,7 +55,7 @@ P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). 
 * libhpnn should include a copy of the GNU General Public License.  If not, see <[https://www.gnu.org/licenses/](https://www.gnu.org/licenses/)>.
 
 
-## Compile
+## Compile / Install
 
 Usually the `autogen.sh` script will find the best option for compiling libhpnn.
 In such case, it will produce a `configure` executable, which can be run to prepare the Makefiles.
@@ -67,22 +67,41 @@ One may want to use specific compiler, libraries, or capabilities settings for t
 
 ## ANN types
 
-Generally a ANN can be viewed as shown in the following scheme:
+### feed-forward networks
+
+A basic feed-forward ANN can be viewed as shown in the following scheme:
 
 ![hpnn](res/ann.png)
 
 In which an array (ie a vector containing values i) is given as an input and pass to a layer. Such layer is composed of a vector (possibly of a different dimension than input) of neurons. A neurons is actually a matrix of weights to which the input vector will be multiplied, and an activation function which will be applied to the result of the multiplication. Such activation can be a simple logical operation (such as if result is positive function is 1 and 0 otherwise), or a more complex function - for ex. a sigmoid will offer more flexibility than a simple logical activation. That function result is the result of a layer and is an array of values (r in the figure). The operation can then be repeated several times by adding several layers. The last layer is called the output layer by convention because it contains the final output array (o values). Layers between input array and output layer are called hidden layers. Sometimes the input array is improperly called "input layer" even though it does not contain any relevant layer elements (roughly it would be as if it is multiplied by the identity matrix followed by a f(x)=x function). Layers are also sometimes modeled with an array of bias b values that are added to the result function, but its use is limited and it has been proven to be equivalent to adding an appropriate neuron, and therefore is not implemented in libhpnn.
 
-This simple topology in which each layer output is the input of the next layer is called a feed-forward layer.
+This simple topology in which each layer output is the input of the next layer is called a feed-forward layer.\
+To summarize, the following operation are done during the execution of a ANN:
+1 an input array is set
+2 for each neuron of the next layer, an activation function f() is applied to the sum s of all inputs multiplied by a weigth factor.
+3 each output of the neuron gives a value y = f(s) which forms an output array.
+4 such array then becomes the input of the next layer, going back to step 2 until no layer but the output layer is left.
+5 for each neuron of the output layer, an activation function g() is applied to the sum s of all inputs multiplied by a weigth factor.
+6 each output of the neuron gives a value o = g(s) which is the final value of the ANN.
 
-### Basic ANN (NN\_TYPE\_ANN)
+This methodology is detailed for each type of ANN in the following section.
+
+#### Basic ANN (NN\_TYPE\_ANN)
 
 The NN\_TYPE\_ANN (in which A stands for 'activated') is a simple feed-forward topology (see above) with:
-* inputs: any number of inputs, which must be consistent with sample and test files, used for training and testing ANN, respectively;
-* any number of hidden layers (at least 1), each of them composed of any number of neurons;
-* an output layer, composed of a number of neurons equals to the number of outputs.
+```
+f(s) = g(s) = [ 2.0 / (1.0 + exp(-s)) ] - 1.0
+```
+which is simply a 0-centered sigmoid, giving values in the `[-1,1]` interval.\
+Additionnaly, there must be at least:
+* n `> 1` input values;
+* n `> 1` hidden layer;
+* `> 1` neuron / layer;
+* `1` neuron in output.
 
-The activation is fixed for all layers (including the output layers) and is of sigmoid type.
+Of course larger number will provide better optimizations.\
+The input (and output during training) values must be consistent in the sample and test files.\
+Usually this 'classic' type of ANN performs well at classification tasks.
 
 Training methods allowed for NN\_TYPE\_ANN are:
 - [x] simple back-propagation;
@@ -95,19 +114,33 @@ The NN\_TYPE\_ANN is optimized for:
 - [x] openMP (multicore) processing, using parallel BLAS (openblas, intel mkl);
 - [x] CUDA (multi-GPU) processing, using CUBLAS;
 - [x] MPI multi-nodes (and multi CPUs), using OPENMPI (v. 4)
-- [x] MPI/OpenMP combination (for multi-nodes/multi-CPUs/multi-cores configurations.
+- [x] MPI/OpenMP combination (for multi-nodes/multi-CPUs/multi-cores configurations).
 - [ ] MPI/CUDA for GPGPU capable multi-nodes (work in progress).
 
-### Probabilistic results SNN (NN\_TYPE\_SNN)
+### Softmax ANN (NN\_TYPE\_SNN)
 
-The NN\_TYPE\_SNN (in which S stands for 'softmax') is also simple feed-forward topology (see above) which only differ from the NN\_TYPE\_ANN by the output layer.
-In this ANN type, the output activation is determine by the softmax exponential activation function.
+The NN\_TYPE\_SNN (in which S stands for 'softmax') is also simple feed-forward topology (see above) which only differ from the NN\_TYPE\_ANN by the output layer:
+```
+f(s) = [ 2.0 / (1.0 + exp(-s)) ] - 1.0
+g(s) = [ exp(s - 1.0) ] / sum_i ( exp(s_i - 1.0) )
+```
+The activation function for hidden layers is the same 0-centered sigmoid, while the output uses the so called 'softmax' function.
 
-Activation function is of sigmoid type for all but output layers.
+This ANN performs identically to the previous NN\_TYPE\_ANN but the output values sums to 1, and are within the `[0,1]` interval. For this reason, softmax is often associated to the probability of a given output to hold within a class, which such association is often an approximation (at best) or even errouneous.
 
+Training methods allowed for NN\_TYPE\_SNN are:
+- [x] simple back-propagation;
+- [x] back-propagation with momentum;
+- [ ] conjugate gradient method;
+- [ ] simplex.
 
-Incoming...
-
+The NN\_TYPE\_ANN is optimized for:
+- [x] Serial processing, using BLAS (lvl. 2);
+- [x] openMP (multicore) processing, using parallel BLAS (openblas, intel mkl);
+- [ ] CUDA (multi-GPU) processing, using CUBLAS (work in progress);
+- [x] MPI multi-nodes (and multi CPUs), using OPENMPI (v. 4)
+- [x] MPI/OpenMP combination (for multi-nodes/multi-CPUs/multi-cores configurations).
+- [ ] MPI/CUDA for GPGPU capable multi-nodes (work in progress).
 
 
 
