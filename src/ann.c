@@ -607,16 +607,17 @@ void ann_dump(_kernel *kernel,FILE *out){
 	UINT n_streams,stream;
 	_NN(get,mpi_tasks)(&n_streams);
 	_NN(get,curr_mpi_task)(&stream);
-if(stream==0){/*only master writes*/
-#endif /*_MPI*/
 	if (kernel==NULL) {
 		NN_ERROR(stderr,"CAN'T SAVE KERNEL! kernel=NULL\n");
-#ifndef _MPI
 		return;
-#else /*_MPI*/
-		goto mpi_fail_safe;
-#endif /*_MPI*/
 	}
+if(stream==0){/*only master writes*/
+#else /*_MPI*/
+	if (kernel==NULL) {
+		NN_ERROR(stderr,"CAN'T SAVE KERNEL! kernel=NULL\n");
+		return;
+	}
+#endif /*_MPI*/
 /*before dumping, we need to sync*/
 #ifdef _CUDA
 	/*sync weights back*/
@@ -646,9 +647,9 @@ if(stream==0){/*only master writes*/
 		NN_WRITE(out,"\n");
 	}
 #ifdef _MPI
-mpi_fail_safe:
-}/*end of master*/
-MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT for master*/
+	/*end of master*/
+	}
+	MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT for master*/
 #endif /*_MPI*/
 }
 /*-------------------------------------*/
