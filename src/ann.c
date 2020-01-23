@@ -1996,6 +1996,8 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	BOOL is_ok;
 	UINT   idx;
 	UINT  iter;
+	UINT max_p;
+	UINT p_trg;
 	DOUBLE dEp;
 	DOUBLE probe;
 #ifdef _CUDA
@@ -2029,14 +2031,17 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		dEp=ann_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
 		iter++;
-		is_ok=TRUE;
+		/*1- determine max_p, p_trg*/
+		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			probe=0.;
-			if(kernel->output.vec[idx]>0.1) probe=1.0;
-			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
-			else is_ok=FALSE;
-			if(train_out[idx]!=probe) is_ok=FALSE;
+			if(probe<kernel->output.vec[idx]){
+				probe=kernel->output.vec[idx];
+				max_p=idx;
+			}
+			if(train_out[idx]==1.0) p_trg=idx;
 		}
+		/*2- match*/
+		is_ok=(max_p==p_trg);
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
 			if(is_ok==TRUE) NN_COUT(stdout," OK");
@@ -2062,6 +2067,8 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	BOOL is_ok;
 	UINT   idx;
 	UINT  iter;
+	UINT max_p;
+	UINT p_trg;
 	DOUBLE dEp;
 	DOUBLE probe;
 #ifdef _CUDA
@@ -2096,14 +2103,17 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
 #endif /*_CUDA*/
 		iter++;
-		is_ok=TRUE;
+		/*1- determine max_p, p_trg*/
+		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			probe=0.;
-			if(kernel->output.vec[idx]>0.1) probe=1.0;
-			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
-			else is_ok=FALSE;
-			if(train_out[idx]!=probe) is_ok=FALSE;
+			if(probe < kernel->output.vec[idx]){
+				probe = kernel->output.vec[idx];
+				max_p = idx;
+			}
+			if(train_out[idx]==1.0) p_trg = idx;
 		}
+		/*2- match*/
+		is_ok=(max_p == p_trg);
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
 			if(is_ok==TRUE) NN_COUT(stdout," OK");

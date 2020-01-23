@@ -114,7 +114,6 @@ void snn_kernel_run(_kernel *kernel){
 #define OP_ACT(ix) KERN.hiddens[0].vec[ix]=ann_act(KERN.hiddens[0].vec[ix])
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,ACT,jdx);
 #undef OP_ACT
-//DMP_DBG(KERN.hiddens[0].vec,N);
 #endif /*_MPI*/
 #elif defined(SBLAS)
 	/*move the parallel mv into a series of vv*/
@@ -272,7 +271,7 @@ _HT;
 /*+++ III - output +++*/
 	N=KERN.output.n_neurons;
 	M=KERN.output.n_inputs;
-	dv=0.;
+	dv=TINY;
 #ifdef _MPI
 	red=N/n_streams;
 	rem=N%n_streams;
@@ -289,21 +288,25 @@ _HT;
 	/*SOFTMAX: calculate dv*/
 	/* This should be equivalent to BLAS lvl. 1 dasum*/
 #pragma omp parallel for private(jdx) reduction(+:dv) _NT
-	for(jdx=0;jdx<red;jdx++)
-		dv+=exp(KERN.output.vec[jdx+stream*red]-1.0);
+	for(jdx=0;jdx<red;jdx++){
+		KERN.output.vec[jdx+stream*red]=exp(KERN.output.vec[jdx+stream*red]-1.0);
+		dv+=KERN.output.vec[jdx+stream*red];
+	}
 	MPI_Allreduce(MPI_IN_PLACE,&dv,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	if(rem>0){
 #pragma omp parallel for private(jdx) reduction(+:dv) _NT
-		for(jdx=0;jdx<rem;jdx++)
-			dv+=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+		for(jdx=0;jdx<rem;jdx++){
+			KERN.output.vec[jdx+n_streams*red]=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+			dv+=KERN.output.vec[jdx+n_streams*red];
+		}
 	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix+stream*red]=exp(KERN.output.vec[ix+stream*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+stream*red]/=dv;
 	UNROLL_OMP_FOR(0,red,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
-#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]=exp(KERN.output.vec[ix+n_streams*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]/=dv;
 		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 	}
@@ -313,10 +316,12 @@ _HT;
 		1.0,KERN.output.weights,M,KERN.hiddens[KERN.n_hiddens-1].vec,1,0.,KERN.output.vec,1);
 	/*SOFTMAX: calculate dv*/
 #pragma omp parallel for private(jdx) reduction(+:dv) _NT
-	for(jdx=0;jdx<N;jdx++)
-		dv+=exp(KERN.output.vec[jdx]-1.0);
+	for(jdx=0;jdx<N;jdx++){
+		KERN.output.vec[jdx]=exp(KERN.output.vec[jdx]-1.0);
+		dv+=KERN.output.vec[jdx];
+	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix]=exp(KERN.output.vec[ix]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix]/=dv;
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 #endif /*_MPI*/
@@ -329,7 +334,8 @@ _HT;
 		KERN.output.vec[jdx+stream*red]=cblas_ddot(
 		M,&(KERN.output.weights[M*(jdx+stream*red)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
 		/*SOFTMAX: calculate dv*/
-		dv+=exp(KERN.output.vec[jdx+stream*red]-1.0);
+		KERN.output.vec[jdx+stream*red]=exp(KERN.output.vec[jdx+stream*red]-1.0);
+		dv+=KERN.output.vec[jdx+stream*red];
 	}
 	MPI_Allreduce(MPI_IN_PLACE,&dv,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
@@ -340,16 +346,17 @@ _HT;
 			KERN.output.vec[jdx+n_streams*red]=cblas_ddot(
 			M,&(KERN.output.weights[M*(jdx+n_streams*red)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
 			/*SOFTMAX: calculate dv*/
-			dv+=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+			KERN.output.vec[jdx+n_streams*red]=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+			dv+=KERN.output.vec[jdx+n_streams*red];
 		}
 	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix+stream*red]=exp(KERN.output.vec[ix+stream*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+stream*red]/=dv;
 	UNROLL_OMP_FOR(0,red,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
-#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]=exp(KERN.output.vec[ix+n_streams*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]/=dv;
 		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 #else /*_MPI*/
@@ -359,10 +366,11 @@ _HT;
 		KERN.output.vec[jdx]=cblas_ddot(
 		M,&(KERN.output.weights[_2D_IDX(M,jdx,0)]),1,KERN.hiddens[KERN.n_hiddens-1].vec,1);
 		/*SOFTMAX: calculate dv*/
-		dv+=exp(KERN.output.vec[jdx]-1.0);
+		KERN.output.vec[jdx]=exp(KERN.output.vec[jdx]-1.0);
+		dv+=KERN.output.vec[jdx];
 	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix]=exp(KERN.output.vec[ix]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix]/=dv;
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 #endif /*_MPI*/
@@ -375,7 +383,8 @@ _HT;
 		UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 		/*SOFTMAX: calculate dv*/
-		dv+=exp(KERN.output.vec[jdx+stream*red]-1.0);
+		KERN.output.vec[jdx+stream*red]=exp(KERN.output.vec[jdx+stream*red]-1.0);
+		dv+=KERN.output.vec[jdx+stream*red];
 	}
 	MPI_Allreduce(MPI_IN_PLACE,&dv,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
@@ -387,16 +396,17 @@ _HT;
 			UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 			/*SOFTMAX: calculate dv*/
-			dv+=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+			KERN.output.vec[jdx+n_streams*red]=exp(KERN.output.vec[jdx+n_streams*red]-1.0);
+			dv+=KERN.output.vec[jdx+n_streams*red];
 		}
 	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix+stream*red]=exp(KERN.output.vec[ix+stream*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+stream*red]/=dv;
 	UNROLL_OMP_FOR(0,red,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 	MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.vec,red,MPI_DOUBLE,MPI_COMM_WORLD);
 	if(rem>0){
-#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]=exp(KERN.output.vec[ix+n_streams*red]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix+n_streams*red]/=dv;
 		UNROLL_OMP_FOR(0,rem,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 	}
@@ -408,10 +418,11 @@ _HT;
 		UNROLL_FOR(0,M,ANN_UNROLL,WI,kdx);
 #undef OP_WI
 		/*SOFTMAX: calculate dv*/
-		dv+=exp(KERN.output.vec[jdx]-1.0);
+		KERN.output.vec[jdx]=exp(KERN.output.vec[jdx]-1.0);
+		dv+=KERN.output.vec[jdx];
 	}
 	/*SOFTMAX: calculate output*/
-#define OP_SX(ix) KERN.output.vec[ix]=exp(KERN.output.vec[ix]-1.0)/dv;
+#define OP_SX(ix) KERN.output.vec[ix]/=dv;
 	UNROLL_OMP_FOR(0,N,ANN_UNROLL,SX,jdx);
 #undef OP_SX
 #endif /*_MPI*/
@@ -439,17 +450,20 @@ DOUBLE snn_kernel_train_error(_kernel *kernel, const DOUBLE *train){
 	rem=N%n_streams;
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
 	for(idx=0;idx<red;idx++)
-			Ep+=train[idx+stream*red]*log(KERN.output.vec[idx+stream*red]);
+			Ep+=train[idx+stream*red]*log(KERN.output.vec[idx+stream*red]+TINY);
+//			  +(1.0-train[idx+stream*red])*log(1.0-KERN.output.vec[idx+stream*red]+TINY);
 	MPI_Allreduce(MPI_IN_PLACE,&Ep,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	if(rem>0) {
 		for(idx=0;idx<rem;idx++)
-			Ep+=train[idx+n_streams*red]*log(KERN.output.vec[idx+n_streams*red]);
+			Ep+=train[idx+n_streams*red]*log(KERN.output.vec[idx+n_streams*red]+TINY);
+//			  +(1.0-train[idx+n_streams*red])*log(1.0-KERN.output.vec[idx+n_streams*red]+TINY);
 	}
 #else /*_MPI*/
 #pragma omp parallel for private(idx) reduction(+:Ep) _NT
-	for(idx=0;idx<N;idx++) Ep+=train[idx]*log(KERN.output.vec[idx]);
+	for(idx=0;idx<N;idx++) if(KERN.output.vec[idx]>0.) Ep+=train[idx]*log(KERN.output.vec[idx]+TINY);
+	//			 +(1.0-train[idx])*log(1.0-KERN.output.vec[idx]+TINY);
 #endif /*_MPI*/
-	Ep*=-1.0;
+	Ep*=-1.0/(N);
 	return Ep;
 }
 /*------------------------*/
@@ -1396,6 +1410,8 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	BOOL is_ok;
 	UINT   idx;
 	UINT  iter;
+	UINT max_p;
+	UINT p_trg;
 	DOUBLE dEp;
 	DOUBLE probe;
 #ifdef _CUDA
@@ -1410,11 +1426,8 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	scuda_ann_forward(kernel,_NN(get,cudas)());
 	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
 #else /*_CUDA*/
-	dEp=0.;
 	snn_kernel_run(kernel);/*also FILL vec*/
-	for(idx=0;idx<kernel->n_outputs;idx++)
-		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
-	dEp*=0.5;
+	dEp=snn_kernel_train_error(kernel,train_out);
 #endif /*_CUDA*/
 	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
@@ -1429,14 +1442,17 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 		dEp=snn_kernel_train(kernel,train_out);
 #endif /*_CUDA*/
 		iter++;
-		is_ok=TRUE;
+		/*1- determine max_p, p_trg*/
+		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			probe=0.;
-			if(kernel->output.vec[idx]>0.1) probe=1.0;
-			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
-			else is_ok=FALSE;
-			if(train_out[idx]!=probe) is_ok=FALSE;
+			if(probe<kernel->output.vec[idx]){
+				probe=kernel->output.vec[idx];
+				max_p=idx;
+			}
+			if(train_out[idx]==1.0) p_trg=idx;
 		}
+		/*2- match*/
+		is_ok=(max_p==p_trg);
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
 			if(is_ok==TRUE) NN_COUT(stdout," OK");
@@ -1462,6 +1478,8 @@ DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	BOOL is_ok;
 	UINT   idx;
 	UINT  iter;
+	UINT max_p;
+	UINT p_trg;
 	DOUBLE dEp;
 	DOUBLE probe;
 #ifdef _CUDA
@@ -1478,11 +1496,8 @@ DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
 #else /*_CUDA*/
 	ann_raz_momentum(kernel);
-	dEp=0.;
 	snn_kernel_run(kernel);/*also FILL vec*/
-	for(idx=0;idx<kernel->n_outputs;idx++)
-		dEp+=(train_out[idx]-kernel->output.vec[idx])*(train_out[idx]-kernel->output.vec[idx]);
-	dEp*=0.5;
+	dEp=snn_kernel_train_error(kernel,train_out);
 #endif /*_CUDA*/
 	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
@@ -1496,14 +1511,17 @@ DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 		dEp=snn_kernel_train_momentum(kernel,train_out,alpha);
 #endif /*_CUDA*/
 		iter++;
-		is_ok=TRUE;
+		/*1- determine max_p, p_trg*/
+		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			probe=0.;
-			if(kernel->output.vec[idx]>0.1) probe=1.0;
-			else if(kernel->output.vec[idx]<-0.1) probe=-1.0;
-			else is_ok=FALSE;
-			if(train_out[idx]!=probe) is_ok=FALSE;
+			if(probe < kernel->output.vec[idx]){
+				probe = kernel->output.vec[idx];
+				max_p = idx;
+			}
+			if(train_out[idx]==1.0) p_trg = idx;
 		}
+		/*2- match*/
+		is_ok=(max_p == p_trg);
 		if(iter==1){
 			/*determine if we get a good answer at first try*/
 			if(is_ok==TRUE) NN_COUT(stdout," OK");

@@ -74,7 +74,7 @@ int main (int argc, char *argv[]){
 #endif
 	CHAR *nn_filename = NULL;
 	/*init all*/
-	_NN(init,all)(3);
+	_NN(init,all)(0);
 /*parse arguments*/
 	if(argc>1){
 		idx=1;

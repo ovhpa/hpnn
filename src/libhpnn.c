@@ -1266,19 +1266,17 @@ void _NN(run,kernel)(nn_def *conf){
 		case NN_TYPE_ANN:
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
 			ann_kernel_run(_K);
-			res=0.;is_ok=TRUE;
+			res=-1.;is_ok=TRUE;
 			for(idx=0;idx<_K->n_outputs;idx++){
-				res+=(tr_out[idx]-_K->output.vec[idx])*
-					(tr_out[idx]-_K->output.vec[idx]);
-				if(_K->output.vec[idx]>0.1) probe=1.0;
-				else probe=-1.0;
-				if(tr_out[idx]!=probe) is_ok=FALSE;
-
+				if(res<_K->output.vec[idx]) {
+					guess=idx;
+					res=_K->output.vec[idx];
+				}
+				if(tr_out[idx]>0.5) is_ok=idx;
 			}
-			res*=0.5;
-			NN_COUT(stdout," init=%15.10f",res);
-			if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
-			else NN_COUT(stdout," FAIL!\n");
+//			NN_COUT(stdout," init=%15.10f",res);
+			if(guess==is_ok) NN_COUT(stdout," [PASS]\n");
+			else NN_COUT(stdout," [FAIL idx=%i]\n",is_ok+1);
 			fflush(stdout);
 			break;
 		case NN_TYPE_LNN:

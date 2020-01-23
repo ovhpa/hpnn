@@ -68,7 +68,7 @@ int main (int argc, char *argv[]){
 	CHAR *nn_filename = NULL;
 	nn_def    *neural = NULL;
 	/*init all*/
-	_NN(init,all)(3);
+	_NN(init,all)(0);
 /*parse arguments*/
 	if(argc<2) {
 		/*This is the default: neural network definition is taken from file nn.conf */
