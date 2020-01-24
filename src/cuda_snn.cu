@@ -140,10 +140,6 @@ void softmax_acc(int n,double *res,double *out){
 	/*result*/
 	if(tid==0) res[blockIdx.x]=sh_data[0];
 }
-
-
-
-
 /*-----------------*/
 /* The C interface */
 /*-----------------*/
@@ -254,21 +250,18 @@ void scuda_snn_forward(_kernel *kernel,cudastreams *cudas){
 			_K.hiddens[_K.n_hiddens-1].cuda_v,1,
 			&_beta,_K.output.cuda_v+jdx*red,1);
 		CHK_ERR(fw_gemv);
-		softmax_acc<<<_KG(red),sizeof(double)*2*(_TPB),cudas->cuda_streams[jdx]>>>
-			(red,_K.tmp_gpu+jdx*red,_K.output.cuda_v+jdx*red);
-		CHK_ERR(fw_softmax_acc);
 	}
 	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 	cublasDgemv(cudas->cuda_handle,
 		CUBLAS_OP_T,M,red+rem,&_alpha,_K.output.cuda_w+jdx*M*red,M,
 		_K.hiddens[_K.n_hiddens-1].cuda_v,1,&_beta,_K.output.cuda_v+jdx*red,1);
 	CHK_ERR(fw_gemv);
-	softmax_acc<<<_KG(red+rem),sizeof(double)*2*(_TPB),cudas->cuda_streams[jdx]>>>
-		(red+rem,_K.tmp_gpu+jdx*red,_K.output.cuda_v+jdx*red);
-	/*SOFTMAX: calculate dv*/
 	cudaDeviceSynchronize();
+	softmax_acc<<<_KG(N),sizeof(double)*2*(_TPB)>>>(N,_K.tmp_gpu,_K.output.cuda_v);
+	CHK_ERR(fw_softmax_acc);
+	/*SOFTMAX: calculate dv*/
 	CUDA_G2C_CP(&dv,&(_K.tmp_gpu[0]),1,double);
-	dv=1.0/dv;
+	dv=1.0/(dv+TINY);
 	/*SOFTMAX: calculate output*/
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
@@ -284,20 +277,17 @@ void scuda_snn_forward(_kernel *kernel,cudastreams *cudas){
 			(M,red,_K.output.cuda_w+jdx*M*red,_K.hiddens[_K.n_hiddens-1].cuda_v,
 			_K.output.cuda_v+jdx*red);
 		CHK_ERR(fw_s_acc);
-		softmax_acc<<<_KG(red),sizeof(double)*2*(_TPB),cudas->cuda_streams[jdx]>>>
-			(red,_K.tmp_gpu,_K.output.cuda_v+jdx*red);
-		CHK_ERR(fw_softmax_acc);
 	}
 	fw_s_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 		(M,red+rem,_K.output.cuda_w+jdx*M*red,_K.hiddens[_K.n_hiddens-1].cuda_v,
 		_K.output.cuda_v+jdx*red);
 	CHK_ERR(fw_s_acc);
-	softmax_acc<<<_KG(red+rem),sizeof(double)*2*(_TPB),cudas->cuda_streams[jdx]>>>
-		(red+rem,_K.tmp_gpu,_K.output.cuda_v+jdx*red);
+	cudaDeviceSynchronize();
+	softmax_acc<<<_KG(N),sizeof(double)*2*(_TPB)>>>(N,_K.tmp_gpu,_K.output.cuda_v);
 	CHK_ERR(fw_softmax_acc);
 	/*SOFTMAX: calculate dv*/
-	cudaDeviceSynchronize();
 	CUDA_G2C_CP(&dv,&(_K.tmp_gpu[0]),1,double);
+	dv+=TINY;
 	/*SOFTMAX: calculate output*/
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		fw_scal<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
