@@ -687,6 +687,12 @@ DOUBLE ann_dact(DOUBLE y){
 /*+++ feed-forward run +++*/
 /*------------------------*/
 void ann_kernel_run(_kernel *kernel){
+#ifdef   _CUDA
+	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	scuda_ann_forward(kernel,_NN(get,cudas)());
+	/*copy the result back*/
+	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
+#else  /*_CUDA*/
 	/*simple, one pass kernel*/
 	UINT idx,jdx,M,N;
 #if !defined (PBLAS) && !defined (SBLAS)
@@ -977,6 +983,7 @@ _HT;
 //	MPI_Barrier(MPI_COMM_WORLD);/*WAIT FOR ALL TASKS BEFORE LEAVING*/
 #endif
 	/*done*/
+#endif /*_CUDA*/
 }
 /*-------------------------------*/
 /*+++ Train Error Calculation +++*/

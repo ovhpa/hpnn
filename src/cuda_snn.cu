@@ -55,7 +55,7 @@ void amb_smax(int n, double *res, double *train, double *out){
         int index = blockIdx.x * blockDim.x + threadIdx.x;
         int stride = blockDim.x * gridDim.x;
         for (int i = index; i < n; i += stride)
-		res[i] = train[i] * log( out[i] + TINY );
+		res[i] = -1.0 * train[i] * log( out[i] + TINY );
 }
 __global__
 void fw_s_acc(int m,int n, double *mat,double *vec,double *res){
@@ -72,8 +72,13 @@ void amb_smax_acc(int n, double *res, double *train, double *out){
 	extern __shared__ double sh_data[];
 	int tid=threadIdx.x;
 	int i=blockIdx.x*(blockDim.x*2)+threadIdx.x;
-	double mySum = (i < n) ? train[i]*log(out[i]+TINY) : 0;
-	if(i+blockDim.x < n) mySum += train[i+blockDim.x]*log(out[i+blockDim.x]+TINY);
+	double mySum;
+	if(i<n){
+		mySum=-1.0*train[i]*log(out[i]+TINY);
+	}else{
+		mySum=0.;
+	}
+	if(i+blockDim.x < n) mySum += -1.0*train[i+blockDim.x]*log(out[i+blockDim.x]+TINY);
 	sh_data[tid]=mySum;
 	__syncthreads();
 	/*reduction in shared memory*/
@@ -82,7 +87,7 @@ void amb_smax_acc(int n, double *res, double *train, double *out){
 		__syncthreads();
 	}
 	/*result*/
-	if(tid==0) out[blockIdx.x]=sh_data[0];
+	if(tid==0) res[blockIdx.x]=sh_data[0];
 }
 __global__
 void dv_acc(int n,double *res,double *out){
@@ -242,7 +247,6 @@ void scuda_snn_forward(_kernel *kernel,cudastreams *cudas){
 	rem=N%cudas->cuda_n_streams;
 	dv=TINY;
 #ifdef   _CUBLAS
-	DOUBLE tmp_dv[cudas->cuda_n_streams];
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
 		cublasDgemv(cudas->cuda_handle,
@@ -310,23 +314,37 @@ void scuda_snn_forward(_kernel *kernel,cudastreams *cudas){
 /*+++ Calculate Training Error +++*/
 /*--------------------------------*/
 double scuda_snn_error(_kernel *kernel,double *train,cudastreams *cudas){
-/*TODO: why no streams here?*/
+	int jdx;
+	int N,red,rem;
 	double dEp=0.;
-#ifdef   _CUBLAS
-	amb_smax<<<_KG(_K.n_outputs)>>>(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
+	N=_K.n_outputs;
+	red=N/cudas->cuda_n_streams;
+	rem=N%cudas->cuda_n_streams;
+#ifdef _CUBLAS
+	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
+		cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+		amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+			(red,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.cuda_v+jdx*red);
+		CHK_ERR(err_amb_smax);
+	}
+	cublasSetStream(cudas->cuda_handle,cudas->cuda_streams[jdx]);
+	amb_smax<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+		(red+rem,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.cuda_v+jdx*red);
 	CHK_ERR(err_amb_smax);
+	/*get dEp*/
+	cudaDeviceSynchronize();/*un-necessary*/
 	cublasSetStream(cudas->cuda_handle,NULL);
-	cublasDasum(cudas->cuda_handle,_K.n_outputs,_K.tmp_gpu,1,&dEp);
+	cublasDasum(cudas->cuda_handle,N,_K.tmp_gpu,1,&dEp);
 	CHK_ERR(err_asum);
-#else  /*_CUBLAS*/
-	/*no streams?*/
+#else /*_CUBLAS*/
 	amb_smax_acc<<<_KG(_K.n_outputs),sizeof(double)*2*(_TPB)>>>
 		(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
 	CHK_ERR(err_amb_smax_acc);
 	CUDA_G2C_CP(&dEp,&(_K.tmp_gpu[0]),1,double);
 	CHK_ERR(err_g2c_cp);
 #endif /*_CUBLAS*/
-	dEp/=-1.0*_K.n_outputs;
+	cudaDeviceSynchronize();
+	dEp/=((double)N);
 	return dEp;
 }
 /*------------------------*/

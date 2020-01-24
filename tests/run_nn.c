@@ -67,7 +67,7 @@ int main (int argc, char *argv[]){
 	UINT  n_o, n_b;
 #endif /*_OMP*/
 #ifdef _CUDA
-	UINT n_s;
+	UINT n_s=0;
 #endif /*_CUDA*/
 #if defined (_OMP) || defined (_CUDA)
 	CHAR *tmp,*ptr;
@@ -202,10 +202,11 @@ next_arg:
 			idx++;
 		}
 	}
-	if(nn_filename==NULL){
-		/*default config file*/
-		STRDUP("./nn.conf",nn_filename);
-	}
+#ifdef _CUDA
+	if(n_s<1) n_s=1;
+	_NN(set,cuda_streams)(n_s);
+#endif
+	if(nn_filename==NULL) STRDUP("./nn.conf",nn_filename);
 	/*load configuration file*/
 	neural=_NN(load,conf)(nn_filename);
 	FREE(nn_filename);
