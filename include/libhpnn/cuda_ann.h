@@ -20,6 +20,18 @@
 #ifndef CUDA_ANN_H
 #define CUDA_ANN_H
 
+__global__ void sigmoid(int n, double *x);
+__global__ void _dsigmoid(int n, double *in, double *out);
+__global__ void dsigmoid(int n, double *in, double *out);
+__global__ void amb(int n, double *out, double *a, double *b);
+__global__ void mul_diff(int n, double *t, double *o, double *y);
+__global__ void fw_mv_acc(int m,int n, double *mat,double *vec,double *res);
+__global__ void amb_acc(int n, double *out, double *a, double *b);
+__global__ void dsigmoid_mul_diff(int n, double *t, double *o, double *y);
+__global__ void dsigmoid_mul_delta_T(int red,int m,int n, double *w,double *d,double *h,double *res);
+__global__ void ger_acc(int m,int n,double alpha,double *d,double *h,double *w);
+__global__ void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,double *dw,double *w);
+
 #if __cplusplus
 extern "C" {
 #endif

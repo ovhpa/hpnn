@@ -50,6 +50,7 @@
 #include <libhpnn/ann.h>
 #ifdef _CUDA
 #include <libhpnn/cuda_ann.h>
+#include <libhpnn/cuda_snn.h>
 #endif /*_CUDA*/
 #include <libhpnn/snn.h>
 /*----------------------*/
@@ -1423,8 +1424,8 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-	scuda_ann_forward(kernel,_NN(get,cudas)());
-	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+	scuda_snn_forward(kernel,_NN(get,cudas)());
+	dEp=scuda_snn_error(kernel,train_gpu,_NN(get,cudas)());
 #else /*_CUDA*/
 	snn_kernel_run(kernel);/*also FILL vec*/
 	dEp=snn_kernel_train_error(kernel,train_out);
@@ -1433,7 +1434,7 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	iter=0;
 	do{
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_ann_train(kernel,train_gpu,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_snn_train(kernel,train_gpu,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();
@@ -1492,8 +1493,8 @@ DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-	scuda_ann_forward(kernel,_NN(get,cudas)());
-	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+	scuda_snn_forward(kernel,_NN(get,cudas)());
+	dEp=scuda_snn_error(kernel,train_gpu,_NN(get,cudas)());
 #else /*_CUDA*/
 	ann_raz_momentum(kernel);
 	snn_kernel_run(kernel);/*also FILL vec*/
@@ -1503,7 +1504,7 @@ DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	iter=0;
 	do{
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_snn_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
 //		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);

@@ -1646,7 +1646,7 @@ void ann_momentum_free(_kernel *kernel){
 	FREE(KERN.dw);
 #ifdef _CUDA
 	/*allocate everything in CUDA*/
-	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
+	scuda_ann_free_momentum(kernel);
 #endif
 }
 /*---------------------------------*/
