@@ -52,7 +52,7 @@ Additionally, some tutorials are provided, to understand libhpnn API.
 1- RRUFF X-ray diffraction (XRD) database, shows how to format inputs and outputs for use with libhpnn. This tutorial will produce a ANN for ascribing the space group symmetry of a crystal based only on its experimental XRD pattern (given a given temperature parameter). This short tutorial uses `train_nn` and `run_nn` programs.
 2- incoming tutorials...
 
-The tutorials are detailed [here](tutorials/ README.md).
+The tutorials are detailed [here](tutorials/README.md).
 
 
 ## License ![logo](https://www.gnu.org/graphics/gplv3-or-later.png)
