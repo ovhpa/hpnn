@@ -1,7 +1,7 @@
 # hpnn
 
 High performance neural networks.\
-currently: v. 0.2 (alpha).\
+currently: v. 0.2 (alpha).
 
 Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki) for implementation details.
 
@@ -40,17 +40,20 @@ The library is written in plain C, and optimized for use in parallel systems wit
 * OpenMP - for the intra-nodes computations
 * CUDA - for GPGPU computations
 
-Some other technologies (for ex. openCL) may be added later.
+Some other technologies (ie. openCL) may be added later.
 
 This work is still at a very, very early stage!
 Some _demonstration_ wrapper are provided which shows an example of integration with the library: these are not the programs you are looking for ;)
-* train_nn: demonstrate how to train a network using MPI/OpenMP/CUDA, taking training set from a sample directory, and creating a kernel.opt file which contains the definition of the optimized ANN.
-* run_nn: demonstrate how to run a specific ANN against a testing set from a test directory.
+* `train_nn`: demonstrate how to train a network using MPI/OpenMP/CUDA, taking training set from a sample directory, and creating a kernel.opt file which contains the definition of the optimized ANN.
+* `run_nn`: demonstrate how to run a specific ANN against a testing set from a test directory.
 
-Additionally, in order to produce a valid set of input/output to feed an ANN, a tutorial presentation is available which will download an X-ray diffraction (XRD) database and create two programs to format it into a simple format. It consist in a script that will do most of the demonstration by itself. The full explanation of this tutorial is available here.
-This tutorial is provided in order to understand libhpnn API, it is by no mean a guide of good practice in producing reasonable model for XRD predicting the geometry of a crystal using XRD pattern.
--> in case you are interested by such application, I recommend reading the following paper: 
-P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). A preprint is available [here](https://arxiv.org/abs/1812.05625)
+Additionally, some tutorials are provided, to understand libhpnn API.
+
+1- RRUFF X-ray diffraction (XRD) database, shows how to format inputs and outputs for use with libhpnn. This tutorial will produce a ANN for ascribing the space group symmetry of a crystal based only on its experimental XRD pattern (given a given temperature parameter). This short tutorial uses `train_nn` and `run_nn` programs.
+2- incoming tutorials...
+
+The tutorials are detailed [here](tutorials/ README.md).
+
 
 ## License ![logo](https://www.gnu.org/graphics/gplv3-or-later.png)
 
