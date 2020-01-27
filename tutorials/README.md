@@ -58,7 +58,17 @@ For example, the content of the file can be:
 ```
 in which we will briefly describe each field.
 
-
+`[name]` is the optional name of the ANN (any text is allowed).\
+`[type]` is the type of ANN used. Here ANN refers to `NN_TYPE_ANN`.
+Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki) for details on each ANN type.\
+`[init]` should either be the name of the ANN kernel or the word `generate` if a start from a randomly generated neural network is required.\
+`[seed]` is the seed that will be used to initialize the random number generator. If that value is zero, seed will be initialized with a number depending on the date - which mean that two consecutive runs will leads to different results.\
+`[input]` is the number of input values used in the sample files and in the kernel definition.\
+`[hidden]` is the number of neurons in each hidden layer. In above example, there are 2 hidden layers, each containing 64 neurons.\
+`[output]` is the number of output values used in the sample files and in the kernel definition.\
+`[train]` is the selected training type. Note that for the `run_nn` program, this field will not be used, but it will be checked for correctness. `BPM` here stands for 'back-propagation with momentum' training types. A description for each type can be found in the [Wiki](https://github.com/ovhpa/hpnn/wiki).\
+`[sample_dir]` is the directory which contains the sample files used for training the ANN. It is not checked with the `run_nn` programs.\
+`[test_dir]` is the directory containing the sample files for testing the ANN. Each file in that directory will be tested by `run_nn`.
 
 #### 3. running ANN
 
