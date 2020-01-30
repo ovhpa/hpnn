@@ -423,9 +423,9 @@
 typedef struct {
 	UINT n_gpu;
 #ifdef _CUBLAS
-	cublasHandle_t cuda_handle;
+	cublasHandle_t *cuda_handle;
 #else /*_CUBLAS*/
-	int cuda_handle;
+	int *cuda_handle;
 #endif /*_CUBLAS*/
 	UINT        cuda_n_streams;
 #ifdef _CUDA
