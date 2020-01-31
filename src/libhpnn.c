@@ -176,6 +176,7 @@ BOOL _NN(init,CUDA)(){
 	NN_WARN(stdout,"failed to init CUDA (no capability).\n");
 	return FALSE;
 #else /*_CUDA*/
+	int is_ok;
 	cudaGetDeviceCount(&(lib_runtime.cudas.n_gpu));
 	CHK_ERR(init_device_count);
 	if(lib_runtime.cudas.n_gpu<1) {
@@ -208,6 +209,21 @@ BOOL _NN(init,CUDA)(){
 		CHK_ERR(init_device_handle);
 	}
 #endif /*_CUBLAS*/
+	/*now all device have been initialized, try using peer memory for n_gpu > 1*/
+	if(lib_runtime.cudas.n_gpu>1){
+		for(int gpu=1;gpu<lib_runtime.cudas.n_gpu;gpu++){
+			cudaSetDevice(gpu);
+			cudaDeviceCanAccessPeer(&is_ok,gpu,0);
+			CHK_ERR(chk_peer_access);
+			if(is_ok == 1){
+				cudaDeviceEnablePeerAccess(0,0);
+				CHK_ERR(enable_peer_access);
+			}else{
+				NN_ERROR(stderr,"CUDA error: multi-GPU uses peer memory but it can't be used on GPU[%i].\n",gpu);
+				return FALSE;
+			}
+		}
+	}
 #endif /*_CUDA*/
 }
 BOOL _NN(init,BLAS)(){
@@ -288,8 +304,8 @@ BOOL _NN(deinit,CUDA)(){
 		cublasDestroy(lib_runtime.cudas.cuda_handle[gpu]);
 	}
 #endif
-	FREE((lib_runtime.cudas.cuda_handle);
-	cudaDeviceReset();
+	FREE(lib_runtime.cudas.cuda_handle);
+	cudaDeviceReset();/*this also kills peer memory ability!*/
 	return TRUE;
 #endif
 }
