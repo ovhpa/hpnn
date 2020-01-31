@@ -688,9 +688,11 @@ DOUBLE ann_dact(DOUBLE y){
 /*------------------------*/
 void ann_kernel_run(_kernel *kernel){
 #ifdef   _CUDA
+	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	scuda_ann_forward(kernel,_NN(get,cudas)());
 	/*copy the result back*/
+	cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
 	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 #else  /*_CUDA*/
 	/*simple, one pass kernel*/
@@ -2013,6 +2015,7 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	/*copy input*/
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 #ifdef _CUDA
+	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
@@ -2031,8 +2034,9 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 #ifdef _CUDA
 		dEp=(DOUBLE)scuda_ann_train(kernel,train_gpu,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
+		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
-		cudaDeviceSynchronize();
+		cudaDeviceSynchronize();/*<-useful?*/
 //		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else /*_CUDA*/
 		dEp=ann_kernel_train(kernel,train_out);
@@ -2085,6 +2089,7 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 #ifdef _CUDA
 	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
+	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
@@ -2104,7 +2109,9 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 #ifdef _CUDA
 		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
 		/*we have to sync output.cuda_v -> out*/
+		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
 		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+		cudaDeviceSynchronize();/*<-useful?*/
 //		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
 #else /*_CUDA*/
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);

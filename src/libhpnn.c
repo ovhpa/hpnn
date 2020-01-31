@@ -139,9 +139,7 @@ void _NN(init,runtime)(){
 	lib_runtime.nn_num_blas =  1;
 	lib_runtime.nn_num_tasks = 1;
 	lib_runtime.cudas.n_gpu =  1;
-#ifndef _CUBLAS
-	lib_runtime.cudas.cuda_handle  =  0;
-#endif
+	lib_runtime.cudas.cuda_handle =NULL;
 	lib_runtime.cudas.cuda_n_streams =1;
 	lib_runtime.cudas.cuda_streams=NULL;
 }
@@ -177,7 +175,8 @@ BOOL _NN(init,CUDA)(){
 #ifndef _CUDA
 	NN_WARN(stdout,"failed to init CUDA (no capability).\n");
 	return FALSE;
-#else
+#else /*_CUDA*/
+	int is_ok;
 	cudaGetDeviceCount(&(lib_runtime.cudas.n_gpu));
 	CHK_ERR(init_device_count);
 	if(lib_runtime.cudas.n_gpu<1) {
@@ -187,22 +186,45 @@ BOOL _NN(init,CUDA)(){
 	NN_OUT(stdout,"CUDA started, found %i GPU(s).\n",lib_runtime.cudas.n_gpu);
 #ifdef _CUBLAS
 	cublasStatus_t err;
-	err=cublasCreate(&(lib_runtime.cudas.cuda_handle));
-	if(err!=CUBLAS_STATUS_SUCCESS){
-		NN_ERROR(stderr,"CUDA error: can't create a CUBLAS context.\n");
-		_NN(unset,capability)(NN_CAP_CUBLAS);
-		return TRUE;
-	}
-	err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle,CUBLAS_POINTER_MODE_HOST);
-	if(err!=CUBLAS_STATUS_SUCCESS){
-		NN_WARN(stderr,"CUBLAS error: fail to set pointer mode.\n");
-		return TRUE;
+	ALLOC(lib_runtime.cudas.cuda_handle,lib_runtime.cudas.n_gpu,cublasHandle_t);
+	for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
+		cudaSetDevice(gpu);
+		err=cublasCreate(&(lib_runtime.cudas.cuda_handle[gpu]));
+		if(err!=CUBLAS_STATUS_SUCCESS){
+			NN_ERROR(stderr,"CUDA error: can't create a CUBLAS context for GPU[%i].\n",gpu);
+			/*this is bad, and we should fail*/
+			return FALSE;
+		}
+		err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle[gpu],CUBLAS_POINTER_MODE_HOST);
+		if(err!=CUBLAS_STATUS_SUCCESS){
+			NN_WARN(stderr,"CUBLAS error: fail to set pointer mode for GPU[%i].\n",gpu);
+			/*this is probably bad*/
+		}
 	}
 #else /*_CUBLAS*/
-	cudaGetDevice(&(lib_runtime.cudas.cuda_handle));
-	CHK_ERR(init_device_handle);
+	ALLOC(lib_runtime.cudas.cuda_handle,lib_runtime.cudas.n_gpu,int);
+	for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
+		cudaSetDevice(gpu);
+		cudaGetDevice(&(lib_runtime.cudas.cuda_handle[gpu]));
+		CHK_ERR(init_device_handle);
+	}
 #endif /*_CUBLAS*/
-#endif
+	/*now all device have been initialized, try using peer memory for n_gpu > 1*/
+	if(lib_runtime.cudas.n_gpu>1){
+		for(int gpu=1;gpu<lib_runtime.cudas.n_gpu;gpu++){
+			cudaSetDevice(gpu);
+			cudaDeviceCanAccessPeer(&is_ok,gpu,0);
+			CHK_ERR(chk_peer_access);
+			if(is_ok == 1){
+				cudaDeviceEnablePeerAccess(0,0);
+				CHK_ERR(enable_peer_access);
+			}else{
+				NN_ERROR(stderr,"CUDA error: multi-GPU uses peer memory but it can't be used on GPU[%i].\n",gpu);
+				return FALSE;
+			}
+		}
+	}
+#endif /*_CUDA*/
 }
 BOOL _NN(init,BLAS)(){
 #if !defined (PBLAS) && !defined (SBLAS)
@@ -269,14 +291,21 @@ BOOL _NN(deinit,CUDA)(){
 #else
 	UINT idx;
 	if(lib_runtime.cudas.cuda_n_streams>1){
-		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
-			cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
+		for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++) {
+			cudaSetDevice(gpu);
+			for(idx=0;idx<(lib_runtime.cudas.cuda_n_streams*lib_runtime.cudas.n_gpu);idx++)
+				cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
+		}
 	}
 	FREE(lib_runtime.cudas.cuda_streams);
 #ifdef _CUBLAS
-	cublasDestroy(lib_runtime.cudas.cuda_handle);
+	for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++) {
+		cudaSetDevice(gpu);
+		cublasDestroy(lib_runtime.cudas.cuda_handle[gpu]);
+	}
 #endif
-	cudaDeviceReset();
+	FREE(lib_runtime.cudas.cuda_handle);
+	cudaDeviceReset();/*this also kills peer memory ability!*/
 	return TRUE;
 #endif
 }
@@ -360,28 +389,34 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 	if(lib_runtime.cudas.cuda_streams!=NULL){
 		/*first we need to wipe previous streams*/
 		if(lib_runtime.cudas.cuda_n_streams>1){
-			for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
-				cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
+			for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++)
+					cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx+gpu*lib_runtime.cudas.cuda_n_streams]);
+			}
 		}
 		FREE(lib_runtime.cudas.cuda_streams);
 	}
 	if(n_streams<2){
-		/*assign a unique "NULL" stream*/
+		/*assign a unique "NULL" stream for each gpu*/
 		lib_runtime.cudas.cuda_n_streams=1;
-		ALLOC(lib_runtime.cudas.cuda_streams,sizeof(cudaStream_t),cudaStream_t);
-		lib_runtime.cudas.cuda_streams[0]=NULL;
+		ALLOC(lib_runtime.cudas.cuda_streams,sizeof(cudaStream_t)*lib_runtime.cudas.n_gpu,cudaStream_t);
+		for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++) lib_runtime.cudas.cuda_streams[gpu]=NULL;
 	}else{
 		lib_runtime.cudas.cuda_n_streams=n_streams;
-		ALLOC(lib_runtime.cudas.cuda_streams,n_streams*sizeof(cudaStream_t),cudaStream_t);
-		for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++){
-			cudaStreamCreateWithFlags(&(lib_runtime.cudas.cuda_streams[idx]),
-				cudaStreamNonBlocking);
+		ALLOC(lib_runtime.cudas.cuda_streams,n_streams*sizeof(cudaStream_t)*lib_runtime.cudas.n_gpu,cudaStream_t);
+		for(int gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
+			cudaSetDevice(gpu);
+			for(idx=0;idx<lib_runtime.cudas.cuda_n_streams;idx++){
+				cudaStreamCreateWithFlags(&(lib_runtime.cudas.cuda_streams[idx+gpu*n_streams]),
+					cudaStreamNonBlocking);
+			}
 		}
 	}
 #ifdef _CUBLAS
 	/*this step is optional, but it seems that CUBLAS prefers
-	 *to start on its own first stream...*/
-        cublasSetStream(lib_runtime.cudas.cuda_handle,lib_runtime.cudas.cuda_streams[0]);
+	 *to start on its own first stream (on first GPU)...*/
+        cublasSetStream(lib_runtime.cudas.cuda_handle[0],lib_runtime.cudas.cuda_streams[0]);
 #endif /*_CUBLAS*/
 	return TRUE;
 #endif
