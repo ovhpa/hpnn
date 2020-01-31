@@ -352,7 +352,7 @@ void scuda_ann_forward(_kernel *kernel,cudastreams *cudas){
 			(red+rem,_K.hiddens[idx].cuda_v+jdx*red);
 		CHK_ERR(kernel_1);
 #else  /*_CUBLAS*/
-		for(jdx=0;jdx<cudas->total_s-1;jdx++){
+		for(jdx=0;jdx<total_s-1;jdx++){
 			gpu=jdx/cudas->cuda_n_streams;/*gpu number*/
 			cudaSetDevice(gpu);
 			fw_mv_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
@@ -692,7 +692,7 @@ double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas){
 		1,_K.output.cuda_w+jdx*M*red,M);
 	CHK_ERR(train_ger);
 #else  /*_CUBLAS*/
-	for(jdx=0;jdx<cudas->total_s-1;jdx++){
+	for(jdx=0;jdx<total_s-1;jdx++){
 		gpu=jdx/cudas->cuda_n_streams;/*gpu number*/
 		cudaSetDevice(gpu);
 		ger_acc<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
