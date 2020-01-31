@@ -151,6 +151,7 @@ extern "C"{
 /*---------------------------------------*/
 void scuda_ann_deallocate(_kernel *kernel){
 	int idx;
+	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
 	CUDA_FREE(_K.cuda_in);
 	for(idx=0;idx<_K.n_hiddens;idx++){
 		CUDA_FREE(_K.hiddens[idx].cuda_w);
@@ -167,6 +168,7 @@ void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
 	int allocate;
 	int idx;
 	/*allocate everything in CUDA*/
+	cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
 	allocate=0;
 	CUDA_ALLOC_REPORT(_K.cuda_in,_K.n_inputs,DOUBLE,allocate);
 	for(idx=0;idx<_K.n_hiddens;idx++){
@@ -192,6 +194,7 @@ void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
 /*--------------------------*/
 void scuda_ann_free_momentum(_kernel *kernel){
 	int idx;
+	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
 	if(_K.cuda_dw==NULL) return;
 	for(idx=0;idx<_K.n_hiddens;idx++)
 		CUDA_FREE(_K.cuda_dw[idx]);
@@ -204,6 +207,7 @@ void scuda_ann_free_momentum(_kernel *kernel){
 void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas){
 	int allocate;
 	int idx;
+	cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
 	allocate=0;
         ALLOC_REPORT(_K.cuda_dw,_K.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
 	_OUT(stdout,"[CPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
@@ -219,6 +223,7 @@ void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas){
 void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
 	int idx;
 	int M,N;
+	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 /*^^^ output*/
 	N=_K.output.n_neurons;
 	M=_K.output.n_inputs;
@@ -231,7 +236,7 @@ void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
 		CUDA_C2G_CP(_K.hiddens[idx].weights,_K.hiddens[idx].cuda_w,M*N,double);
 		CHK_ERR(memcpy_C2G);
 	}
-	cudaDeviceSynchronize();
+	cudaDeviceSynchronize();/*only GPU[0]?*/
 }
 /*----------------------------------------*/
 /*+++ transfer weights from GPU to CPU +++*/
@@ -239,7 +244,8 @@ void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
 void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas){
 	int idx;
 	int M,N;
-	cudaDeviceSynchronize();
+	cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
+	cudaDeviceSynchronize();/*TODO: is it needed? only GPU[0]?*/
 /*^^^ output*/
 	N=_K.output.n_neurons;
 	M=_K.output.n_inputs;
