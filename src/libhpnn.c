@@ -55,6 +55,7 @@
 /*GLOBAL VARIABLE: there it a unique runtime per run
  *  for which each use of library routine refers to.*/
 nn_runtime lib_runtime;
+#define TOTAL_S (lib_runtime.cudas.cuda_n_streams*lib_runtime.cudas.n_gpu)
 /*------------------*/
 /*+++ NN methods +++*/
 /*------------------*/
@@ -142,6 +143,7 @@ void _NN(init,runtime)(){
 	lib_runtime.cudas.cuda_handle =NULL;
 	lib_runtime.cudas.cuda_n_streams =1;
 	lib_runtime.cudas.cuda_streams=NULL;
+	lib_runtime.cudas.mem_model=CUDA_MEM_NONE;
 }
 BOOL _NN(init,OMP)(){
 #ifndef _OMP
@@ -191,13 +193,16 @@ BOOL _NN(init,CUDA)(){
 		cudaSetDevice(gpu);
 		err=cublasCreate(&(lib_runtime.cudas.cuda_handle[gpu]));
 		if(err!=CUBLAS_STATUS_SUCCESS){
-			NN_ERROR(stderr,"CUDA error: can't create a CUBLAS context for GPU[%i].\n",gpu);
+			NN_ERROR(stderr,
+					 "CUDA: can't create CUBLAS context for GPU[%i].\n",gpu);
 			/*this is bad, and we should fail*/
 			return FALSE;
 		}
-		err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle[gpu],CUBLAS_POINTER_MODE_HOST);
+		err=cublasSetPointerMode(lib_runtime.cudas.cuda_handle[gpu],
+								 CUBLAS_POINTER_MODE_HOST);
 		if(err!=CUBLAS_STATUS_SUCCESS){
-			NN_WARN(stderr,"CUBLAS error: fail to set pointer mode for GPU[%i].\n",gpu);
+			NN_WARN(stderr,
+					"CUBLAS: fail to set pointer mode for GPU[%i].\n",gpu);
 			/*this is probably bad*/
 		}
 	}
@@ -209,20 +214,60 @@ BOOL _NN(init,CUDA)(){
 		CHK_ERR(init_device_handle);
 	}
 #endif /*_CUBLAS*/
-	/*now all device have been initialized, try using peer memory for n_gpu > 1*/
+	/*deal with multi-GPU*/
 	if(lib_runtime.cudas.n_gpu>1){
-		for(gpu=1;gpu<lib_runtime.cudas.n_gpu;gpu++){
+		BOOL test_mem;
+		/*determine the memory model*/
+		/*try p2p*/
+		test_mem=TRUE;
+		for(gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
 			cudaSetDevice(gpu);
 			cudaDeviceCanAccessPeer(&is_ok,gpu,0);
 			CHK_ERR(chk_peer_access);
-			if(is_ok == 1){
-				cudaDeviceEnablePeerAccess(0,0);
-				CHK_ERR(enable_peer_access);
-			}else{
-				NN_ERROR(stderr,"CUDA error: multi-GPU uses peer memory but it can't be used on GPU[%i].\n",gpu);
-				return FALSE;
+			test_mem&=(is_ok==1);
+		}
+		if(test_mem==TRUE) lib_runtime.cudas.mem_model=CUDA_MEM_P2P;
+		else{
+			/*try cmm*/
+			test_mem=TRUE;
+			for(gpu=0;gpu<lib_runtime.cudas.n_gpu;gpu++){
+				/*check for managed memory support*/
+				cudaDeviceGetAttribute(&is_ok,cudaDevAttrManagedMemory,gpu);
+				CHK_ERR(chk_cmm_access);
+				test_mem&=(is_ok==1);
+				/*check for concurrency in mm*/
+				cudaDeviceGetAttribute(&is_ok,
+									cudaDevAttrConcurrentManagedAccess,gpu);
+				CHK_ERR(chk_cmm_access);
+				test_mem&=(is_ok==1);
+			}
+			if(test_mem=TRUE) lib_runtime.cudas.mem_model=CUDA_MEM_CMM;
+			else{
+				lib_runtime.cudas.mem_model=CUDA_MEM_EXP;
 			}
 		}
+	}
+	switch(lib_runtime.cudas.mem_model){
+		case CUDA_MEM_P2P:
+			for(gpu=1;gpu<lib_runtime.cudas.n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				cudaDeviceEnablePeerAccess(0,0);
+				CHK_ERR(enable_peer_access);
+			}
+			NN_DBG(stdout,"multi-GPU will use peer access from GPU[0]\n");
+			break;
+		case CUDA_MEM_CMM:
+			NN_DBG(stdout,"multi-GPU will use managed memory\n");
+			break;
+		case CUDA_MEM_EXP:
+			NN_DBG(stdout,"multi-GPU using explicit BCAST.\n");
+			break;
+		case CUDA_MEM_NONE:
+			break;
+		default:
+			/*should not happen*/
+			NN_ERROR(stderr,"CUDA: unknown memory model!\n");
+			return FALSE;
 	}
 #endif /*_CUDA*/
 }
@@ -290,7 +335,7 @@ BOOL _NN(deinit,CUDA)(){
 	return FALSE;
 #else
 	UINT idx,gpu;
-	for(idx=0;idx<(lib_runtime.cudas.cuda_n_streams*lib_runtime.cudas.n_gpu);idx++){
+	for(idx=0;idx<TOTAL_S;idx++){
 		gpu=idx/lib_runtime.cudas.cuda_n_streams;/*gpu number*/
 		cudaSetDevice(gpu);
 		cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
@@ -321,7 +366,8 @@ int _NN(deinit,all)(){
 	if(capability & NN_CAP_OMP) is_ok|=_NN(deinit,OMP)();
 	if(capability & NN_CAP_MPI) is_ok|=_NN(deinit,MPI)();
 	if(capability & NN_CAP_CUDA) is_ok|=_NN(deinit,CUDA)();
-	if((capability & NN_CAP_PBLAS)||(capability & NN_CAP_SBLAS)) is_ok|=_NN(deinit,BLAS)();
+	if((capability & NN_CAP_PBLAS)||(capability & NN_CAP_SBLAS)) 
+		is_ok|=_NN(deinit,BLAS)();
 	if(is_ok) return 0;
 	else return -1;
 }
@@ -355,8 +401,8 @@ BOOL _NN(set,mpi_tasks)(UINT n_tasks){
 	NN_WARN(stdout,"failed to set MPI num_tasks (no capability).\n");
 	return FALSE;
 #else
-	NN_WARN(stdout,"Changing MPI num_tasks is not implemented yet (and is generally not a good idea).\n");
-	NN_WARN(stdout,"However, the possibility is left open for future implementations... -- OVHPA\n");
+	NN_WARN(stdout,"Changing MPI num_tasks is not implemented yet.\n");
+	/*however the possibility is left opened for future implementations*/
 	return TRUE;
 #endif
 }
@@ -386,7 +432,7 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 	/*only if cuda_streams was initialized properly before..*/
 	if(lib_runtime.cudas.cuda_streams!=NULL){
 		/*first we need to wipe previous streams*/
-		for(idx=0;idx<(lib_runtime.cudas.cuda_n_streams*lib_runtime.cudas.n_gpu);idx++){
+		for(idx=0;idx<TOTAL_S;idx++){
 			gpu=idx/lib_runtime.cudas.cuda_n_streams;/*gpu number*/
 			cudaSetDevice(gpu);
 			cudaStreamDestroy(lib_runtime.cudas.cuda_streams[idx]);
@@ -395,16 +441,19 @@ BOOL _NN(set,cuda_streams)(UINT n_streams){
 	}
 	if(n_streams<2) lib_runtime.cudas.cuda_n_streams=1;
 	else lib_runtime.cudas.cuda_n_streams=n_streams;
-	ALLOC(lib_runtime.cudas.cuda_streams,lib_runtime.cudas.cuda_n_streams*sizeof(cudaStream_t)*lib_runtime.cudas.n_gpu,cudaStream_t);
-	for(idx=0;idx<(lib_runtime.cudas.cuda_n_streams*lib_runtime.cudas.n_gpu);idx++){
+	ALLOC(lib_runtime.cudas.cuda_streams,
+		  TOTAL_S*sizeof(cudaStream_t),cudaStream_t);
+	for(idx=0;idx<TOTAL_S;idx++){
 		gpu=idx/lib_runtime.cudas.cuda_n_streams;/*gpu number*/
 		cudaSetDevice(gpu);
-		cudaStreamCreateWithFlags(&(lib_runtime.cudas.cuda_streams[idx]),cudaStreamNonBlocking);
+		cudaStreamCreateWithFlags(&(lib_runtime.cudas.cuda_streams[idx]),
+								  cudaStreamNonBlocking);
 	}
 #ifdef _CUBLAS
 	/*this step is optional, but it seems that CUBLAS prefers
 	 *to start on its own first stream (on first GPU)...*/
-        cublasSetStream(lib_runtime.cudas.cuda_handle[0],lib_runtime.cudas.cuda_streams[0]);
+        cublasSetStream(lib_runtime.cudas.cuda_handle[0],
+						lib_runtime.cudas.cuda_streams[0]);
 #endif /*_CUBLAS*/
 	return TRUE;
 #endif
@@ -628,7 +677,7 @@ NN_OUT(stdout,"loading kernel!\n");
 				STRDUP_REPORT(ptr,_CONF.f_kernel,allocate);
 				if(_CONF.f_kernel==NULL){
 					NN_ERROR(stderr,"Malformed NN configuration file!\n");
-					NN_ERROR(stderr,"keyword: init, can't read filename: %s\n",ptr);
+					NN_ERROR(stderr,"[init] can't read filename: %s\n",ptr);
 					goto FAIL;
 				}
 			}
@@ -638,7 +687,7 @@ NN_OUT(stdout,"loading kernel!\n");
 			ptr+=6;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
 				NN_ERROR(stderr,"Malformed NN configuration file!\n");
-				NN_ERROR(stderr,"keyword: seed, value: %s\n",ptr);
+				NN_ERROR(stderr,"[seed] value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(_CONF.seed,ptr,ptr2);
@@ -649,7 +698,7 @@ NN_OUT(stdout,"loading kernel!\n");
 			ptr+=7;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
 				NN_ERROR(stderr,"Malformed NN configuration file!\n");
-				NN_ERROR(stderr,"keyword: input, value: %s\n",ptr);
+				NN_ERROR(stderr,"[input] value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(parameter[0],ptr,ptr2);
@@ -662,7 +711,7 @@ NN_OUT(stdout,"loading kernel!\n");
 			/*count the number of integers -> n_hiddens*/
 			if(!ISDIGIT(*ptr)) {
 				NN_ERROR(stderr,"Malformed NN configuration file!\n");
-				NN_ERROR(stderr,"keyword: hidden, value: %s\n",ptr);
+				NN_ERROR(stderr,"[hidden] value: %s\n",ptr);
 				goto FAIL;
 			}
 			parameter[1]=1;ptr2=ptr;
@@ -686,7 +735,7 @@ NN_OUT(stdout,"loading kernel!\n");
 			ptr+=8;SKIP_BLANK(ptr);
 			if(!ISDIGIT(*ptr)) {
 				NN_ERROR(stderr,"Malformed NN configuration file!\n");
-				NN_ERROR(stderr,"keyword: output, value: %s\n",ptr);
+				NN_ERROR(stderr,"[output] value: %s\n",ptr);
 				goto FAIL;
 			}
 			GET_UINT(parameter[2],ptr,ptr2);
@@ -727,36 +776,36 @@ NN_OUT(stdout,"loading kernel!\n");
 	/*checks*/
 	if(_CONF.type==NN_TYPE_UKN){
 		NN_ERROR(stderr,"Malformed NN configuration file!\n");
-		NN_ERROR(stderr,"keyword: type; unknown or missing...\n");
+		NN_ERROR(stderr,"[type] unknown or missing...\n");
 		goto FAIL;
 	}
 	if(_CONF.need_init==TRUE){
 		if(parameter[0]==0){
 			NN_ERROR(stderr,"Malformed NN configuration file!\n");
-			NN_ERROR(stderr,"keyword: input; wrong or missing...\n");
+			NN_ERROR(stderr,"[input] wrong or missing...\n");
 			goto FAIL;
 		}
 		if(parameter[1]==0){
 			NN_ERROR(stderr,"Malformed NN configuration file!\n");
-			NN_ERROR(stderr,"keyword: hidden; wrong or missing...\n");
+			NN_ERROR(stderr,"[hidden] wrong or missing...\n");
 			goto FAIL;
 		}
 		if(parameter[2]==0){
 			NN_ERROR(stderr,"Malformed NN configuration file!\n");
-			NN_ERROR(stderr,"keyword: output; wrong or missing...\n");
+			NN_ERROR(stderr,"[output] wrong or missing...\n");
 			goto FAIL;
 		}
 		is_ok=TRUE;
 		for(idx=0;idx<parameter[1];idx++) is_ok=(is_ok && (n_hiddens[idx]!=0));
 		if(!is_ok) {
 			NN_ERROR(stderr,"Malformed NN configuration file!\n");
-			NN_ERROR(stderr,"keyword: hidden; some have a 0 neuron content!\n");
+			NN_ERROR(stderr,"[hidden] some have a 0 neuron content!\n");
 		}
 		is_ok=_NN(generate,kernel)(conf,parameter[0],parameter[1],
 				parameter[2],n_hiddens);
 		if(!is_ok){
 			NN_ERROR(stderr,"FAILED to generate NN kernel!\n");
-			NN_ERROR(stderr,"keyword: type; unsupported...\n");
+			NN_ERROR(stderr,"[type] unsupported...\n");
 			goto FAIL;
 		}
 	}else{
@@ -1128,7 +1177,8 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
 		NN_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
-		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
+		/*this should never happen (but static analysis choked)*/
+		if(curr_file==NULL) continue;
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(read,sample)(tmp,&tr_in,&tr_out);
 		FREE(tmp);
@@ -1275,7 +1325,8 @@ void _NN(run,kernel)(nn_def *conf){
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
 		NN_OUT(stdout,"TESTING FILE: %s\t",curr_file);
-		if(curr_file==NULL) continue;/*this should never happen (but static analysis choked)*/
+		/*this should never happen (but static analysis choked)*/
+		if(curr_file==NULL) continue;
 		STRCAT(tmp,curr_dir,curr_file);
 		_NN(read,sample)(tmp,&tr_in,&tr_out);
 		FREE(tmp);
@@ -1310,7 +1361,8 @@ void _NN(run,kernel)(nn_def *conf){
 			NN_DBG(stdout," CLASS | PROBABILITY (%%)\n");
 			NN_DBG(stdout,"-------|----------------\n");
 			for(idx=0;idx<_K->n_outputs;idx++){
-				NN_DBG(stdout," %5i | %15.10f\n",idx+1,_K->output.vec[idx]*100.);
+				NN_DBG(stdout,
+					   " %5i | %15.10f\n",idx+1,_K->output.vec[idx]*100.);
 				if(_K->output.vec[idx]>res) {
 					res=_K->output.vec[idx];
 					guess=idx;
@@ -1318,7 +1370,7 @@ void _NN(run,kernel)(nn_def *conf){
 				if(tr_out[idx]>0.1) is_ok=idx;
 			}
 			NN_DBG(stdout,"-------|----------------\n");
-			NN_COUT(stdout, " BEST CLASS idx=%i P=%15.10f",guess+1,res*100);
+			NN_COUT(stdout," BEST CLASS idx=%i P=%15.10f",guess+1,res*100);
 			if(guess==is_ok) NN_COUT(stdout," [PASS]\n");
 			else NN_COUT(stdout," [FAIL idx=%i]\n",is_ok+1);
 			fflush(stdout);

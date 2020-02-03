@@ -365,6 +365,29 @@
 		exit(-1);\
 	}\
 }while(0)
+/*managed memory*/
+#define CUDA_ALLOC_MM(pointer,size,type) do{\
+	cudaError_t _err;\
+	_err=cudaMallocManaged((void **)(&pointer),size*sizeof(type),cudaMemAttachGlobal);\
+	if(_err!=cudaSuccess) {\
+		_OUT(stderr,"CUDA alloc_MM error (function %s, line %i)\n",\
+			FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	if(_err!=cudaSuccess) {\
+		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
+			FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+#define CUDA_ALLOC_MM_REPORT(pointer,size,type,mem) do{\
+	CUDA_ALLOC_MM(pointer,size,type);\
+	mem+=size*sizeof(type);\
+}while(0)
+
+
+
 /*sync*/
 #define CUDA_C2G_CP(cpu,gpu,size,type) do{\
 	cudaMemcpy(gpu,cpu,size*sizeof(type),cudaMemcpyHostToDevice);\
@@ -420,6 +443,13 @@
 }while(0)
 #endif /*_CUDA*/
 
+typedef enum {
+	CUDA_MEM_NONE, 	/*no need for model only 1 GPU*/
+	CUDA_MEM_EXP, 	/*explicit copy on each device*/
+	CUDA_MEM_P2P, 	/*all devices can peer to peer*/
+	CUDA_MEM_CMM, 	/*device can manage memory concurrently*/
+} cudas_mem;
+
 typedef struct {
 	UINT n_gpu;
 #ifdef _CUBLAS
@@ -433,6 +463,7 @@ typedef struct {
 #else /*_CUDA*/
 	void *cuda_streams;
 #endif /*_CUDA*/
+	cudas_mem mem_model;
 } cudastreams;
 
 
