@@ -209,7 +209,8 @@ void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
 		}
 		CUDA_ALLOC_MM_REPORT(_K.output.cuda_w,
 				_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
-		CUDA_ALLOC_MM_REPORT(_K.output.cuda_v,_K.output.n_neurons,DOUBLE,allocate);
+		CUDA_ALLOC_MM_REPORT(_K.output.cuda_v,
+                             _K.output.n_neurons,DOUBLE,allocate);
 		/*allocate a temporary working array buffer with a maximum dimension*/
 		_K.max_index=_K.n_inputs;
 		if(_K.n_outputs>_K.max_index) _K.max_index=_K.n_outputs;
@@ -297,7 +298,8 @@ void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
 		for(idx=0;idx<_K.n_hiddens;idx++){
 			N=_K.hiddens[idx].n_neurons;
 			M=_K.hiddens[idx].n_inputs;
-			CUDA_C2G_CP(_K.hiddens[idx].weights,_K.hiddens[idx].cuda_w,M*N,double);
+			CUDA_C2G_CP(_K.hiddens[idx].weights,
+				_K.hiddens[idx].cuda_w,M*N,double);
 			CHK_ERR(memcpy_C2G);
 		}
 		cudaDeviceSynchronize();/*only GPU[0]?*/
@@ -330,7 +332,8 @@ void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas){
 		for(idx=0;idx<_K.n_hiddens;idx++){
 			N=_K.hiddens[idx].n_neurons;
 			M=_K.hiddens[idx].n_inputs;
-			CUDA_G2C_CP(_K.hiddens[idx].weights,_K.hiddens[idx].cuda_w,M*N,double);
+			CUDA_G2C_CP(_K.hiddens[idx].weights,
+				_K.hiddens[idx].cuda_w,M*N,double);
 		}
 	case CUDA_MEM_CMM:
 		/*cuda CMM can be access directly on CPU*/

@@ -361,14 +361,16 @@
 	cudaError_t _err;\
 	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
 	if(_err!=cudaSuccess) {\
-		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
+			 FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
 /*managed memory*/
 #define CUDA_ALLOC_MM(pointer,size,type) do{\
 	cudaError_t _err;\
-	_err=cudaMallocManaged((void **)(&pointer),size*sizeof(type),cudaMemAttachGlobal);\
+	_err=cudaMallocManaged((void **)(&pointer),\
+		size*sizeof(type),cudaMemAttachGlobal);\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA alloc_MM error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
