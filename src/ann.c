@@ -107,6 +107,64 @@ void ann_kernel_free(_kernel *kernel){
 	/*if used...*/
 	FREE(KERN.tmp_cpu);
 }
+/*------------------------*/
+/*+++ alloc ANN kernel +++*/
+/*------------------------*/
+BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
+						 UINT *h_neurons, UINT n_outputs){
+	UINT64 allocate=0;
+#ifdef _CUDA
+	uint64_t g_allocate=0;
+#endif /*_CUDA*/
+	UINT idx;
+	if(kernel==NULL) return FALSE;
+	/*fill all the dimensions of the kernel*/
+	KERN.n_inputs=n_inputs;
+	KERN.n_hiddens=n_hiddens;
+	KERN.n_outputs=n_outputs;
+	KERN.output.n_neurons=n_outputs;
+	if(h_neurons==NULL) return FALSE;
+	KERN.output.n_inputs=h_neurons[n_hiddens-1];
+	/*calculate the max index*/
+	KERN.max_index=n_inputs;
+	if(KERN.max_index<n_outputs) KERN.max_index=n_outputs;
+	if(KERN.max_index<h_neurons[0]) KERN.max_index=h_neurons[0];
+	/*alloc n_hiddens on CPU first*/
+	ALLOC_REPORT(KERN.hiddens,n_hiddens,layer_ann,allocate);
+	KERN.hiddens[0].n_inputs=n_inputs;
+	KERN.hiddens[0].n_neurons=h_neurons[0];
+	for(idx=1;idx<n_hiddens;idx++){
+		if(KERN.max_index<h_neurons[idx]) KERN.max_index=h_neurons[idx];
+		KERN.hiddens[idx].n_inputs=h_neurons[idx-1];
+		KERN.hiddens[idx].n_neurons=h_neurons[idx];
+	}
+	/*allocate temporary CPU array*/
+	ALLOC_REPORT(KERN.tmp_cpu,KERN.max_index,DOUBLE,allocate);
+#ifndef  _CUDA
+	/*CPU only*/
+	ALLOC_REPORT(KERN.in,n_inputs,DOUBLE,allocate);
+	for(idx=0;idx<n_hiddens;idx++){
+		ALLOC_REPORT(KERN.hiddens[idx].weights,
+			KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_outputs,
+			DOUBLE,allocate);
+		ALLOC_REPORT(KERN.hiddens[idx].vec,KERN.hiddens[idx].n_outputs,
+			DOUBLE,allocate);
+	}
+	ALLOC_REPORT(KERN.output.weights,n_outputs*h_neurons[n_hiddens-1],
+			DOUBLE,allocate);
+	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
+#else  /*_CUDA*/
+	g_allocate=scuda_ann_allocate_new(kernel,_NN(get,cudas)());
+#endif /*_CUDA*/
+#ifdef _MPI
+	NN_OUT(stdout,"For each MPI thread:\n");
+#endif /*_MPI*/
+	NN_OUT(stdout,"[CPU] ANN total allocation: %lu (bytes)\n",allocate);
+#ifdef _CUDA
+	NN_OUT(stdout,"[GPU] ANN total allocation: %lu (bytes)\n",g_allocate);
+#endif /*_CUDA*/
+	return TRUE;
+}
 /*---------------------------------*/
 /*+++ load ANN kernel from file +++*/
 /*---------------------------------*/

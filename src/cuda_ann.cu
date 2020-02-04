@@ -224,6 +224,52 @@ void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
 	}
 	_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
 }
+int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas){
+	int64_t allocate=0;
+	int idx;
+	/*allocate everything according to memory model*/
+	switch(cudas->mem_model){
+	case CUDA_MEM_P2P:
+	case CUDA_MEM_EXP:
+	case CUDA_MEM_NONE:
+		/*in all cases, we need to initialize memory on GPU[0]*/
+		cudaSetDevice(0);
+		CUDA_ALLOC_REPORT(_K.in,_K.n_inputs,DOUBLE,allocate);
+		for(idx=0;idx<_K.n_hiddens;idx++){
+			CUDA_ALLOC_REPORT(_K.hiddens[idx].weights,
+				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
+				DOUBLE,allocate);
+			CUDA_ALLOC_REPORT(_K.hiddens[idx].vec,
+				_K.hiddens[idx].n_neurons,DOUBLE,allocate);
+		}
+		CUDA_ALLOC_REPORT(_K.output.weights,
+				_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
+		CUDA_ALLOC_REPORT(_K.output.vec,_K.output.n_neurons,DOUBLE,allocate);
+		/*allocate the temporary GPU array*/
+		CUDA_ALLOC_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
+		break;
+	case CUDA_MEM_CMM:
+		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
+		CUDA_ALLOC_MM_REPORT(_K.in,_K.n_inputs,DOUBLE,allocate);
+		for(idx=0;idx<_K.n_hiddens;idx++){
+			CUDA_ALLOC_MM_REPORT(_K.hiddens[idx].weights,
+				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
+				DOUBLE,allocate);
+			CUDA_ALLOC_MM_REPORT(_K.hiddens[idx].vec,_K.hiddens[idx].n_neurons,
+				DOUBLE,allocate);
+		}
+		CUDA_ALLOC_MM_REPORT(_K.output.weights,
+				_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
+		CUDA_ALLOC_MM_REPORT(_K.output.vec,_K.output.n_neurons,DOUBLE,allocate);
+		/*allocate the temporary GPU array*/
+		CUDA_ALLOC_MM_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
+		break;
+	default:
+		break;
+	}
+	return allocate;
+}
+
 /*--------------------------*/
 /*+++ free CUDA-momentum +++*/
 /*--------------------------*/

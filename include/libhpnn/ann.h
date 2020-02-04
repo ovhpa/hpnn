@@ -78,16 +78,19 @@ typedef struct kann{
 	DOUBLE *in;			/*input array*/
 	UINT n_hiddens;		/*number of hidden layers*/
 	layer_ann *hiddens;	/*hidden layers*/
-	UINT n_output;		/*number of outputs*/
+	UINT n_outputs;		/*number of outputs*/
 	layer_ann output;	/*output layer*/
 	DOUBLE **dw;		/*weight momentum (when relevant)*/
 	UINT max_index;		/*maximum array index*/
-	DOUBLE *tmp_array;	/*temporary array*/
+	DOUBLE *tmp_cpu;	/*temporary array (CPU)*/
+	DOUBLE *tmp_gpu;	/*temporary array (GPU))*/
 	struct kann *kerns;	/*multiple allocation (when relevant)*/
 } kernel_ann;
 
 /*functions*/
 void ann_kernel_free(_kernel *kernel);
+BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
+						 UINT *h_neurons, UINT n_outputs);
 _kernel *ann_load(CHAR *f_kernel);
 _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens);
 void ann_dump(_kernel *kernel,FILE *out);
