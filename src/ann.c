@@ -107,6 +107,41 @@ void ann_kernel_free(_kernel *kernel){
 	/*if used...*/
 	FREE(KERN.tmp_cpu);
 }
+/*-----------------------*/
+/*+++ free ANN kernel +++*/
+/*-----------------------*/
+BOOL ann_kernel_free_new(kernel_ann *kernel){
+	UINT idx;
+	if(kernel==NULL) return FALSE;
+#ifdef   _CUDA
+	scuda_ann_deallocate_new(kernel,_NN(get,cudas)());
+	FREE(KERN.hiddens);
+	scuda_ann_free_momentum_new(kernel,_NN(get,cudas)());
+	FREE(KERN.dw);
+#else  /*_CUDA*/
+	FREE(KERN.name);
+	FREE(KERN.in);
+	FREE(KERN.output.weights);
+	FREE(KERN.output.vec);
+	if(KERN.hiddens!=NULL){
+		for(idx=0;idx<KERN.n_hiddens;idx++){
+			FREE(KERN.hiddens[idx].weights);
+			FREE(KERN.hiddens[idx].vec);
+		}
+		FREE(KERN.hiddens);
+	}
+	if(KERN.dw!=NULL){
+		for(idx=0;idx<KERN.n_hiddens+1;idx++) FREE(KERN.dw[idx]);
+		FREE(KERN.dw);
+	}
+	FREE(KERN.tmp_cpu);
+#endif /*_CUDA*/
+	KERN.n_inputs=0;
+	KERN.n_hiddens=0;
+	KERN.n_outputs=0;
+	KERN.max_index=0;
+	return TRUE;
+}
 /*------------------------*/
 /*+++ alloc ANN kernel +++*/
 /*------------------------*/

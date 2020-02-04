@@ -163,6 +163,24 @@ void scuda_ann_deallocate(_kernel *kernel){
 	CUDA_FREE(_K.output.cuda_v);
 	CUDA_FREE(_K.tmp_gpu);
 }
+/*---------------------------------------*/
+/*+++ de-allocate CUDA-part of kernel +++*/
+/*---------------------------------------*/
+void scuda_ann_deallocate_new(kernel_ann *kernel,cudastreams *cudas){
+	int idx;
+	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
+	CUDA_FREE(_K.in);
+	for(idx=0;idx<_K.n_hiddens;idx++){
+		CUDA_FREE(_K.hiddens[idx].weights);
+		CUDA_FREE(_K.hiddens[idx].vec);
+	}
+	CUDA_FREE(_K.output.weights);
+	CUDA_FREE(_K.output.vec);
+	CUDA_FREE(_K.tmp_gpu);
+	if(cudas->mem_model==CUDA_MEM_EXP){
+		/*free allocations for all other GPUs*/
+	}
+}
 /*------------------------------------*/
 /*+++ allocate CUDA-part of kernel +++*/
 /*------------------------------------*/
@@ -269,7 +287,6 @@ int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas){
 	}
 	return allocate;
 }
-
 /*--------------------------*/
 /*+++ free CUDA-momentum +++*/
 /*--------------------------*/
@@ -281,6 +298,16 @@ void scuda_ann_free_momentum(_kernel *kernel){
 		CUDA_FREE(_K.cuda_dw[idx]);
 	CUDA_FREE(_K.cuda_dw[_K.n_hiddens]);
 	FREE(_K.cuda_dw);
+}
+BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas){
+	int idx;
+	if(_K.dw==NULL) return FALSE;
+	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
+	for(idx=0;idx<_K.n_hiddens+1;idx++) CUDA_FREE(_K.dw[idx]);
+	if(cudas->mem_model==CUDA_MEM_EXP){
+		/*free allocations for all other GPUs*/
+	}
+	return TRUE;
 }
 /*------------------------------*/
 /*+++ allocate CUDA-momentum +++*/

@@ -89,6 +89,7 @@ typedef struct kann{
 
 /*functions*/
 void ann_kernel_free(_kernel *kernel);
+BOOL ann_kernel_free_new(kernel_ann *kernel);
 BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 						 UINT *h_neurons, UINT n_outputs);
 _kernel *ann_load(CHAR *f_kernel);

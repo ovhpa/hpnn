@@ -36,9 +36,11 @@ __global__ void ger_dw_acc(int m,int n,double learn,double moment,double *d,doub
 extern "C" {
 #endif
 void scuda_ann_deallocate(_kernel *kernel);
+void scuda_ann_deallocate_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas);
 int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_free_momentum(_kernel *kernel);
+BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas);
 void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas);
 void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas);
