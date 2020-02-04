@@ -79,7 +79,7 @@ typedef struct kann{
 	UINT n_hiddens;		/*number of hidden layers*/
 	layer_ann *hiddens;	/*hidden layers*/
 	UINT n_output;		/*number of outputs*/
-	layer_ann *output;	/*output layer*/
+	layer_ann output;	/*output layer*/
 	DOUBLE **dw;		/*weight momentum (when relevant)*/
 	UINT max_index;		/*maximum array index*/
 	DOUBLE *tmp_array;	/*temporary array*/
