@@ -28,9 +28,11 @@ __global__ void mul_diff(int n, double *t, double *o, double *y);
 __global__ void fw_mv_acc(int m,int n, double *mat,double *vec,double *res);
 __global__ void amb_acc(int n, double *out, double *a, double *b);
 __global__ void dsigmoid_mul_diff(int n, double *t, double *o, double *y);
-__global__ void dsigmoid_mul_delta_T(int red,int m,int n, double *w,double *d,double *h,double *res);
+__global__ void dsigmoid_mul_delta_T(int red,int m,int n, double *w,double *d,
+									 double *h,double *res);
 __global__ void ger_acc(int m,int n,double alpha,double *d,double *h,double *w);
-__global__ void ger_dw_acc(int m,int n,double learn,double moment,double *d,double *v,double *dw,double *w);
+__global__ void ger_dw_acc(int m,int n,double learn,double moment,double *d,
+						   double *v,double *dw,double *w);
 
 #if __cplusplus
 extern "C" {
@@ -42,14 +44,19 @@ int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_free_momentum(_kernel *kernel);
 BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas);
+int64_t scuda_ann_allocate_momentum_new(kernel_ann *kernel,cudastreams *cudas);
 void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas);
+void scuda_ann_weights_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
+						  cudastreams *cudas);
 void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas);
-
+void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
+									DOUBLE **weight,cudastreams *cudas);
 void scuda_ann_forward(_kernel *kernel,cudastreams *cudas);
 double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas);
 double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas);
 void scuda_ann_raz_momentum(_kernel *kernel,cudastreams *cudas);
-double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,cudastreams *cudas);
+double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,
+								cudastreams *cudas);
 
 #if __cplusplus
 }

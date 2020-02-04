@@ -247,8 +247,9 @@ int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas){
 	int idx;
 	/*allocate everything according to memory model*/
 	switch(cudas->mem_model){
-	case CUDA_MEM_P2P:
 	case CUDA_MEM_EXP:
+		/*allocate on other GPUs*/
+	case CUDA_MEM_P2P:
 	case CUDA_MEM_NONE:
 		/*in all cases, we need to initialize memory on GPU[0]*/
 		cudaSetDevice(0);
@@ -351,6 +352,35 @@ void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas){
 		return;
 	}
 }
+int64_t scuda_ann_allocate_momentum_new(kernel_ann *kernel,cudastreams *cudas){
+	int64_t allocate=0;
+	int idx;
+	switch(cudas->mem_model){
+	case CUDA_MEM_EXP:
+		/*allocate on other GPUs*/
+	case CUDA_MEM_P2P:
+	case CUDA_MEM_NONE:
+		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
+		allocate=0;
+		for(idx=0;idx<_K.n_hiddens+1;idx++)
+			CUDA_ALLOC_REPORT(_K.dw[idx],
+				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
+				DOUBLE,allocate);
+		break;
+	case CUDA_MEM_CMM:
+		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
+		allocate=0;
+		for(idx=0;idx<_K.n_hiddens+1;idx++)
+			CUDA_ALLOC_MM_REPORT(_K.dw[idx],
+				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
+				DOUBLE,allocate);
+		_OUT(stdout,"[GPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+		break;
+	default:
+		break;
+	}
+	return allocate;
+}
 /*----------------------------------------*/
 /*+++ transfer weights from CPU to GPU +++*/
 /*----------------------------------------*/
@@ -384,6 +414,42 @@ void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
 		return;
 	}
 }
+/*--------------------------------------*/
+/*+++ transfer a weight array to GPU +++*/
+/*--------------------------------------*/
+void scuda_ann_weights_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
+						  cudastreams *cudas){
+	int M, N;
+	/*index correspond to the hidden layer index
+	 *  unless index=0 then weight correspond to
+	 *  the output layer.               -- OVHPA*/
+	switch(cudas->mem_model){
+	case CUDA_MEM_EXP:
+		/*copy on other GPUs*/
+	case CUDA_MEM_P2P:
+	case CUDA_MEM_NONE:
+		cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
+		if(index==0){
+			/*target: output*/
+			N=_K.output.n_neurons;
+			M=_K.output.n_inputs;
+			CUDA_C2G_CP(weight,_K.output.weights,M*N,double);
+			CHK_ERR(weights_transfer_C2G);
+		}else{
+			/*target: hiddens[idx]*/
+			N=_K.hiddens[index].n_neurons;
+			M=_K.hiddens[index].n_inputs;
+			CUDA_C2G_CP(weight,_K.hiddens[index].weights,M*N,double);
+			CHK_ERR(weights_transfer_C2G);
+		}
+		break;
+	case CUDA_MEM_CMM:
+		/*cuda CMM can be access directly on GPU*/
+		break;
+	default:
+		return;
+	}
+}
 /*----------------------------------------*/
 /*+++ transfer weights from GPU to CPU +++*/
 /*----------------------------------------*/
@@ -408,6 +474,35 @@ void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas){
 			CUDA_G2C_CP(_K.hiddens[idx].weights,
 				_K.hiddens[idx].cuda_w,M*N,double);
 		}
+	case CUDA_MEM_CMM:
+		/*cuda CMM can be access directly on CPU*/
+		break;
+	default:
+		return;
+	}
+}
+void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
+									DOUBLE **weight,cudastreams *cudas){
+	int M, N;
+	switch(cudas->mem_model){
+	case CUDA_MEM_EXP:/*no need to fetch from all GPU*/
+	case CUDA_MEM_P2P:
+	case CUDA_MEM_NONE:
+		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
+		if(index==0){
+			/*target: output*/
+			N=_K.output.n_neurons;
+			M=_K.output.n_inputs;
+			CUDA_G2C_CP(weight,_K.output.weights,M*N,double);
+			CHK_ERR(weights_transfer_C2G);
+		}else{
+			/*target: hiddens[idx]*/
+			N=_K.hiddens[index].n_neurons;
+			M=_K.hiddens[index].n_inputs;
+			CUDA_G2C_CP(weight,_K.hiddens[index].weights,M*N,double);
+			CHK_ERR(weights_transfer_C2G);
+		}
+		break;
 	case CUDA_MEM_CMM:
 		/*cuda CMM can be access directly on CPU*/
 		break;
