@@ -72,6 +72,6 @@ void ann_raz_momentum(kernel_ann *kernel);
 void ann_momentum_free(kernel_ann *kernel);
 DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE alpha);
 DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
-DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
+DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
 
 #endif /*ANN_H*/

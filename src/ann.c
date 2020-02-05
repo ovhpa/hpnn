@@ -2267,7 +2267,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 /*---------------------------*/
 /* train ANN sample with BPM */
 /*---------------------------*/
-DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta){
+DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta){
 /*typical values alpha=0.2 delta=0.00001*/
 	BOOL is_ok;
 	UINT   idx;
@@ -2275,22 +2275,20 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	UINT max_p;
 	UINT p_trg;
 	DOUBLE dEp;
+	DOUBLE *ptr;
 	DOUBLE probe;
+	ann_raz_momentum(kernel);
 #ifdef _CUDA
+	cudastreams *cudas=_NN(get,cudas)();
 	DOUBLE *train_gpu;
-#endif /*_CUDA*/
-	/*copy input*/
-	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
-#ifdef _CUDA
-	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
-	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-	scuda_ann_forward(kernel,_NN(get,cudas)());
-	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+	scuda_ann_forward(kernel,cudas);
+	dEp=scuda_ann_error(kernel,train_gpu,cudas);
 #else /*_CUDA*/
-	ann_raz_momentum(kernel);
+	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 	dEp=0.;
 	ann_kernel_run(kernel);/*also FILL vec*/
 	for(idx=0;idx<kernel->n_outputs;idx++)
@@ -2300,22 +2298,29 @@ DOUBLE ann_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE a
 	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
+		iter++;
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,cudas);
+if(cudas->mem_model!=CUDA_MEM_CMM){
 		/*we have to sync output.cuda_v -> out*/
-		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
-		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+		cudaSetDevice(0);/*make sure transfer happen from GPU[0]*/
+		CUDA_G2C_CP(kernel->tmp_cpu,kernel->output.vec,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();/*<-useful?*/
-//		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+		ptr=kernel->tmp_cpu;
+}else{
+		/*CMM can use GPU memory directly*/
+		/*TODO: require prefetch?*/
+		ptr=kernel->output.vec;
+}
 #else /*_CUDA*/
 		dEp=ann_kernel_train_momentum(kernel,train_out,alpha);
+		ptr=kernel->output.vec;
 #endif /*_CUDA*/
-		iter++;
 		/*1- determine max_p, p_trg*/
 		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			if(probe < kernel->output.vec[idx]){
-				probe = kernel->output.vec[idx];
+			if(probe < ptr[idx]){
+				probe = ptr[idx];
 				max_p = idx;
 			}
 			if(train_out[idx]==1.0) p_trg = idx;

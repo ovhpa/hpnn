@@ -518,7 +518,6 @@ void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem,gpu;
-	int  stream;
 	int total_s;
 	kernel_ann *kx;
 #ifdef _CUBLAS
@@ -701,7 +700,7 @@ void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas){
 /*-----------------------------------------------*/
 /*+++ Calculate Training Error TODO: optimize +++*/
 /*-----------------------------------------------*/
-double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas){
+double scuda_ann_error(kernel_ann *kernel,double *train,cudastreams *cudas){
 	double dEp=0.;
 #ifdef   _CUBLAS
 	/*amb can be stream o=(t-v)*(t-v) -- worth it?*/
@@ -727,7 +726,7 @@ double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas){
 /*------------------------*/
 /*+++ Calculate deltas +++*/
 /*------------------------*/
-void scuda_ann_delta(_kernel *kernel,double *train,double **delta_ptr,
+void scuda_ann_delta(kernel_ann *kernel,double *train,double **delta_ptr,
 					 cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
@@ -919,12 +918,12 @@ void scuda_ann_delta(_kernel *kernel,double *train,double **delta_ptr,
 /*------------------------*/
 /*+++ back-propagation +++*/
 /*------------------------*/
-double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas){
+double scuda_ann_train(kernel_ann *kernel,double *train,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem,gpu;
 	int total_s;
-	double **delta_ptr;
+	double **delta_ptr;/*THIS delta belongs to GPU[0]*/
 	double Ep =0.;
 	double Epr=0.;
 #ifdef _CUBLAS

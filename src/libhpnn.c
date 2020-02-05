@@ -904,7 +904,7 @@ void _NN(free,kernel)(nn_def *conf){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
         case NN_TYPE_ANN:
-		ann_kernel_free((_kernel *)_CONF.kernel);
+		ann_kernel_free((kernel_ann *)_CONF.kernel);
 		break;
         case NN_TYPE_LNN:
         case NN_TYPE_UKN:
@@ -960,7 +960,7 @@ void _NN(dump,kernel)(nn_def *conf, FILE *output){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
-		ann_dump((_kernel *)_CONF.kernel,output);
+		ann_dump((kernel_ann *)_CONF.kernel,output);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
@@ -977,7 +977,7 @@ UINT _NN(get,n_inputs)(nn_def *conf){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
-		return ((_kernel *)_CONF.kernel)->n_inputs;
+		return ((kernel_ann *)_CONF.kernel)->n_inputs;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
 	default:
@@ -990,7 +990,7 @@ UINT _NN(get,n_hiddens)(nn_def *conf){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
-		return ((_kernel *)_CONF.kernel)->n_hiddens;
+		return ((kernel_ann *)_CONF.kernel)->n_hiddens;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
 	default:
@@ -1003,7 +1003,7 @@ UINT _NN(get,n_outputs)(nn_def *conf){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
-		return ((_kernel *)_CONF.kernel)->n_outputs;
+		return ((kernel_ann *)_CONF.kernel)->n_outputs;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
 	default:
@@ -1016,9 +1016,9 @@ UINT _NN(get,h_neurons)(nn_def *conf,UINT layer){
 	case NN_TYPE_SNN:
 		/*fallthrough*/
 	case NN_TYPE_ANN:
-		if(layer > ((_kernel *)_CONF.kernel)->n_hiddens) return FALSE;
-		if(((_kernel *)_CONF.kernel)->hiddens==NULL) return FALSE;
-		return ((_kernel *)_CONF.kernel)->hiddens[layer].n_neurons;
+		if(layer > ((kernel_ann *)_CONF.kernel)->n_hiddens) return FALSE;
+		if(((kernel_ann *)_CONF.kernel)->hiddens==NULL) return FALSE;
+		return ((kernel_ann *)_CONF.kernel)->hiddens[layer].n_neurons;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
 	default:
@@ -1134,7 +1134,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		/*fallthrough*/
 	case NN_TYPE_ANN:
 		if(_CONF.train==NN_TRAIN_BPM)
-			ann_momentum_init((_kernel *)_CONF.kernel);
+			ann_momentum_init((kernel_ann *)_CONF.kernel);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
@@ -1206,11 +1206,11 @@ BOOL _NN(train,kernel)(nn_def *conf){
 			/*check training*/
 			switch (_CONF.train){
 			case NN_TRAIN_BPM:
-				res=ann_train_BPM((_kernel *)_CONF.kernel,tr_in,tr_out,
+				res=ann_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,
 					0.2,0.00001);/*TODO: set as parameters*/
 				break;
 			case NN_TRAIN_BP:
-				res=ann_train_BP((_kernel *)_CONF.kernel,tr_in,tr_out,
+				res=ann_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
 					0.000001);/*TODO: set as parameter*/
 				break;
 			case NN_TRAIN_CG:
@@ -1224,11 +1224,11 @@ BOOL _NN(train,kernel)(nn_def *conf){
 			/*check training*/
 			switch (_CONF.train){
 			case NN_TRAIN_BPM:
-				res=snn_train_BPM((_kernel *)_CONF.kernel,tr_in,tr_out,
+				res=snn_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,
 					0.2,0.00001);/*TODO: set as parameters*/
 				break;
 			case NN_TRAIN_BP:
-				res=snn_train_BP((_kernel *)_CONF.kernel,tr_in,tr_out,
+				res=snn_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
 					0.000001);/*TODO: set as parameter*/
 				break;
 			case NN_TRAIN_CG:
@@ -1256,7 +1256,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		/*fallthrough*/
 	case NN_TYPE_ANN:
 		if(_CONF.train==NN_TRAIN_BPM)
-			ann_momentum_free((_kernel *)_CONF.kernel);
+			ann_momentum_free((kernel_ann *)_CONF.kernel);
 		break;
 	case NN_TYPE_LNN:
 	case NN_TYPE_UKN:
@@ -1327,7 +1327,7 @@ void _NN(run,kernel)(nn_def *conf){
 	srandom(_CONF.seed);
 	jdx=0;
 	while(jdx<file_number){
-#define _K ((_kernel *)(_CONF.kernel))
+#define _K ((kernel_ann *)(_CONF.kernel))
 		/*get a random number between 0 and file_number-1*/
 		idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
 		while(flist[idx]==NULL){
