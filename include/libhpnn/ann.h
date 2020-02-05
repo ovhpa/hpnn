@@ -35,45 +35,12 @@
 typedef struct {
 	UINT n_neurons;		/*number of neurons*/
 	UINT n_inputs;		/*number of inputs*/
-	DOUBLE *weights;	/*all weights for this layer*/
-	DOUBLE *vec;		/*temporary results*/
-#ifdef _CUDA
-	DOUBLE *cuda_w;		/*cuda mirror*/
-	DOUBLE *cuda_v;		/*NEW: store intermediary results*/
-#endif
-} _layer;
-
-typedef struct {
-	CHAR *name;			/*ANN name*/
-	UINT n_inputs;		/*number of inputs*/
-	DOUBLE *in;			/*input vector*/
-#ifdef _CUDA
-	DOUBLE *cuda_in;	/*cuda mirror*/
-#endif
-	UINT n_hiddens;		/*number of hidden layers*/
-	_layer *hiddens;	/*hidden layers*/
-	UINT n_outputs;		/*number of outputs*/
-	_layer output;		/*output layers*/
-	DOUBLE **dw;		/*weights momentum (when relevant)*/
-#ifdef _CUDA
-	DOUBLE **cuda_dw;	/*cuda mirror*/
-#endif
-	UINT max_index;		/*maximum index number of any layer (including input)*/
-	DOUBLE *tmp_cpu;	/*temporary working directory (size of max_index)*/
-#ifdef _CUDA
-	DOUBLE *tmp_gpu;	/*cuda_mirror*/
-#endif
-} _kernel;
-
-typedef struct {
-	UINT n_neurons;		/*number of neurons*/
-	UINT n_inputs;		/*number of inputs*/
 	DOUBLE *weights;	/*weights for this layer*/
 	DOUBLE *vec;		/*output of this layer*/
 } layer_ann;
 
 typedef struct kann{
-	CHAR *name;
+	CHAR *name;			/*ANN name*/
 	UINT n_inputs;		/*number of inputs*/
 	DOUBLE *in;			/*input array*/
 	UINT n_hiddens;		/*number of hidden layers*/
@@ -88,11 +55,10 @@ typedef struct kann{
 } kernel_ann;
 
 /*functions*/
-void ann_kernel_free(_kernel *kernel);
-BOOL ann_kernel_free_new(kernel_ann *kernel);
+BOOL ann_kernel_free(kernel_ann *kernel);
 BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 						 UINT *h_neurons, UINT n_outputs);
-_kernel *ann_load(CHAR *f_kernel);
+kernel_ann *ann_load(CHAR *f_kernel);
 _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens);
 void ann_dump(_kernel *kernel,FILE *out);
 BOOL ann_validate_kernel(_kernel *kernel);

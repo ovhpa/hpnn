@@ -291,16 +291,7 @@ int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas){
 /*--------------------------*/
 /*+++ free CUDA-momentum +++*/
 /*--------------------------*/
-void scuda_ann_free_momentum(_kernel *kernel){
-	int idx;
-	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
-	if(_K.cuda_dw==NULL) return;
-	for(idx=0;idx<_K.n_hiddens;idx++)
-		CUDA_FREE(_K.cuda_dw[idx]);
-	CUDA_FREE(_K.cuda_dw[_K.n_hiddens]);
-	FREE(_K.cuda_dw);
-}
-BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas){
+BOOL scuda_ann_free_momentum(kernel_ann *kernel,cudastreams *cudas){
 	int idx;
 	if(_K.dw==NULL) return FALSE;
 	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
@@ -313,46 +304,7 @@ BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas){
 /*------------------------------*/
 /*+++ allocate CUDA-momentum +++*/
 /*------------------------------*/
-void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas){
-	int allocate;
-	int idx;
-	
-	switch(cudas->mem_model){
-	case CUDA_MEM_P2P:
-	case CUDA_MEM_EXP:
-	case CUDA_MEM_NONE:
-		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
-		allocate=0;
-		ALLOC_REPORT(_K.cuda_dw,_K.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
-		_OUT(stdout,"[CPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
-		allocate=0;
-		CUDA_ALLOC_REPORT(_K.cuda_dw[_K.n_hiddens],
-			_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
-		for(idx=0;idx<_K.n_hiddens;idx++)
-			CUDA_ALLOC_REPORT(_K.cuda_dw[idx],
-				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
-				DOUBLE,allocate);
-		_OUT(stdout,"[GPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
-		break;
-	case CUDA_MEM_CMM:
-		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
-		allocate=0;
-		ALLOC_REPORT(_K.cuda_dw,_K.n_hiddens+1,DOUBLE *,allocate);/*HOST*/
-		_OUT(stdout,"[CPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
-		allocate=0;
-		CUDA_ALLOC_MM_REPORT(_K.cuda_dw[_K.n_hiddens],
-			_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
-		for(idx=0;idx<_K.n_hiddens;idx++)
-			CUDA_ALLOC_MM_REPORT(_K.cuda_dw[idx],
-				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
-				DOUBLE,allocate);
-		_OUT(stdout,"[GPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
-		break;
-	default:
-		return;
-	}
-}
-int64_t scuda_ann_allocate_momentum_new(kernel_ann *kernel,cudastreams *cudas){
+int64_t scuda_ann_allocate_momentum(kernel_ann *kernel,cudastreams *cudas){
 	int64_t allocate=0;
 	int idx;
 	switch(cudas->mem_model){
@@ -381,43 +333,10 @@ int64_t scuda_ann_allocate_momentum_new(kernel_ann *kernel,cudastreams *cudas){
 	}
 	return allocate;
 }
-/*----------------------------------------*/
-/*+++ transfer weights from CPU to GPU +++*/
-/*----------------------------------------*/
-void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas){
-	int idx;
-	int M,N;
-	switch(cudas->mem_model){
-	case CUDA_MEM_P2P:
-	case CUDA_MEM_EXP:
-	case CUDA_MEM_NONE:
-		cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
-/*^^^ output*/
-		N=_K.output.n_neurons;
-		M=_K.output.n_inputs;
-		CUDA_C2G_CP(_K.output.weights,_K.output.cuda_w,M*N,double);
-		CHK_ERR(memcpy_C2G);
-/*^^^ hiddens*/
-		for(idx=0;idx<_K.n_hiddens;idx++){
-			N=_K.hiddens[idx].n_neurons;
-			M=_K.hiddens[idx].n_inputs;
-			CUDA_C2G_CP(_K.hiddens[idx].weights,
-				_K.hiddens[idx].cuda_w,M*N,double);
-			CHK_ERR(memcpy_C2G);
-		}
-		cudaDeviceSynchronize();/*only GPU[0]?*/
-		break;
-	case CUDA_MEM_CMM:
-		/*cuda CMM can be access directly on GPU*/
-		break;
-	default:
-		return;
-	}
-}
 /*--------------------------------------*/
 /*+++ transfer a weight array to GPU +++*/
 /*--------------------------------------*/
-void scuda_ann_weights_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
+void scuda_ann_weight_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
 						  cudastreams *cudas){
 	int M, N;
 	/*index correspond to the hidden layer index
@@ -449,39 +368,12 @@ void scuda_ann_weights_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
 	default:
 		return;
 	}
+	cudaDeviceSynchronize();
 }
-/*----------------------------------------*/
-/*+++ transfer weights from GPU to CPU +++*/
-/*----------------------------------------*/
-void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas){
-	int idx;
-	int M,N;
-	switch(cudas->mem_model){
-	case CUDA_MEM_P2P:
-	case CUDA_MEM_EXP:
-	case CUDA_MEM_NONE:
-		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
-		cudaDeviceSynchronize();/*TODO: is it needed? only GPU[0]?*/
-/*^^^ output*/
-		N=_K.output.n_neurons;
-		M=_K.output.n_inputs;
-		CUDA_G2C_CP(_K.output.weights,_K.output.cuda_w,M*N,double);
-		CHK_ERR(memcpy_C2G);
-/*^^^ hiddens*/
-		for(idx=0;idx<_K.n_hiddens;idx++){
-			N=_K.hiddens[idx].n_neurons;
-			M=_K.hiddens[idx].n_inputs;
-			CUDA_G2C_CP(_K.hiddens[idx].weights,
-				_K.hiddens[idx].cuda_w,M*N,double);
-		}
-	case CUDA_MEM_CMM:
-		/*cuda CMM can be access directly on CPU*/
-		break;
-	default:
-		return;
-	}
-}
-void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
+/*--------------------------------------*/
+/*+++ transfer a weight array to CPU +++*/
+/*--------------------------------------*/
+void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 									DOUBLE **weight,cudastreams *cudas){
 	int M, N;
 	switch(cudas->mem_model){
@@ -493,13 +385,13 @@ void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
 			/*target: output*/
 			N=_K.output.n_neurons;
 			M=_K.output.n_inputs;
-			CUDA_G2C_CP(weight,_K.output.weights,M*N,double);
+			CUDA_G2C_CP(*weight,_K.output.weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}else{
 			/*target: hiddens[idx]*/
 			N=_K.hiddens[index].n_neurons;
 			M=_K.hiddens[index].n_inputs;
-			CUDA_G2C_CP(weight,_K.hiddens[index].weights,M*N,double);
+			CUDA_G2C_CP(*weight,_K.hiddens[index].weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}
 		break;
@@ -509,6 +401,7 @@ void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
 	default:
 		return;
 	}
+	/*implicit synchronization*/
 }
 /*-----------------------------*/
 /*+++ forward kernel update +++*/

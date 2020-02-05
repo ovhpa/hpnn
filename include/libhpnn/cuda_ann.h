@@ -37,19 +37,13 @@ __global__ void ger_dw_acc(int m,int n,double learn,double moment,double *d,
 #if __cplusplus
 extern "C" {
 #endif
-void scuda_ann_deallocate(_kernel *kernel);
-void scuda_ann_deallocate_new(kernel_ann *kernel,cudastreams *cudas);
-void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas);
-int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas);
-void scuda_ann_free_momentum(_kernel *kernel);
-BOOL scuda_ann_free_momentum_new(kernel_ann *kernel,cudastreams *cudas);
-void scuda_ann_allocate_momentum(_kernel *kernel,cudastreams *cudas);
-int64_t scuda_ann_allocate_momentum_new(kernel_ann *kernel,cudastreams *cudas);
-void scuda_ann_weights_C2G(_kernel *kernel,cudastreams *cudas);
-void scuda_ann_weights_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
+void scuda_ann_deallocate(kernel_ann *kernel,cudastreams *cudas);
+int64_t scuda_ann_allocate(kernel_ann *kernel,cudastreams *cudas);
+BOOL scuda_ann_free_momentum(kernel_ann *kernel,cudastreams *cudas);
+int64_t scuda_ann_allocate_momentum(kernel_ann *kernel,cudastreams *cudas);
+void scuda_ann_weight_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
 						  cudastreams *cudas);
-void scuda_ann_weights_G2C(_kernel *kernel,cudastreams *cudas);
-void scuda_ann_weights_transfer_G2C(kernel_ann *kernel,int index,
+void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 									DOUBLE **weight,cudastreams *cudas);
 void scuda_ann_forward(_kernel *kernel,cudastreams *cudas);
 double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas);
