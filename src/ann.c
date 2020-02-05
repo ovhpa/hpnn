@@ -200,8 +200,10 @@ kernel_ann *ann_load(CHAR *f_kernel){
 	UINT n_streams,stream;
 	_NN(get,mpi_tasks)(&n_streams);
 	_NN(get,curr_mpi_task)(&stream);
-#define MPI_BAIL_SEND for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD)
-#define MPI_BAIL_RECV MPI_Recv(&bailout,1,MPI_INT,0,10,MPI_COMM_WORLD,MPI_STATUS_IGNORE)
+#define MPI_BAIL_SEND for(ndx=1;ndx<n_streams;ndx++) \
+	MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD)
+#define MPI_BAIL_RECV MPI_Recv(&bailout,1,MPI_INT,0,10,\
+	MPI_COMM_WORLD,MPI_STATUS_IGNORE)
 #else /*_MPI*/
 #define MPI_BAIL_SEND 
 #define MPI_BAIL_RECV
@@ -225,7 +227,7 @@ if(stream==0) {
 	ptr+=6;SKIP_BLANK(ptr);
 	allocate=0;
 	STRDUP_REPORT(ptr,name,allocate);
-	if(name==NULL) STRDUP_REPORT("noname",name,allocate);/*to appease static analysis*/
+	if(name==NULL) STRDUP_REPORT("noname",name,allocate);
 	/*strip extra '\n'*/
 	ptr=&(name[0]);
 	while(*ptr!='\0'){
@@ -353,44 +355,50 @@ jdx=0;
 		w_ptr=KERN.hiddens[idx].weights;
 	}
 #else  /*_CUDA*/
-	w_ptr=KERN.output.weights;
+	w_ptr=KERN.hiddens[idx].weights;
 #endif /*_CUDA*/
 do{
 	ptr=STRFIND("[neuron",line);
 	if(ptr==NULL){
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron definition missing! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron definition missing!\n");
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 	if(!ISDIGIT(*ptr)) {
-		NN_ERROR(stderr,"ANN kernel ERROR: missing neuron number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: missing neuron number!\n");
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is neuron number*/
 	if(n_par<1) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron number<1 (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron number<1\n");
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	ptr=ptr2+1;SKIP_BLANK(ptr);
 	if(!ISDIGIT(*ptr)) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron has no input number! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron has no input number!\n");
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron has less that 1 input! (hidden layer %i, neuron %i)\n",idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron has less that 1 input!\n");
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	if(n_par>KERN.hiddens[idx].n_inputs){
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron has more input (%i) than expected (%i)! (hidden layer %i, neuron %i)\n",
-		n_par,KERN.hiddens[idx].n_inputs,idx+1,jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron inconsistent input number!\n"));
+		NN_ERROR(stderr,"-> n_input=%i (expected %i)!\n",
+				 n_par,KERN.hiddens[idx].n_inputs);
+		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
 		goto FAIL;
 	}
 	READLINE(fp,line);/*weights line*/
 	ptr=&(line[0]);SKIP_BLANK(ptr);
 	for(kdx=0;kdx<n_par;kdx++){
 		/*read weights*/
-//		GET_DOUBLE(KERN.hiddens[idx].weights[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
 		GET_DOUBLE(w_ptr[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2));
 		ASSERT_GOTO(ptr2,FAIL);
 		ptr=ptr2+1;SKIP_BLANK(ptr);
@@ -413,13 +421,16 @@ do{
 		if(ptr!=NULL){
 			while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 			if(!ISDIGIT(*ptr)) {
-				NN_ERROR(stderr,"ANN kernel ERROR: malformed output layer definition\n");
+				NN_ERROR(stderr,
+					"kernel read: malformed output layer definition\n");
 				goto FAIL;
 			}
 			/*check neuron number for consistency*/
 			GET_UINT(idx,ptr,ptr2);/*this is the number of output*/
 			if((ptr2==NULL)||(idx!=KERN.output.n_neurons)) {
-				NN_ERROR(stderr,"ANN kernel ERROR: inconsistent neuron number for output - n_neurons=%i (expected %i)\n",
+				NN_ERROR(stderr,
+					"kernel read: inconsistent neuron number for output!\n");
+				NN_ERROR(stderr,"-> n_neurons=%i (expected %i)\n",
 					idx,KERN.output.n_neurons);
 				goto FAIL;
 			}
@@ -441,34 +452,38 @@ jdx=0;
 do{
 	ptr=STRFIND("[neuron",line);
 	if(ptr==NULL){
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron definition missing! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron definition missing!\n");
+		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
 	while(!(ISDIGIT(*ptr))&&(*ptr!='\n')&&(*ptr!='\0')) ptr++;
 	if(!ISDIGIT(*ptr)) {
-		NN_ERROR(stderr,"ANN kernel ERROR: missing neuron number! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"kernel read: missing neuron number!\n");
+		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
 	if(n_par<1) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron number<1 (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron number<1\n"));
+		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
 	ptr=ptr2+1;SKIP_BLANK(ptr);
 	if(!ISDIGIT(*ptr)) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron has no input number! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron has no input number!\n");
+		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is number of inputs*/
 	if(n_par<1) {
-		NN_ERROR(stderr,"ANN kernel ERROR: neuron has less that 1 input! (output layer, neuron %i)\n",jdx+1);
+		NN_ERROR(stderr,"kernel read: neuron has less that 1 input!\n");
+		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
 	READLINE(fp,line);
 	ptr=&(line[0]);SKIP_BLANK(ptr);
 	for(kdx=0;kdx<n_par;kdx++){
 		/*read weights*/
-//		GET_DOUBLE(KERN.output.weights[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);ASSERT_GOTO(ptr2,FAIL);
 		GET_DOUBLE(w_ptr[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);
 		ASSERT_GOTO(ptr2,FAIL);
 		ptr=ptr2+1;SKIP_BLANK(ptr);
@@ -489,7 +504,8 @@ do{
 	FREE(line);
 	fclose(fp);
 #ifdef _MPI
-	for(ndx=1;ndx<n_streams;ndx++) MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD);
+	for(ndx=1;ndx<n_streams;ndx++) 
+		MPI_Send(&bailout,1,MPI_INT,ndx,10,MPI_COMM_WORLD);
 }/*end of master load*/
 else{/*slaves*/
 	MPI_BAIL_RECV;
@@ -566,11 +582,16 @@ load_kernel_fail:
 	return NULL;
 #undef FAIL
 }
-_kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UINT *hiddens){
-	_kernel *kernel;
+kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
+						 UINT n_outputs,UINT *hiddens){
+	kernel_ann *kernel;
 	UINT64 allocate;
 	UINT   idx, jdx;
 	DOUBLE temp_rnd;
+#ifdef _CUDA
+	cudastreams *cudas=_NN(get,cudas)();
+#endif
+	DOUBLE *w_ptr;
 #ifdef _MPI
 	UINT N,M;
 	UINT n_streams,stream;
@@ -580,89 +601,114 @@ _kernel *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,UINT n_outputs,UIN
 #ifdef _MPI
 if(stream==0){/*master kernel generation*/
 #endif /*_MPI*/
-	/*this generation should _NOT_ be performed in parallel (random seed consistency)*/
+	/*this should _NOT_ be performed in parallel (random seed consistency)*/
 	allocate=0.;
 	if(*seed==0) *seed=time(NULL);
 	srandom(*seed);
 	/*allocation*/
-	ALLOC_REPORT(kernel,1,_kernel,allocate);
-	KERN.n_inputs=n_inputs;
-	KERN.n_hiddens=n_hiddens;
-	KERN.n_outputs=n_outputs;
-	ALLOC_REPORT(KERN.in,n_inputs,DOUBLE,allocate);
-	ALLOC_REPORT(KERN.hiddens,n_hiddens,_layer,allocate);
-	/*first layer*/
-	KERN.hiddens[0].n_inputs=n_inputs;
-	KERN.hiddens[0].n_neurons=hiddens[0];
-	ALLOC_REPORT(KERN.hiddens[0].weights,n_inputs*hiddens[0],DOUBLE,allocate);
-	ALLOC_REPORT(KERN.hiddens[0].vec,hiddens[0],DOUBLE,allocate);
-	/*remaining hidden layers*/
-	for(idx=1;idx<n_hiddens;idx++){
-		KERN.hiddens[idx].n_neurons=hiddens[idx];
-		KERN.hiddens[idx].n_inputs=hiddens[idx-1];
-		ALLOC_REPORT(KERN.hiddens[idx].weights,hiddens[idx]*hiddens[idx-1],DOUBLE,allocate);
-		ALLOC_REPORT(KERN.hiddens[idx].vec,hiddens[idx],DOUBLE,allocate);
-	}
-	/*output*/
-	KERN.output.n_neurons=n_outputs;
-	KERN.output.n_inputs=hiddens[n_hiddens-1];
-	ALLOC_REPORT(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE,allocate);
-	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
-	NN_OUT(stdout,"ANN total allocation: %lu (bytes)\n",allocate);
+	ALLOC_REPORT(kernel,1,kernel_ann,allocate);
+	ann_kernel_allocate(kernel,n_in,n_hid,parameter,n_out);
 	/*randomly fill hidden weights*/
 	for(idx=0;idx<n_hiddens;idx++){
-		for(jdx=0;jdx<KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons;jdx++){
+		N=*KERN.hiddens[idx].n_neurons;
+		M=KERN.hiddens[idx].n_inputs;
+		/*prepare array*/
+#ifdef   _CUDA
+		if(cudas->mem_model!=CUDA_MEM_CMM){
+			ALLOC(w_ptr,N*M,DOUBLE));
+		}else{
+			/*CMM memory can be access by CPU directly*/
+			/*TODO: should we prefetch?*/
+			w_ptr=KERN.hiddens[idx].weights;
+		}
+#else  /*_CUDA*/
+		w_ptr=KERN.hiddens[idx].weights;
+#endif /*_CUDA*/
+		for(jdx=0;jdx<(N*M);jdx++){
 			temp_rnd=(DOUBLE) random() / RAND_MAX;
-			KERN.hiddens[idx].weights[jdx]=2.0*(temp_rnd-0.5)/sqrt(KERN.hiddens[idx].n_inputs);
+//			KERN.hiddens[idx].weights[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
+			w_ptr[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
 		}
 	}
+#ifdef   _CUDA
+	/*transfer to GPU*/
+	scuda_ann_weight_transfer_C2G(kernel,idx,w_ptr,cudas);
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 	/*randomly fill output weight*/
-	for(jdx=0;jdx<KERN.output.n_inputs*KERN.output.n_neurons;jdx++){
-		temp_rnd=(DOUBLE) random() / RAND_MAX;
-		KERN.output.weights[jdx]=2.0*(temp_rnd-0.5)/sqrt(KERN.output.n_inputs);
+	N=KERN.output.n_neurons;
+	M=KERN.output.n_inputs;
+#ifdef   _CUDA
+	if(cudas->mem_model!=CUDA_MEM_CMM){
+		ALLOC(w_ptr,N*M,DOUBLE);
+	}else{
+		/*CMM memory can be access by CPU directly*/
+		/*TODO: should we prefetch?*/
+		w_ptr=KERN.output.weights;
 	}
-#ifdef _CUDA
-	/*all done, init cuda kernel & sync weights*/
-	scuda_ann_allocate(kernel,_NN(get,cudas)());
-	scuda_ann_weights_C2G(kernel,_NN(get,cudas)());
+#else  /*_CUDA*/
+	w_ptr=KERN.output.weights;
+#endif /*_CUDA*/
+	for(jdx=0;jdx<(N*M);jdx++){
+		temp_rnd=(DOUBLE) random() / RAND_MAX;
+//		KERN.output.weights[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
+		w_ptr[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
+	}
+#ifdef   _CUDA
+	/*transfer to GPU (0 -> output)*/
+	scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
 #ifdef _MPI
 }/*end of master-only*/
 /*master -> slave(s)*/
 if(stream!=0){/*slave(s)*/
 	/*allocation - NO NEED TO REPORT*/
-	ALLOC(kernel,1,_kernel);
-	KERN.n_inputs=n_inputs;
-	KERN.n_hiddens=n_hiddens;
-	KERN.n_outputs=n_outputs;
-	ALLOC(KERN.in,n_inputs,DOUBLE);
-	ALLOC(KERN.hiddens,n_hiddens,_layer);
-	/*first layer*/
-	KERN.hiddens[0].n_inputs=n_inputs;
-	KERN.hiddens[0].n_neurons=hiddens[0];
-	ALLOC(KERN.hiddens[0].weights,n_inputs*hiddens[0],DOUBLE);
-	ALLOC(KERN.hiddens[0].vec,hiddens[0],DOUBLE);
-	/*remaining hidden layers*/
-	for(idx=1;idx<n_hiddens;idx++){
-		KERN.hiddens[idx].n_neurons=hiddens[idx];
-		KERN.hiddens[idx].n_inputs=hiddens[idx-1];
-		ALLOC(KERN.hiddens[idx].weights,hiddens[idx]*hiddens[idx-1],DOUBLE);
-		ALLOC(KERN.hiddens[idx].vec,hiddens[idx],DOUBLE);
-	}
-	/*output*/
-	KERN.output.n_neurons=n_outputs;
-	KERN.output.n_inputs=hiddens[n_hiddens-1];
-	ALLOC(KERN.output.weights,n_outputs*hiddens[n_hiddens-1],DOUBLE);
-	ALLOC(KERN.output.vec,n_outputs,DOUBLE);
+	ALLOC(kernel,1,kernel_ann);
+	ann_kernel_allocate(kernel,n_in,n_hid,parameter,n_out);
 }
 for(idx=0;idx<n_hiddens;idx++){
 	N=KERN.hiddens[idx].n_neurons;
 	M=KERN.hiddens[idx].n_inputs;
+	/*That one will broadcast CPU values over MPI*/
+#ifndef  _CUDA
 	MPI_Bcast(KERN.hiddens[idx].weights,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+#else  /*_CUDA*/
+	if(cudas->mem_model!=CUDA_MEM_CMM){
+		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+	}else{
+		w_ptr=KERN.hiddens[idx].weights;
+	}
+	scuda_ann_weight_transfer_C2G(kernel,idx,&w_ptr,cudas);
+	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+	/*now, everyone received CPU... put it back on GPU*/
+	if(stream!=0){
+		/*master already have it*/
+		scuda_ann_weight_transfer_C2G(kernel,idx,w_ptr,cudas);
+	}
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 }
 N=KERN.output.n_neurons;
 M=KERN.output.n_inputs;
+/*same broadcast type as before*/
+#ifndef  _CUDA
 MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
+#else  /*_CUDA*/
+	if(cudas->mem_model!=CUDA_MEM_CMM){
+		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+	}else{
+		w_ptr=KERN.output.weights;
+	}
+	scuda_ann_weight_transfer_C2G(kernel,0,&w_ptr,cudas);
+	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
+	/*now, everyone received CPU... put it back on GPU*/
+	if(stream!=0){
+		/*master already have it*/
+		scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+	}
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 #endif /*_MPI*/
 	return kernel;
 }
