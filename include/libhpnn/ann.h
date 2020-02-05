@@ -51,7 +51,7 @@ typedef struct kann{
 	UINT max_index;		/*maximum array index*/
 	DOUBLE *tmp_cpu;	/*temporary array (CPU)*/
 	DOUBLE *tmp_gpu;	/*temporary array (GPU))*/
-	struct kann *kerns;	/*multiple allocation (when relevant)*/
+	struct kann **kerns;/*multiple allocation (when relevant)*/
 } kernel_ann;
 
 /*functions*/
@@ -62,10 +62,10 @@ kernel_ann *ann_load(CHAR *f_kernel);
 kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
 						 UINT n_outputs,UINT *hiddens);
 void ann_dump(kernel_ann *kernel,FILE *out);
-BOOL ann_validate_kernel(_kernel *kernel);
+BOOL ann_validate_kernel(kernel_ann *kernel);
 DOUBLE ann_act(DOUBLE x);
 DOUBLE ann_dact(DOUBLE y);
-void ann_kernel_run(_kernel *kernel);
+void ann_kernel_run(kernel_ann *kernel);
 DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train);
 void ann_momentum_init(_kernel *kernel);
 void ann_raz_momentum(_kernel *kernel);

@@ -423,6 +423,18 @@ BOOL _NN(get,curr_mpi_task)(UINT *task){
 	return TRUE;
 #endif
 }
+BOOL _NN(set,n_gpu)(UINT n_gpu){
+	NN_WARN(stdout,"Changing the number of GPU is not implemented yet.\n");
+	return FALSE;
+}
+BOOL _NN(get,n_gpu)(UINT *n_gpu){
+#ifndef  _CUDA
+	n_gpu=0;
+	return FALSE;
+#else  /*_CUDA*/
+	*n_gpu=lib_runtime.cudas.n_gpu;
+#endif /*_CUDA*/
+}
 BOOL _NN(set,cuda_streams)(UINT n_streams){
 #ifndef _CUDA
 	return FALSE;

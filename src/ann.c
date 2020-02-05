@@ -77,6 +77,7 @@ BOOL ann_kernel_free(kernel_ann *kernel){
 #ifdef   _CUDA
 	scuda_ann_deallocate_new(kernel,_NN(get,cudas)());
 	FREE(KERN.hiddens);
+	FREE(KERN.kerns);
 	scuda_ann_free_momentum_new(kernel,_NN(get,cudas)());
 	FREE(KERN.dw);
 #else  /*_CUDA*/
@@ -111,6 +112,8 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 	UINT64 allocate=0;
 #ifdef _CUDA
 	uint64_t g_allocate=0;
+	cudastreams *cudas=_NN(get,cudas)();
+	UINT n_gpu;
 #endif /*_CUDA*/
 	UINT idx;
 	if(kernel==NULL) return FALSE;
@@ -150,7 +153,36 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 			DOUBLE,allocate);
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
 #else  /*_CUDA*/
-	g_allocate=scuda_ann_allocate_new(kernel,_NN(get,cudas)());
+	_NN(get,n_gpu)(&n_gpu);
+	ALLOC_REPORT(KERN.kerns,n_gpu,kern_ann *,allocate);
+	if(cudas->mem_model!=CUDA_MEM_EXP){
+		kern_ann *kx;
+		/*we are going to need n_gpu kernels*/
+		KERN.kerns[0]=kernel;/*1st one is self*/
+		for(idx=1;idx<n_gpu;idx++){
+			ALLOC_REPORT(kx,1,kernel_ann,allocate);
+#define _CP(name) (*kx).name = KERN.name
+			_CP(n_inputs);
+			_CP(n_hiddens);
+			_CP(n_outputs);
+			_CP(output.n_neurons);
+			_CP(output.n_inputs);
+			_CP(max_index);
+			ALLOC_REPORT((*kx).hiddens,n_hiddens,layer_ann,allocate);
+			for(jdx=1;jdx<n_hiddens;jdx++){
+				_CP(hiddens[jdx].n_inputs);
+				_CP(hiddens[jdx].n_neurons);
+			}
+			(*kx).tmp_cpu=NULL;/*we won't need that*/
+#undef _CP
+			KERN.kerns[idx]=kx;
+			kx=NULL;
+		}
+	}else{
+		/*hack: each kerns points to the same kernel*/
+		for(idx=0;idx<n_gpu;idx++) KERN.kerns[idx]=kernel;
+	}
+	g_allocate=scuda_ann_allocate_new(kernel,cudas);
 #endif /*_CUDA*/
 #ifdef _MPI
 	NN_OUT(stdout,"For each MPI thread:\n");
@@ -805,7 +837,7 @@ if(stream==0){/*only master writes*/
 /*+++ validate parameters of kernel +++*/
 /* (to appease the static analysis) +++*/
 /*-------------------------------------*/
-BOOL ann_validate_kernel(_kernel *kernel){
+BOOL ann_validate_kernel(kernel_ann *kernel){
 	UINT idx;
 	if(KERN.n_inputs<1) return FALSE;
 	if(KERN.n_outputs<1) return FALSE;
@@ -835,14 +867,10 @@ DOUBLE ann_dact(DOUBLE y){
 /*------------------------*/
 /*+++ feed-forward run +++*/
 /*------------------------*/
-void ann_kernel_run(_kernel *kernel){
+void ann_kernel_run(kernel_ann *kernel){
 #ifdef   _CUDA
-	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
-	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	/*the _NN(run,kernel) is now in charge of transfer(s)*/
 	scuda_ann_forward(kernel,_NN(get,cudas)());
-	/*copy the result back*/
-	cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
-	CUDA_G2C_CP(KERN.output.vec,KERN.output.cuda_v,KERN.n_outputs,DOUBLE);
 #else  /*_CUDA*/
 	/*simple, one pass kernel*/
 	UINT idx,jdx,M,N;

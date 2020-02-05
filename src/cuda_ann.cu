@@ -148,25 +148,11 @@ void ger_dw_acc(int m,int n,double learn,double moment,
 /*-----------------*/
 extern "C"{
 #define _K (*kernel)
+#define _Kx (*kx)
 /*---------------------------------------*/
 /*+++ de-allocate CUDA-part of kernel +++*/
 /*---------------------------------------*/
-void scuda_ann_deallocate(_kernel *kernel){
-	int idx;
-	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
-	CUDA_FREE(_K.cuda_in);
-	for(idx=0;idx<_K.n_hiddens;idx++){
-		CUDA_FREE(_K.hiddens[idx].cuda_w);
-		CUDA_FREE(_K.hiddens[idx].cuda_v);
-	}
-	CUDA_FREE(_K.output.cuda_w);
-	CUDA_FREE(_K.output.cuda_v);
-	CUDA_FREE(_K.tmp_gpu);
-}
-/*---------------------------------------*/
-/*+++ de-allocate CUDA-part of kernel +++*/
-/*---------------------------------------*/
-void scuda_ann_deallocate_new(kernel_ann *kernel,cudastreams *cudas){
+void scuda_ann_deallocate(kernel_ann *kernel,cudastreams *cudas){
 	int idx;
 	cudaSetDevice(0);/*make sure all de-allocation happen on gpu[0]*/
 	CUDA_FREE(_K.in);
@@ -179,76 +165,56 @@ void scuda_ann_deallocate_new(kernel_ann *kernel,cudastreams *cudas){
 	CUDA_FREE(_K.tmp_gpu);
 	if(cudas->mem_model==CUDA_MEM_EXP){
 		/*free allocations for all other GPUs*/
+		if(cudas->n_gpu>1){
+			int gpu;
+			kernel_ann *kx;
+			for(gpu=1;gpu<cudas->n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				kx=_K.kerns[gpu];
+				CUDA_FREE(_Kx.in);
+				for(idx=0;idx<_Kx.n_hiddens;idx++){
+					CUDA_FREE(_Kx.hiddens[idx].weights);
+					CUDA_FREE(_Kx.hiddens[idx].vec);
+				}
+				CUDA_FREE(_Kx.output.weights);
+				CUDA_FREE(_Kx.output.vec);
+				CUDA_FREE(_Kx.tmp_gpu);
+			}
+		}
 	}
 }
 /*------------------------------------*/
 /*+++ allocate CUDA-part of kernel +++*/
 /*------------------------------------*/
-void scuda_ann_allocate(_kernel *kernel,cudastreams *cudas){
-	int allocate;
-	int idx;
-	/*allocate everything in CUDA*/
-	switch(cudas->mem_model){
-	case CUDA_MEM_P2P:
-	case CUDA_MEM_EXP:
-	case CUDA_MEM_NONE:
-		/*in all cases, we need to initialize memory on GPU[0]*/
-		cudaSetDevice(0);
-		allocate=0;
-		CUDA_ALLOC_REPORT(_K.cuda_in,_K.n_inputs,DOUBLE,allocate);
-		for(idx=0;idx<_K.n_hiddens;idx++){
-			CUDA_ALLOC_REPORT(_K.hiddens[idx].cuda_w,
-				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
-				DOUBLE,allocate);
-			CUDA_ALLOC_REPORT(_K.hiddens[idx].cuda_v,
-				_K.hiddens[idx].n_neurons,DOUBLE,allocate);
-		}
-		CUDA_ALLOC_REPORT(_K.output.cuda_w,
-				_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
-		CUDA_ALLOC_REPORT(_K.output.cuda_v,_K.output.n_neurons,DOUBLE,allocate);
-		/*allocate a temporary working array buffer with a maximum dimension*/
-		_K.max_index=_K.n_inputs;
-		if(_K.n_outputs>_K.max_index) _K.max_index=_K.n_outputs;
-		for(idx=0;idx<_K.n_hiddens;idx++)
-			if(_K.hiddens[idx].n_neurons>_K.max_index)
-				_K.max_index=_K.hiddens[idx].n_neurons;
-		CUDA_ALLOC_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
-		break;
-	case CUDA_MEM_CMM:
-		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
-		allocate=0;
-		CUDA_ALLOC_MM_REPORT(_K.cuda_in,_K.n_inputs,DOUBLE,allocate);
-		for(idx=0;idx<_K.n_hiddens;idx++){
-			CUDA_ALLOC_MM_REPORT(_K.hiddens[idx].cuda_w,
-				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
-				DOUBLE,allocate);
-			CUDA_ALLOC_MM_REPORT(_K.hiddens[idx].cuda_v,
-				_K.hiddens[idx].n_neurons,DOUBLE,allocate);
-		}
-		CUDA_ALLOC_MM_REPORT(_K.output.cuda_w,
-				_K.output.n_inputs*_K.output.n_neurons,DOUBLE,allocate);
-		CUDA_ALLOC_MM_REPORT(_K.output.cuda_v,
-                             _K.output.n_neurons,DOUBLE,allocate);
-		/*allocate a temporary working array buffer with a maximum dimension*/
-		_K.max_index=_K.n_inputs;
-		if(_K.n_outputs>_K.max_index) _K.max_index=_K.n_outputs;
-		for(idx=0;idx<_K.n_hiddens;idx++)
-			if(_K.hiddens[idx].n_neurons>_K.max_index)
-				_K.max_index=_K.hiddens[idx].n_neurons;
-		CUDA_ALLOC_MM_REPORT(_K.tmp_gpu,_K.max_index,DOUBLE,allocate);
-		break;
-	default:
-		return;
-	}
-	_OUT(stdout,"ANN total CUDA allocation: %lu (bytes)\n",allocate);
-}
-int64_t scuda_ann_allocate_new(kernel_ann *kernel,cudastreams *cudas){
+int64_t scuda_ann_allocate(kernel_ann *kernel,cudastreams *cudas){
 	int64_t allocate=0;
 	int idx;
 	/*allocate everything according to memory model*/
 	switch(cudas->mem_model){
 	case CUDA_MEM_EXP:
-		/*allocate on other GPUs*/
+		/*allocate on other GPUs (no report)*/
+		if(cudas->n_gpu>1){
+			int gpu;
+			kernel_ann *kx;
+			for(gpu=1;gpu<cudas->n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				kx=_K.kerns[gpu];
+				CUDA_ALLOC(_Kx.in,_Kx.n_inputs,DOUBLE);
+				for(idx=0;idx<_Kx.n_hiddens;idx++){
+					CUDA_ALLOC(_Kx.hiddens[idx].weights,
+					_K.hiddens[idx].n_inputs*_Kx.hiddens[idx].n_neurons,DOUBLE);
+					CUDA_ALLOC(_Kx.hiddens[idx].vec,
+						_Kx.hiddens[idx].n_neurons,DOUBLE);
+				}
+				CUDA_ALLOC(_K.output.weights,
+						_Kx.output.n_inputs*_K.output.n_neurons,DOUBLE);
+				CUDA_ALLOC(_K.output.vec,
+						_Kx.output.n_neurons,DOUBLE);
+				/*allocate the temporary GPU array*/
+				CUDA_ALLOC(_Kx.tmp_gpu,_Kx.max_index,DOUBLE);
+			}
+		}
+		/*pass through*/
 	case CUDA_MEM_P2P:
 	case CUDA_MEM_NONE:
 		/*in all cases, we need to initialize memory on GPU[0]*/
@@ -298,6 +264,15 @@ BOOL scuda_ann_free_momentum(kernel_ann *kernel,cudastreams *cudas){
 	for(idx=0;idx<_K.n_hiddens+1;idx++) CUDA_FREE(_K.dw[idx]);
 	if(cudas->mem_model==CUDA_MEM_EXP){
 		/*free allocations for all other GPUs*/
+		if(cudas->n_gpu>1){
+			int gpu;
+			kernel_ann *kx;
+			for(gpu=1;gpu<cudas->n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				kx=_K.kerns[gpu];
+				for(idx=0;idx<_Kx.n_hiddens+1;idx++) CUDA_FREE(_Kx.dw[idx]);
+			}
+		}
 	}
 	return TRUE;
 }
@@ -310,6 +285,18 @@ int64_t scuda_ann_allocate_momentum(kernel_ann *kernel,cudastreams *cudas){
 	switch(cudas->mem_model){
 	case CUDA_MEM_EXP:
 		/*allocate on other GPUs*/
+		if(cudas->n_gpu>1){
+			int gpu;
+			kernel_ann *kx;
+			for(gpu=1;gpu<cudas->n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				kx=_K.kerns[gpu];
+				for(idx=0;idx<_Kx.n_hiddens+1;idx++)
+					CUDA_ALLOC(_Kx.dw[idx],
+						_Kx.hiddens[idx].n_inputs*_Kx.hiddens[idx].n_neurons,
+						DOUBLE);
+			}
+		/*pass through*/
 	case CUDA_MEM_P2P:
 	case CUDA_MEM_NONE:
 		cudaSetDevice(0);/*make sure all allocation happen on gpu[0]*/
@@ -344,7 +331,29 @@ void scuda_ann_weight_transfer_C2G(kernel_ann *kernel,int index,DOUBLE *weight,
 	 *  the output layer.               -- OVHPA*/
 	switch(cudas->mem_model){
 	case CUDA_MEM_EXP:
-		/*copy on other GPUs*/
+		/*transfer to other GPUs*/
+		if(cudas->n_gpu>1){
+			int gpu;
+			kernel_ann *kx;
+			for(gpu=1;gpu<cudas->n_gpu;gpu++){
+				cudaSetDevice(gpu);
+				kx=_K.kerns[gpu];
+				if(index==0){
+					/*target: output*/
+					N=_Kx.output.n_neurons;
+					M=_Kx.output.n_inputs;
+					CUDA_C2G_CP(weight,_Kx.output.weights,M*N,double);
+					CHK_ERR(weights_transfer_C2G);
+				}else{
+					/*target: hiddens[idx]*/
+					N=_Kx.hiddens[index].n_neurons;
+					M=_Kx.hiddens[index].n_inputs;
+					CUDA_C2G_CP(weight,_Kx.hiddens[index].weights,M*N,double);
+					CHK_ERR(weights_transfer_C2G);
+				}
+			}
+		}
+		/*pass through*/
 	case CUDA_MEM_P2P:
 	case CUDA_MEM_NONE:
 		cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
@@ -377,7 +386,8 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 									DOUBLE **weight,cudastreams *cudas){
 	int M, N;
 	switch(cudas->mem_model){
-	case CUDA_MEM_EXP:/*no need to fetch from all GPU*/
+	case CUDA_MEM_EXP:
+		/*no need to transfer from other GPUs!*/
 	case CUDA_MEM_P2P:
 	case CUDA_MEM_NONE:
 		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
@@ -406,7 +416,7 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 /*-----------------------------*/
 /*+++ forward kernel update +++*/
 /*-----------------------------*/
-void scuda_ann_forward(_kernel *kernel,cudastreams *cudas){
+void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem,gpu;

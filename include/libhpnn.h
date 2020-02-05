@@ -142,6 +142,8 @@ int _NN(return,omp_threads)();
 BOOL _NN(set,mpi_tasks)(UINT n_tasks);
 BOOL _NN(get,mpi_tasks)(UINT *n_tasks);
 BOOL _NN(get,curr_mpi_task)(UINT *task);
+BOOL _NN(set,n_gpu)(UINT n_gpu);
+BOOL _NN(get,n_gpu)(UINT *n_gpu);
 BOOL _NN(set,cuda_streams)(UINT n_streams);
 BOOL _NN(get,cuda_streams)(UINT *n_streams);
 BOOL _NN(set,omp_blas)(UINT n_blas);
