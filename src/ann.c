@@ -521,8 +521,8 @@ do{
 		ptr=ptr2+1;SKIP_BLANK(ptr);
 	}
 #ifdef   _CUDA
-	/*transfer to GPU (0 -> output)*/
-	scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+	/*transfer to GPU (KERN.n_hiddens -> output)*/
+	scuda_ann_weight_transfer_C2G(kernel,KERN.n_hiddens,w_ptr,cudas);
 	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
 	jdx++;
@@ -591,12 +591,13 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	}else{
 		w_ptr=KERN.output.weights;
 	}
-	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
+	if(stream==0)
+		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
 		/*master already have it*/
-		scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+		scuda_ann_weight_transfer_C2G(kernel,KERN.n_hiddens,w_ptr,cudas);
 	}
 	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
@@ -687,8 +688,8 @@ if(stream==0){/*master kernel generation*/
 		w_ptr[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
 	}
 #ifdef   _CUDA
-	/*transfer to GPU (0 -> output)*/
-	scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+	/*transfer to GPU (KERN.n_hiddens -> output)*/
+	scuda_ann_weight_transfer_C2G(kernel,KERN.n_hiddens,w_ptr,cudas);
 	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
 #ifdef _MPI
@@ -734,12 +735,13 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 		w_ptr=KERN.output.weights;
 	}
 	/*master transfer weights*/
-	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
+	if(stream==0)
+		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
 		/*master already have it*/
-		scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
+		scuda_ann_weight_transfer_C2G(kernel,KERN.n_hiddens,w_ptr,cudas);
 	}
 	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 	MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT each other*/
@@ -807,7 +809,7 @@ if(stream==0){/*only master writes*/
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		FREE(w_ptr);
 		ALLOC(w_ptr,N*M,DOUBLE));
-		scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
+		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	}else{
 		/*CMM memory can be access by CPU directly*/
 		/*TODO: should we prefetch?*/
