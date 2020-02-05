@@ -538,7 +538,7 @@ for(idx=0;idx<n_hid;idx++){
 	}else{
 		w_ptr=KERN.hiddens[idx].weights;
 	}
-	scuda_ann_weight_transfer_C2G(kernel,idx,&w_ptr,cudas);
+	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -559,7 +559,7 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	}else{
 		w_ptr=KERN.output.weights;
 	}
-	scuda_ann_weight_transfer_C2G(kernel,0,&w_ptr,cudas);
+	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -679,7 +679,8 @@ for(idx=0;idx<n_hiddens;idx++){
 	}else{
 		w_ptr=KERN.hiddens[idx].weights;
 	}
-	scuda_ann_weight_transfer_C2G(kernel,idx,&w_ptr,cudas);
+	/*master transfer weights*/
+	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -700,7 +701,8 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	}else{
 		w_ptr=KERN.output.weights;
 	}
-	scuda_ann_weight_transfer_C2G(kernel,0,&w_ptr,cudas);
+	/*master transfer weights*/
+	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -708,6 +710,7 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 		scuda_ann_weight_transfer_C2G(kernel,0,w_ptr,cudas);
 	}
 	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+	MPI_Barrier(MPI_COMM_WORLD);/*everyone WAIT each other*/
 #endif /*_CUDA*/
 #endif /*_MPI*/
 	return kernel;
@@ -715,10 +718,11 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 /*---------------------*/
 /*+++ OUTPUT KERNEL +++*/
 /*---------------------*/
-void ann_dump(_kernel *kernel,FILE *out){
+void ann_dump(kernel_ann *kernel,FILE *out){
 	UINT idx;
 	UINT jdx;
 	UINT kdx;
+	DOUBLE *w_ptr;
 #ifdef _MPI
 	UINT n_streams,stream;
 	_NN(get,mpi_tasks)(&n_streams);
@@ -735,33 +739,62 @@ if(stream==0){/*only master writes*/
 	}
 #endif /*_MPI*/
 /*before dumping, we need to sync*/
-#ifdef _CUDA
-	/*sync weights back*/
-	scuda_ann_weights_G2C(kernel,_NN(get,cudas)());
-#endif /*_CUDA*/
 	NN_WRITE(out,"[name] %s\n",KERN.name);
 	NN_WRITE(out,"[param] %i",KERN.n_inputs);
 	for(idx=0;idx<KERN.n_hiddens;idx++) NN_WRITE(out," %i",KERN.hiddens[idx].n_neurons);
 	NN_WRITE(out," %i\n",KERN.output.n_neurons);
 	NN_WRITE(out,"[input] %i\n",KERN.n_inputs);
 	for(idx=0;idx<KERN.n_hiddens;idx++) {
-		NN_WRITE(out,"[hidden %i] %i\n",idx+1,KERN.hiddens[idx].n_neurons);
-		for(jdx=0;jdx<KERN.hiddens[idx].n_neurons;jdx++){
-			NN_WRITE(out,"[neuron %i] %i\n",jdx+1,KERN.hiddens[idx].n_inputs);
-			NN_WRITE(out,"%17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,0)]);
-			for(kdx=1;kdx<KERN.hiddens[idx].n_inputs;kdx++)
-				NN_WRITE(out," %17.15f",KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,kdx)]);
+		N=KERN.hiddens[idx].n_neurons;
+		M=KERN.hiddens[idx].n_inputs;
+		/*prepare array*/
+#ifdef   _CUDA
+		if(cudas->mem_model!=CUDA_MEM_CMM){
+			ALLOC(w_ptr,N*M,DOUBLE));
+			scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
+		}else{
+			/*CMM memory can be access by CPU directly*/
+			/*TODO: should we prefetch?*/
+			w_ptr=KERN.hiddens[idx].weights;
+		}
+#else  /*_CUDA*/
+		w_ptr=KERN.hiddens[idx].weights;
+#endif /*_CUDA*/
+		NN_WRITE(out,"[hidden %i] %i\n",idx+1,N);
+		for(jdx=0;jdx<N;jdx++){
+			NN_WRITE(out,"[neuron %i] %i\n",jdx+1,M);
+			NN_WRITE(out,"%17.15f",w_ptr[_2D_IDX(M,jdx,0)]);
+			for(kdx=1;kdx<M;kdx++)
+				NN_WRITE(out," %17.15f",w_ptr[_2D_IDX(M,jdx,kdx)]);
 			NN_WRITE(out,"\n");
 		}
 	}
-	NN_WRITE(out,"[output] %i\n",KERN.n_outputs);
-	for(jdx=0;jdx<KERN.output.n_neurons;jdx++){
-		NN_WRITE(out,"[neuron %i] %i\n",jdx+1,KERN.output.n_inputs);
-		NN_WRITE(out,"%17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,0)]);
-		for(kdx=1;kdx<KERN.output.n_inputs;kdx++)
-			NN_WRITE(out," %17.15f",KERN.output.weights[_2D_IDX(KERN.output.n_inputs,jdx,kdx)]);
+	N=KERN.output.n_neurons;
+	M=KERN.output.n_inputs;
+#ifdef   _CUDA
+	if(cudas->mem_model!=CUDA_MEM_CMM){
+		FREE(w_ptr);
+		ALLOC(w_ptr,N*M,DOUBLE));
+		scuda_ann_weight_transfer_G2C(kernel,0,&w_ptr,cudas);
+	}else{
+		/*CMM memory can be access by CPU directly*/
+		/*TODO: should we prefetch?*/
+		w_ptr=KERN.output.weights;
+	}
+#else  /*_CUDA*/
+	w_ptr=KERN.output.weights;
+#endif /*_CUDA*/
+	NN_WRITE(out,"[output] %i\n",N);
+	for(jdx=0;jdx<N;jdx++){
+		NN_WRITE(out,"[neuron %i] %i\n",jdx+1,M);
+		NN_WRITE(out,"%17.15f",w_ptr[_2D_IDX(M,jdx,0)]);
+		for(kdx=1;kdx<M;kdx++)
+			NN_WRITE(out," %17.15f",w_ptr[_2D_IDX(M,jdx,kdx)]);
 		NN_WRITE(out,"\n");
 	}
+#ifdef _CUDA
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif
 #ifdef _MPI
 	/*end of master*/
 	}

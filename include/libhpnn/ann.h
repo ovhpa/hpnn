@@ -61,7 +61,7 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 kernel_ann *ann_load(CHAR *f_kernel);
 kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
 						 UINT n_outputs,UINT *hiddens);
-void ann_dump(_kernel *kernel,FILE *out);
+void ann_dump(kernel_ann *kernel,FILE *out);
 BOOL ann_validate_kernel(_kernel *kernel);
 DOUBLE ann_act(DOUBLE x);
 DOUBLE ann_dact(DOUBLE y);
