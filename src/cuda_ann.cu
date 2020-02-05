@@ -313,7 +313,6 @@ int64_t scuda_ann_allocate_momentum(kernel_ann *kernel,cudastreams *cudas){
 			CUDA_ALLOC_MM_REPORT(_K.dw[idx],
 				_K.hiddens[idx].n_inputs*_K.hiddens[idx].n_neurons,
 				DOUBLE,allocate);
-		_OUT(stdout,"[GPU] CUDA MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 		break;
 	default:
 		break;
@@ -1090,7 +1089,7 @@ double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas){
 /*------------------------------*/
 /*+++ zeroes momentum arrays +++*/
 /*------------------------------*/
-void scuda_ann_raz_momentum(_kernel *kernel,cudastreams *cudas){
+void scuda_ann_raz_momentum(kernel_ann *kernel,cudastreams *cudas){
 	int idx,jdx;
 	int M,N,red;
 	int rem,gpu;
@@ -1154,6 +1153,7 @@ void scuda_ann_raz_momentum(_kernel *kernel,cudastreams *cudas){
 		cudaSetDevice(gpu);
 		cudaDeviceSynchronize();
 	}
+	/*TODO: add sync for CUDA_MEM_EXP FIXME*/
 }
 /*--------------------------------------*/
 /*+++ back-propagation with momentum +++*/

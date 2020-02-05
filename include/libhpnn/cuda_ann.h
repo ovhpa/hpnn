@@ -48,7 +48,7 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas);
 double scuda_ann_error(_kernel *kernel,double *train,cudastreams *cudas);
 double scuda_ann_train(_kernel *kernel,double *train,cudastreams *cudas);
-void scuda_ann_raz_momentum(_kernel *kernel,cudastreams *cudas);
+void scuda_ann_raz_momentum(kernel_ann *kernel,cudastreams *cudas);
 double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,
 								cudastreams *cudas);
 

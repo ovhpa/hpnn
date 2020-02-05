@@ -1169,7 +1169,7 @@ _HT;
 /*-------------------------------*/
 /*+++ Train Error Calculation +++*/
 /*-------------------------------*/
-DOUBLE ann_kernel_train_error(_kernel *kernel, const DOUBLE *train){
+DOUBLE ann_kernel_train_error(kernel_ann *kernel, const DOUBLE *train){
 	DOUBLE Ep=0.;
 	UINT idx,N;
 #ifdef _MPI
@@ -1202,7 +1202,7 @@ DOUBLE ann_kernel_train_error(_kernel *kernel, const DOUBLE *train){
 /*------------------------*/
 /*+++ Calculate deltas +++*/
 /*------------------------*/
-void ann_kernel_train_delta(_kernel *kernel,const DOUBLE *train, DOUBLE **delta_ptr){
+void ann_kernel_train_delta(kernel_ann *kernel,const DOUBLE *train, DOUBLE **delta_ptr){
 #if !defined (PBLAS) && !defined (SBLAS)
         UINT kdx;
 #endif
@@ -1519,7 +1519,7 @@ _HT;
 /*------------------------*/
 /*+++ back-propagation +++*/
 /*------------------------*/
-DOUBLE ann_kernel_train(_kernel *kernel,const DOUBLE *train){
+DOUBLE ann_kernel_train(kernel_ann *kernel,const DOUBLE *train){
 #define LEARN_RATE 0.01
 #if !defined (PBLAS) && !defined (SBLAS)
 	UINT kdx;
@@ -1799,48 +1799,57 @@ _HT;
 /*----------------------------*/
 /*+++ init momentum arrays +++*/
 /*----------------------------*/
-void ann_momentum_init(_kernel *kernel){
+void ann_momentum_init(kernel_ann *kernel){
 	UINT idx;
-	UINT64 allocate=0.;
-	/*alloc everything*/
+	UINT64 allocate=0;
+	/*common CPU part*/
 	ALLOC_REPORT(KERN.dw,KERN.n_hiddens+1,DOUBLE *,allocate);
+#ifndef _CUDA
 	ALLOC_REPORT(KERN.dw[KERN.n_hiddens],KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++){
 		ALLOC_REPORT(KERN.dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
 	}
-#ifdef _CUDA
-	/*allocate everything in CUDA*/
-	scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
-#endif
-	NN_OUT(stdout,"TRAINING MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+#else  /*_CUDA*/
+	UINT64 g_allocate=0;
+	g_allocate=scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
+#endif /*_CUDA*/
+	NN_OUT(stdout,"[CPU] MOMENTUM ALLOC: %lu (bytes)\n",allocate);
+#ifdef   _CUDA
+	NN_OUT(stdout,"[GPU] MOMENTUM ALLOC: %lu (bytes)\n",g_allocate);
+#endif /*_CUDA*/
 }
 /*------------------------------*/
 /*+++ zeroes momentum arrays +++*/
 /*------------------------------*/
-void ann_raz_momentum(_kernel *kernel){
+void ann_raz_momentum(kernel_ann *kernel){
 	UINT idx;
+#ifndef  _CUDA
 	memset(KERN.dw[0],0,sizeof(DOUBLE)*KERN.output.n_inputs*KERN.output.n_neurons);
 	for(idx=0;idx<KERN.n_hiddens;idx++)
 		memset(KERN.dw[idx],0,sizeof(DOUBLE)*KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons);
+#else  /*_CUDA*/
+	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
+#endif /*_CUDA*/
 }
 /*----------------------------*/
 /*+++ FREE momentum arrays +++*/
 /*----------------------------*/
-void ann_momentum_free(_kernel *kernel){
+void ann_momentum_free(kernel_ann *kernel){
 	UINT idx;
 	/*FREE everything*/
+#ifndef  _CUDA
 	for(idx=0;idx<KERN.n_hiddens;idx++) FREE(KERN.dw[idx]);
 	FREE(KERN.dw[KERN.n_hiddens]);
-	FREE(KERN.dw);
-#ifdef _CUDA
+#else  /*_CUDA*/
 	/*allocate everything in CUDA*/
 	scuda_ann_free_momentum(kernel);
-#endif
+#endif /*_CUDA*/
+	FREE(KERN.dw);
 }
 /*---------------------------------*/
 /*+++ momentum back-propagation +++*/
 /*---------------------------------*/
-DOUBLE ann_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha){
+DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE alpha){
 	UINT idx,N,M;
 #ifdef _MPI
 	UINT red, rem;
@@ -2179,7 +2188,7 @@ _HT;
 /*--------------------------*/
 /* train ANN sample with BP */
 /*--------------------------*/
-DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta){
+DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta){
 /*typical values delta=0.000001*/
 	BOOL is_ok;
 	UINT   idx;
@@ -2187,20 +2196,20 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	UINT max_p;
 	UINT p_trg;
 	DOUBLE dEp;
+	DOUBLE *ptr;
 	DOUBLE probe;
 #ifdef _CUDA
+	cudastreams *cudas=_NN(get,cudas)();
 	DOUBLE *train_gpu;
-#endif /*_CUDA*/
-	/*copy input*/
-	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
-#ifdef _CUDA
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
-	CUDA_C2G_CP(KERN.in,KERN.cuda_in,KERN.n_inputs,DOUBLE);
+	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
-	scuda_ann_forward(kernel,_NN(get,cudas)());
-	dEp=scuda_ann_error(kernel,train_gpu,_NN(get,cudas)());
+	scuda_ann_forward(kernel,cudas);
+	dEp=scuda_ann_error(kernel,train_gpu,cudas);
 #else /*_CUDA*/
+	/*copy input*/
+	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 	dEp=0.;
 	ann_kernel_run(kernel);/*also FILL vec*/
 	for(idx=0;idx<kernel->n_outputs;idx++)
@@ -2210,22 +2219,29 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	NN_COUT(stdout," init=%15.10f",dEp);
 	iter=0;
 	do{
+		iter++;
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_ann_train(kernel,train_gpu,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_ann_train(kernel,train_gpu,cudas);
+if(cudas->mem_model!=CUDA_MEM_CMM){
 		/*we have to sync output.cuda_v -> out*/
-		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
-		CUDA_G2C_CP(kernel->output.vec,kernel->output.cuda_v,KERN.n_outputs,DOUBLE);
+		cudaSetDevice(0);/*make sure transfer happen from GPU[0]*/
+		CUDA_G2C_CP(kernel->tmp_cpu,kernel->output.vec,KERN.n_outputs,DOUBLE);
 		cudaDeviceSynchronize();/*<-useful?*/
-//		NN_DBG(stdout,"\niter[%i]: dEp=%15.10f",iter+1,dEp);
+		ptr=kernel->tmp_cpu;
+}else{
+		/*CMM can use GPU memory directly*/
+		/*TODO: require prefetch?*/
+		ptr=kernel->output.vec;
+}
 #else /*_CUDA*/
 		dEp=ann_kernel_train(kernel,train_out);
+		ptr=kernel->output.vec;
 #endif /*_CUDA*/
-		iter++;
 		/*1- determine max_p, p_trg*/
 		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
-			if(probe<kernel->output.vec[idx]){
-				probe=kernel->output.vec[idx];
+			if(probe<ptr[idx]){
+				probe=ptr[idx];
 				max_p=idx;
 			}
 			if(train_out[idx]==1.0) p_trg=idx;
@@ -2248,7 +2264,6 @@ DOUBLE ann_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 #endif /*_CUDA*/
 	return dEp;
 }
-
 /*---------------------------*/
 /* train ANN sample with BPM */
 /*---------------------------*/
