@@ -1411,7 +1411,7 @@ _HT;
 /*--------------------------*/
 /* train SNN sample with BP */
 /*--------------------------*/
-DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta){
+DOUBLE snn_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta){
 /*typical values delta=0.000001*/
 	BOOL is_ok;
 	UINT   idx;
@@ -1430,7 +1430,7 @@ DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE de
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
 	scuda_snn_forward(kernel,cudas);
 	dEp=scuda_snn_error(kernel,train_gpu,cudas);
-#endif /*_CUDA*/
+#else  /*_CUDA*/
 	/*copy input*/
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 	snn_kernel_run(kernel);/*also FILL vec*/
@@ -1507,7 +1507,7 @@ DOUBLE snn_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
 	scuda_ann_forward(kernel,cudas);
 	dEp=scuda_ann_error(kernel,train_gpu,cudas);
-#endif /*_CUDA*/
+#else  /*_CUDA*/
 	/*copy input*/
 	ARRAY_CP(train_in,KERN.in,KERN.n_inputs);
 	snn_kernel_run(kernel);/*also FILL vec*/
