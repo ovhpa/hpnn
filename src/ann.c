@@ -438,12 +438,14 @@ do{
 #ifdef   _CUDA
 	/*transfer to GPU*/
 	scuda_ann_weight_transfer_C2G(kernel,idx,w_ptr,cudas);
-	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
 	jdx++;
 	READLINE(fp,line);
 }while(jdx<KERN.hiddens[idx].n_neurons);
 /*continue*/
+#ifdef _CUDA
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 		} else READLINE(fp,line);
 	}while(!feof(fp));
 /*finally get the output weights*/
@@ -523,11 +525,13 @@ do{
 #ifdef   _CUDA
 	/*transfer to GPU (KERN.n_hiddens -> output)*/
 	scuda_ann_weight_transfer_C2G(kernel,KERN.n_hiddens,w_ptr,cudas);
-	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
 	jdx++;
 	READLINE(fp,line);
 }while(jdx<KERN.output.n_neurons);
+#ifdef _CUDA
+		if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 /*continue*/
 		}
 		READLINE(fp,line);

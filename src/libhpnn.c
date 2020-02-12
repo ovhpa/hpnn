@@ -1275,11 +1275,14 @@ void _NN(run,kernel)(nn_def *conf){
 	UINT file_number;
 	CHAR     **flist;
 	CHAR  *tmp,**ptr;
+	DOUBLE res, *out;
 	UINT is_ok;
 	UINT guess;
 	UINT   idx;
 	UINT   jdx;
-	DOUBLE res;
+#ifdef   _CUDA
+	cudastreams *cudas=_NN(get,cudas)();
+#endif /*_CUDA*/
 	/**/
 	curr_file=NULL;
 	curr_dir =NULL;
@@ -1350,13 +1353,33 @@ void _NN(run,kernel)(nn_def *conf){
 		}
 		switch (_CONF.type){
 		case NN_TYPE_ANN:
+#ifndef  _CUDA
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+#else  /*_CUDA*/
+			/*copy to GPU*/
+			if(cudas->mem_model!=CUDA_MEM_CMM){
+				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
+			}else{
+				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+			}
+#endif /*_CUDA*/
 			ann_kernel_run(_K);
+#ifndef  _CUDA
+			out=_K->output.vec;
+#else  /*_CUDA*/
+			/*copy to GPU*/
+			if(cudas->mem_model!=CUDA_MEM_CMM){
+				ALLOC(out,_K->n_outputs,DOUBLE);
+				CUDA_G2C_CP(out,_K->output.vec,_K->n_outputs,DOUBLE);
+			}else{
+				out=_K->output.vec;
+			}
+#endif /*_CUDA*/
 			res=-1.;is_ok=TRUE;
 			for(idx=0;idx<_K->n_outputs;idx++){
-				if(res<_K->output.vec[idx]) {
+				if(res<out[idx]) {
 					guess=idx;
-					res=_K->output.vec[idx];
+					res=out[idx];
 				}
 				if(tr_out[idx]>0.5) is_ok=idx;
 			}
@@ -1367,16 +1390,36 @@ void _NN(run,kernel)(nn_def *conf){
 			break;
 		case NN_TYPE_LNN:
 		case NN_TYPE_SNN:
+#ifndef  _CUDA
 			ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+#else  /*_CUDA*/
+			/*copy to GPU*/
+			if(cudas->mem_model!=CUDA_MEM_CMM){
+				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
+			}else{
+				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+			}
+#endif /*_CUDA*/
 			snn_kernel_run(_K);
+#ifndef  _CUDA
+			out=_K->output.vec;
+#else  /*_CUDA*/
+			/*copy to GPU*/
+			if(cudas->mem_model!=CUDA_MEM_CMM){
+				ALLOC(out,_K->n_outputs,DOUBLE);
+				CUDA_G2C_CP(out,_K->output.vec,_K->n_outputs,DOUBLE);
+			}else{
+				out=_K->output.vec;
+			}
+#endif /*_CUDA*/
 			res=0.;guess=0;is_ok=0.;
 			NN_DBG(stdout," CLASS | PROBABILITY (%%)\n");
 			NN_DBG(stdout,"-------|----------------\n");
 			for(idx=0;idx<_K->n_outputs;idx++){
 				NN_DBG(stdout,
-					   " %5i | %15.10f\n",idx+1,_K->output.vec[idx]*100.);
-				if(_K->output.vec[idx]>res) {
-					res=_K->output.vec[idx];
+					   " %5i | %15.10f\n",idx+1,out[idx]*100.);
+				if(out[idx]>res) {
+					res=out[idx];
 					guess=idx;
 				}
 				if(tr_out[idx]>0.1) is_ok=idx;
@@ -1394,6 +1437,9 @@ void _NN(run,kernel)(nn_def *conf){
 		FREE(curr_file);
 		FREE(tr_in);
 		FREE(tr_out);
+#ifdef   _CUDA
+		if(cudas->mem_model!=CUDA_MEM_CMM) FREE(out);
+#endif /*_CUDA*/
 	}
 	FREE(curr_dir);
 	FREE(flist);
