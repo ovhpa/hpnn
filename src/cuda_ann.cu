@@ -2216,8 +2216,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	for(idx=(_K.n_hiddens-1);idx>0;idx--){
 		N=_K.hiddens[idx].n_neurons;
 		M=_K.hiddens[idx].n_inputs;
-		red=N/cudas->cuda_n_streams;
-		rem=N%cudas->cuda_n_streams;
+		red=N/total_s;
+		rem=N%total_s;
 #ifdef   _CUBLAS
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> all GPU but last one*/
