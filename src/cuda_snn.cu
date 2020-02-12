@@ -78,7 +78,8 @@ void amb_smax_acc(int n, double *res, double *train, double *out){
 	}else{
 		mySum=0.;
 	}
-	if(i+blockDim.x < n) mySum += -1.0*train[i+blockDim.x]*log(out[i+blockDim.x]+TINY);
+	if(i+blockDim.x < n) 
+		mySum += -1.0*train[i+blockDim.x]*log(out[i+blockDim.x]+TINY);
 	sh_data[tid]=mySum;
 	__syncthreads();
 	/*reduction in shared memory*/
@@ -870,43 +871,122 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*--------------------------------*/
 /*+++ Calculate Training Error +++*/
 /*--------------------------------*/
-double scuda_snn_error(_kernel *kernel,double *train,cudastreams *cudas){
+double scuda_snn_error(kernel_ann *kernel,double *train,cudastreams *cudas){
 	int     jdx;
 	int   N,red;
 	int rem,gpu;
 	int total_s;
 	double dEp=0.;
 	total_s=cudas->cuda_n_streams*cudas->n_gpu;
+	kernel_ann *kx;
+	int kdx;
+/**/
 	N=_K.n_outputs;
 	red=N/total_s;
 	rem=N%total_s;
 #ifdef _CUBLAS
-	for(jdx=0;jdx<total_s-1;jdx++){
-		gpu=jdx/cudas->cuda_n_streams;/*gpu number*/
+if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
+/*>>> all GPU but last one*/
+	for(gpu=0;gpu<cudas->n_gpu-1;gpu++){
 		cudaSetDevice(gpu);
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_stream);
+			cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
+			amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+				(red,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.vec+jdx*red);
+			CHK_ERR(err_amb_smax);
+		}
+	}
+/*>>> last GPU*/
+	cudaSetDevice(gpu);
+	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_stream);
 		cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
 		amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-			(red,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.cuda_v+jdx*red);
+			(red,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.vec+jdx*red);
 		CHK_ERR(err_amb_smax);
 	}
-	gpu=total_s/cudas->cuda_n_streams;/*last gpu and stream*/
-	cudaSetDevice(gpu);
+/*>>> last stream*/
+	jdx=kdx+gpu*(cudas->cuda_n_stream);
 	cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
 	amb_smax<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-		(red+rem,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.cuda_v+jdx*red);
+		(red+rem,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.vec+jdx*red);
 	CHK_ERR(err_amb_smax);
+}else{
+/*>>> first GPU[0]*/
+	cudaSetDevice(0);
+	for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
+		cublasSetStream(cudas->cuda_handle[0],cudas->cuda_streams[jdx]);
+		amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+			(red,_K.tmp_gpu+jdx*red,train+jdx*red,_K.output.vec+jdx*red);
+		CHK_ERR(err_amb_smax);
+	}
+/*>>> next GPUs but the last one*/
+	for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+		cudaSetDevice(gpu);
+		kx=_K.kerns[gpu];
+		/*1- get part of train from GPU[0]*/
+		cudaMemcpy(ptr[gpu],train+gpu*(cudas->cuda_n_stream)*red,
+			cudas->cuda_n_stream*red,cudaMemcpyDeviceToDevice);
+		/*we don't need to sync (I think)*/
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_stream);
+			/*2- calculate on tmp_gpu*/
+			cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
+			amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+				(red,_Kx.tmp_gpu+jdx*red,
+				ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+			CHK_ERR(err_amb_smax);
+			/*3- send result to tmp_gpu on GPU[0]*/
+			cudaMemcpyAsync(_K.tmp_gpu+jdx*red,_Kx.tmp_gpu+jdx*red,red,
+				cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
+			CHK_ERR(error_transfer);
+		}
+	}
+/*>>> last GPU*/
+	cudaSetDevice(gpu);
+	kx=_K.kerns[gpu];
+	/*1- get part of train from GPU[0]*/
+	cudaMemcpy(ptr[gpu],train+gpu*(cudas->cuda_n_stream)*red,
+		cudas->cuda_n_stream*red+rem,cudaMemcpyDeviceToDevice);
+	/*no sync needed (I think)*/
+	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_stream);
+		/*2- calculate on tmp_gpu*/
+		cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
+		amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
+			(red,_Kx.tmp_gpu+jdx*red,
+			ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+		CHK_ERR(err_amb_smax);
+		/*3- send result to tmp_gpu on GPU[0]*/
+		cudaMemcpyAsync(_K.tmp_gpu+jdx*red,_Kx.tmp_gpu+jdx*red,red,
+			cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
+		CHK_ERR(error_transfer);
+	}
+/*>>> last stream*/
+	jdx=kdx+gpu*(cudas->cuda_n_stream);
+	cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
+	amb_smax<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
+		(red+rem,_Kx.tmp_gpu+jdx*red,
+		ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+	CHK_ERR(err_amb_smax);
+	/*3- send result to tmp_gpu on GPU[0]*/
+	cudaMemcpyAsync(_K.tmp_gpu+jdx*red,_Kx.tmp_gpu+jdx*red,red+rem,
+		cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
+	CHK_ERR(error_transfer);
+}
 	/*get dEp*/
 	for(gpu=0;gpu<cudas->n_gpu;gpu++){
 		cudaSetDevice(gpu);
 		cudaDeviceSynchronize();
 	}
-	/*Dasum only on gpu[0]*/
+	/*Dasum only on gpu[0] TODO: optimize on multi-GPU*/
 	cudaSetDevice(0);
 	cublasSetStream(cudas->cuda_handle[0],NULL);
-	cublasDasum(cudas->cuda_handle[gpu],N,_K.tmp_gpu,1,&dEp);
+	cublasDasum(cudas->cuda_handle[0],N,_K.tmp_gpu,1,&dEp);
 	CHK_ERR(err_asum);
 #else /*_CUBLAS*/
-	/*TODO: optimize this one on multi-gpu?*/
+	/*TODO: optimize on multi-GPU*/
 	cudaSetDevice(0);/*only on master GPU*/
 	amb_smax_acc<<<_KG(_K.n_outputs),sizeof(double)*2*(_TPB)>>>
 		(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
