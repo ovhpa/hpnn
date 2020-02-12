@@ -23,11 +23,11 @@
 /*SNN (= ANN + SOFTMAX) uses the same _kernel type as ANN*/
 
 /*functions*/
-void snn_kernel_run(_kernel *kernel);
-DOUBLE snn_kernel_train(_kernel *kernel,const DOUBLE *train);
-DOUBLE snn_kernel_train_momentum(_kernel *kernel,const DOUBLE *train,DOUBLE alpha);
-DOUBLE snn_train_BP(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
-DOUBLE snn_train_BPM(_kernel *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
+void snn_kernel_run(kernel_ann *kernel);
+DOUBLE snn_kernel_train(kernel_ann *kernel,const DOUBLE *train);
+DOUBLE snn_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE alpha);
+DOUBLE snn_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
+DOUBLE snn_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
 
 
 
