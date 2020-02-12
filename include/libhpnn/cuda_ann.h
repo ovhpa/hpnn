@@ -49,7 +49,7 @@ void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas);
 double scuda_ann_error(kernel_ann *kernel,double *train,cudastreams *cudas);
 double scuda_ann_train(kernel_ann *kernel,double *train,cudastreams *cudas);
 void scuda_ann_raz_momentum(kernel_ann *kernel,cudastreams *cudas);
-double scuda_ann_train_momentum(_kernel *kernel,double *train,double moment,
+double scuda_ann_train_momentum(kernel_ann *kernel,double *train,double moment,
 								cudastreams *cudas);
 
 #if __cplusplus

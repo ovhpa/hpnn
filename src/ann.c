@@ -75,10 +75,10 @@ BOOL ann_kernel_free(kernel_ann *kernel){
 	UINT idx;
 	if(kernel==NULL) return FALSE;
 #ifdef   _CUDA
-	scuda_ann_deallocate_new(kernel,_NN(get,cudas)());
+	scuda_ann_deallocate(kernel,_NN(get,cudas)());
 	FREE(KERN.hiddens);
 	FREE(KERN.kerns);
-	scuda_ann_free_momentum_new(kernel,_NN(get,cudas)());
+	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
 	FREE(KERN.dw);
 #else  /*_CUDA*/
 	FREE(KERN.name);
@@ -113,7 +113,7 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 #ifdef _CUDA
 	uint64_t g_allocate=0;
 	cudastreams *cudas=_NN(get,cudas)();
-	UINT n_gpu;
+	UINT n_gpu,jdx;
 #endif /*_CUDA*/
 	UINT idx;
 	if(kernel==NULL) return FALSE;
@@ -154,9 +154,9 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
 #else  /*_CUDA*/
 	_NN(get,n_gpu)(&n_gpu);
-	ALLOC_REPORT(KERN.kerns,n_gpu,kern_ann *,allocate);
+	ALLOC_REPORT(KERN.kerns,n_gpu,kernel_ann *,allocate);
 	if(cudas->mem_model!=CUDA_MEM_EXP){
-		kern_ann *kx;
+		kernel_ann *kx;
 		/*we are going to need n_gpu kernels*/
 		KERN.kerns[0]=kernel;/*1st one is self*/
 		for(idx=1;idx<n_gpu;idx++){
@@ -182,7 +182,7 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 		/*hack: each kerns points to the same kernel*/
 		for(idx=0;idx<n_gpu;idx++) KERN.kerns[idx]=kernel;
 	}
-	g_allocate=scuda_ann_allocate_new(kernel,cudas);
+	g_allocate=scuda_ann_allocate(kernel,cudas);
 #endif /*_CUDA*/
 #ifdef _MPI
 	NN_OUT(stdout,"For each MPI thread:\n");
@@ -380,7 +380,7 @@ jdx=0;
 #ifdef   _CUDA
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		ALLOC(w_ptr,
-			  KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_output,DOUBLE);
+			  KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE);
 	}else{
 		/*CMM memory can be access by CPU directly*/
 		/*TODO: should we prefetch?*/
@@ -421,7 +421,7 @@ do{
 		goto FAIL;
 	}
 	if(n_par>KERN.hiddens[idx].n_inputs){
-		NN_ERROR(stderr,"kernel read: neuron inconsistent input number!\n"));
+		NN_ERROR(stderr,"kernel read: neuron inconsistent input number!\n");
 		NN_ERROR(stderr,"-> n_input=%i (expected %i)!\n",
 				 n_par,KERN.hiddens[idx].n_inputs);
 		NN_ERROR(stderr,"-> hidden layer %i, neuron %i\n",idx+1,jdx+1);
@@ -431,7 +431,7 @@ do{
 	ptr=&(line[0]);SKIP_BLANK(ptr);
 	for(kdx=0;kdx<n_par;kdx++){
 		/*read weights*/
-		GET_DOUBLE(w_ptr[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2));
+		GET_DOUBLE(w_ptr[_2D_IDX(n_par,jdx,kdx)],ptr,ptr2);
 		ASSERT_GOTO(ptr2,FAIL);
 		ptr=ptr2+1;SKIP_BLANK(ptr);
 	}
@@ -472,7 +472,7 @@ jdx=0;
 /*prepare array*/
 #ifdef   _CUDA
 	if(cudas->mem_model!=CUDA_MEM_CMM){
-		ALLOC(w_ptr,KERN.output.n_inputs*KERN.output.n_output,DOUBLE);
+		ALLOC(w_ptr,KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE);
 	}else{
 		/*CMM memory can be access by CPU directly*/
 		/*TODO: should we prefetch?*/
@@ -496,7 +496,7 @@ do{
 	}
 	GET_UINT(n_par,ptr,ptr2);/*this is hidden index*/
 	if(n_par<1) {
-		NN_ERROR(stderr,"kernel read: neuron number<1\n"));
+		NN_ERROR(stderr,"kernel read: neuron number<1\n");
 		NN_ERROR(stderr,"-> output layer, neuron %i\n",jdx+1);
 		goto FAIL;
 	}
@@ -621,6 +621,7 @@ kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
 	UINT64 allocate;
 	UINT   idx, jdx;
 	DOUBLE temp_rnd;
+	UINT N,M;
 #ifdef _CUDA
 	cudastreams *cudas=_NN(get,cudas)();
 #endif
@@ -640,15 +641,15 @@ if(stream==0){/*master kernel generation*/
 	srandom(*seed);
 	/*allocation*/
 	ALLOC_REPORT(kernel,1,kernel_ann,allocate);
-	ann_kernel_allocate(kernel,n_in,n_hid,parameter,n_out);
+	ann_kernel_allocate(kernel,n_inputs,n_hiddens,hiddens,n_outputs);
 	/*randomly fill hidden weights*/
 	for(idx=0;idx<n_hiddens;idx++){
-		N=*KERN.hiddens[idx].n_neurons;
+		N=KERN.hiddens[idx].n_neurons;
 		M=KERN.hiddens[idx].n_inputs;
 		/*prepare array*/
 #ifdef   _CUDA
 		if(cudas->mem_model!=CUDA_MEM_CMM){
-			ALLOC(w_ptr,N*M,DOUBLE));
+			ALLOC(w_ptr,N*M,DOUBLE);
 		}else{
 			/*CMM memory can be access by CPU directly*/
 			/*TODO: should we prefetch?*/
@@ -756,7 +757,11 @@ void ann_dump(kernel_ann *kernel,FILE *out){
 	UINT idx;
 	UINT jdx;
 	UINT kdx;
+	UINT N,M;
 	DOUBLE *w_ptr;
+#ifdef _CUDA
+	cudastreams *cudas=_NN(get,cudas)();
+#endif
 #ifdef _MPI
 	UINT n_streams,stream;
 	_NN(get,mpi_tasks)(&n_streams);
@@ -784,7 +789,7 @@ if(stream==0){/*only master writes*/
 		/*prepare array*/
 #ifdef   _CUDA
 		if(cudas->mem_model!=CUDA_MEM_CMM){
-			ALLOC(w_ptr,N*M,DOUBLE));
+			ALLOC(w_ptr,N*M,DOUBLE);
 			scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 		}else{
 			/*CMM memory can be access by CPU directly*/
@@ -808,7 +813,7 @@ if(stream==0){/*only master writes*/
 #ifdef   _CUDA
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		FREE(w_ptr);
-		ALLOC(w_ptr,N*M,DOUBLE));
+		ALLOC(w_ptr,N*M,DOUBLE);
 		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	}else{
 		/*CMM memory can be access by CPU directly*/
@@ -1842,7 +1847,7 @@ void ann_momentum_free(kernel_ann *kernel){
 	FREE(KERN.dw[KERN.n_hiddens]);
 #else  /*_CUDA*/
 	/*allocate everything in CUDA*/
-	scuda_ann_free_momentum(kernel);
+	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
 #endif /*_CUDA*/
 	FREE(KERN.dw);
 }
