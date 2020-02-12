@@ -323,8 +323,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
 	jdx=kdx+gpu*(cudas->cuda_n_streams);
 	fw_mv_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-		(M,red+rem,_K.hiddens[0].cuda_w+jdx*M*red,_K.cuda_in,
-			_K.hiddens[0].cuda_v+jdx*red);
+		(M,red+rem,_K.hiddens[0].weights+jdx*M*red,_K.in,
+			_K.hiddens[0].vec+jdx*red);
 	CHK_ERR(fw_mv_acc);
 }else{
 /*>>> first GPU[0]*/
@@ -1002,7 +1002,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	/*TODO: optimize on multi-GPU*/
 	cudaSetDevice(0);/*only on master GPU*/
 	amb_smax_acc<<<_KG(_K.n_outputs),sizeof(double)*2*(_TPB)>>>
-		(_K.n_outputs,_K.tmp_gpu,train,_K.output.cuda_v);
+		(_K.n_outputs,_K.tmp_gpu,train,_K.output.vec);
 	CHK_ERR(err_amb_smax_acc);
 	CUDA_G2C_CP(&dEp,&(_K.tmp_gpu[0]),1,double);
 	CHK_ERR(err_g2c_cp);
@@ -2037,7 +2037,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
 	jdx=kdx+gpu*(cudas->cuda_n_streams);
 	ger_acc<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-		(M,red+rem,LEARN_RATE,tmp_gpu+jdx*red,
+		(M,red+rem,LEARN_RATE,_Kx.tmp_gpu+jdx*red,
 		_Kx.hiddens[_Kx.n_hiddens-1].vec,_Kx.output.weights+jdx*M*red);
 	CHK_ERR(train_ger_acc);
 	/*3- transfer back weights to GPU[0]*/
@@ -3259,6 +3259,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		_Kx.hiddens[0].weights+jdx*M*red,
 		M*(red+rem),cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
 	CHK_ERR(delta_transfer);
+}
 #endif /*_CUBLAS*/
 	for(gpu=0;gpu<cudas->n_gpu;gpu++){
 		cudaSetDevice(gpu);
