@@ -340,12 +340,14 @@
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA alloc error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA report: %s\n",cudaGetErrorString(_err));\
 		exit(-1);\
 	}\
 	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
+		_OUT(stderr,"CUDA report: %si\n",cudaGetErrorString(_err));\
 		exit(-1);\
 	}\
 }while(0)

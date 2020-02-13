@@ -514,7 +514,7 @@ if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
 		NVCC="$use_nvcc"
 		AC_SUBST(NVCC)
 		CFLAGS+=" -D_CUDA"
-		NVCCFLAGS+="-w --device-w --default-stream per-thread --use_fast_math -lineinfo -D_CUDA"
+		NVCCFLAGS+=" -w --device-w --default-stream per-thread --use_fast_math -lineinfo -D_CUDA"
 		#now (and only now) check for cublas
 		if test "x$enable_cublas" != xno; then
 			AC_CHECK_HEADERS([cublas_v2.h],[auto_cublas='yes'],[auto_cublas='no'])
