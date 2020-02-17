@@ -347,7 +347,7 @@
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
-		_OUT(stderr,"CUDA report: %si\n",cudaGetErrorString(_err));\
+		_OUT(stderr,"CUDA report: %s\n",cudaGetErrorString(_err));\
 		exit(-1);\
 	}\
 }while(0)
@@ -390,7 +390,10 @@
 	mem+=size*sizeof(type);\
 }while(0)
 
-
+#define CUDA_LAST_ERROR(num) do{\
+	cudaError_t _err=cudaGetLastError();\
+	_OUT(stderr,"CUDA step %i report: %s\n",num,cudaGetErrorString(_err));\
+}while(0)
 
 /*sync*/
 #define CUDA_C2G_CP(cpu,gpu,size,type) do{\

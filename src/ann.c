@@ -154,8 +154,9 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
 #else  /*_CUDA*/
 	_NN(get,n_gpu)(&n_gpu);
+if(n_gpu>1){
 	ALLOC_REPORT(KERN.kerns,n_gpu,kernel_ann *,allocate);
-	if(cudas->mem_model!=CUDA_MEM_EXP){
+	if(cudas->mem_model==CUDA_MEM_EXP){
 		kernel_ann *kx;
 		/*we are going to need n_gpu kernels*/
 		KERN.kerns[0]=kernel;/*1st one is self*/
@@ -182,6 +183,9 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 		/*hack: each kerns points to the same kernel*/
 		for(idx=0;idx<n_gpu;idx++) KERN.kerns[idx]=kernel;
 	}
+}else{
+	KERN.kerns=NULL;
+}
 	g_allocate=scuda_ann_allocate(kernel,cudas);
 #endif /*_CUDA*/
 #ifdef _MPI
@@ -784,7 +788,8 @@ if(stream==0){/*only master writes*/
 /*before dumping, we need to sync*/
 	NN_WRITE(out,"[name] %s\n",KERN.name);
 	NN_WRITE(out,"[param] %i",KERN.n_inputs);
-	for(idx=0;idx<KERN.n_hiddens;idx++) NN_WRITE(out," %i",KERN.hiddens[idx].n_neurons);
+	for(idx=0;idx<KERN.n_hiddens;idx++) 
+		NN_WRITE(out," %i",KERN.hiddens[idx].n_neurons);
 	NN_WRITE(out," %i\n",KERN.output.n_neurons);
 	NN_WRITE(out,"[input] %i\n",KERN.n_inputs);
 	for(idx=0;idx<KERN.n_hiddens;idx++) {
