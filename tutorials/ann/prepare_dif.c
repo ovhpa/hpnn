@@ -28,13 +28,7 @@
 
 /*[1] http://rruff.info/about/about_general.php */
 
-/*we need to define atom_symb, space_groups at least once per program*/
-#define NEED_ATOM_LIST
-#define NEED_SG_LIST
-#include "atom.def"
-#include "sg.def"
-#undef NEED_ATOM_LIST
-#undef NEED_SG_LIST
+#include <libhpnn/common.h>
 #include "file_dif.h"
 
 void dump_help(){

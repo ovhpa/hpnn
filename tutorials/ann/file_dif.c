@@ -23,10 +23,9 @@
 #include "file_dif.h"
 
 /*we dont need the full definition*/
-#ifdef NEED_ATOM_LIST
-#undef NEED_ATOM_LIST
-#endif
+#define NEED_ATOM_LIST
 #include "atom.def"
+#define NEED_SG_LIST
 #include "sg.def"
 
 #define DIF (*dif)
@@ -394,7 +393,7 @@ if(idx<NUM_GROUPS)
 	fprintf(stdout,"      SPACE GROUP: %s (%i)\n",
 	        space_groups_hm[idx],(UINT) DIF.space);
 else
-	printf(stdout,"      SPACE GROUP: %i\n",(UINT) DIF.space);
+	fprintf(stdout,"      SPACE GROUP: %i\n",(UINT) DIF.space);
 
 fprintf(stdout,"\n");
 fprintf(stdout,

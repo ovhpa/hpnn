@@ -1188,7 +1188,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		NN_OUT(stdout,"TRAINING FILE: %s\t",curr_file);
+		NN_OUT(stdout,"TRAINING FILE: %16.16s\t",curr_file);
 		/*this should never happen (but static analysis choked)*/
 		if(curr_file==NULL) continue;
 		STRCAT(tmp,curr_dir,curr_file);
@@ -1339,7 +1339,7 @@ void _NN(run,kernel)(nn_def *conf){
 		}
 		STRDUP(flist[idx],curr_file);
 		FREE(flist[idx]);flist[idx]=NULL;jdx++;
-		NN_OUT(stdout,"TESTING FILE: %s\t",curr_file);
+		NN_OUT(stdout,"TESTING FILE: %16.16s\t",curr_file);
 		/*this should never happen (but static analysis choked)*/
 		if(curr_file==NULL) continue;
 		STRCAT(tmp,curr_dir,curr_file);
