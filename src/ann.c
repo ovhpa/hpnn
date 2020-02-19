@@ -144,14 +144,14 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 	ALLOC_REPORT(KERN.in,n_inputs,DOUBLE,allocate);
 	for(idx=0;idx<n_hiddens;idx++){
 		ALLOC_REPORT(KERN.hiddens[idx].weights,
-			KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_outputs,
+			KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,
 			DOUBLE,allocate);
-		ALLOC_REPORT(KERN.hiddens[idx].vec,KERN.hiddens[idx].n_outputs,
+		ALLOC_REPORT(KERN.hiddens[idx].vec,KERN.hiddens[idx].n_neurons,
 			DOUBLE,allocate);
 	}
-	ALLOC_REPORT(KERN.output.weights,n_outputs*h_neurons[n_hiddens-1],
-			DOUBLE,allocate);
-	ALLOC_REPORT(KERN.output.vec,n_outputs,DOUBLE,allocate);
+	ALLOC_REPORT(KERN.output.weights,
+		KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,allocate);
+	ALLOC_REPORT(KERN.output.vec,KERN.output.n_neurons,DOUBLE,allocate);
 #else  /*_CUDA*/
 	_NN(get,n_gpu)(&n_gpu);
 if(n_gpu>1){
@@ -1819,10 +1819,14 @@ void ann_momentum_init(kernel_ann *kernel){
 	/*common CPU part*/
 	ALLOC_REPORT(KERN.dw,KERN.n_hiddens+1,DOUBLE *,allocate);
 #ifndef _CUDA
-	ALLOC_REPORT(KERN.dw[KERN.n_hiddens],KERN.output.n_inputs*KERN.output.n_neurons,DOUBLE,allocate);
 	for(idx=0;idx<KERN.n_hiddens;idx++){
-		ALLOC_REPORT(KERN.dw[idx],KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,DOUBLE,allocate);
+		ALLOC_REPORT(KERN.dw[idx],
+			KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons,
+			DOUBLE,allocate);
 	}
+	ALLOC_REPORT(KERN.dw[idx],
+		KERN.output.n_inputs*KERN.output.n_neurons,
+		DOUBLE,allocate);
 #else  /*_CUDA*/
 	UINT64 g_allocate=0;
 	g_allocate=scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
@@ -1838,9 +1842,12 @@ void ann_momentum_init(kernel_ann *kernel){
 void ann_raz_momentum(kernel_ann *kernel){
 	UINT idx;
 #ifndef  _CUDA
-	memset(KERN.dw[0],0,sizeof(DOUBLE)*KERN.output.n_inputs*KERN.output.n_neurons);
-	for(idx=0;idx<KERN.n_hiddens;idx++)
-		memset(KERN.dw[idx],0,sizeof(DOUBLE)*KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons);
+	for(idx=0;idx<KERN.n_hiddens;idx++){
+		memset(KERN.dw[idx],0,sizeof(DOUBLE)*
+		(KERN.hiddens[idx].n_inputs*KERN.hiddens[idx].n_neurons));
+	}
+	memset(KERN.dw[KERN.n_hiddens],0,sizeof(DOUBLE)*
+		(KERN.output.n_inputs*KERN.output.n_neurons));
 #else  /*_CUDA*/
 	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
 #endif /*_CUDA*/
@@ -2244,7 +2251,8 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 		ptr=kernel->tmp_cpu;
 }else{
 		/*CMM can use GPU memory directly*/
-		/*TODO: require prefetch?*/
+		cudaMemPrefetchAsync(kernel->output.vec,
+			kernel->n_outputs*sizeof(DOUBLE),cudaCpuDeviceId,NULL);
 		ptr=kernel->output.vec;
 }
 #else /*_CUDA*/
@@ -2323,7 +2331,8 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 		ptr=kernel->tmp_cpu;
 }else{
 		/*CMM can use GPU memory directly*/
-		/*TODO: require prefetch?*/
+		cudaMemPrefetchAsync(kernel->output.vec,
+			kernel->n_outputs*sizeof(DOUBLE),cudaCpuDeviceId,NULL);
 		ptr=kernel->output.vec;
 }
 #else /*_CUDA*/

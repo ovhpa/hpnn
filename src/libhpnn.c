@@ -214,6 +214,7 @@ BOOL _NN(init,CUDA)(){
 		CHK_ERR(init_device_handle);
 	}
 #endif /*_CUBLAS*/
+	lib_runtime.cudas.mem_model=CUDA_MEM_CMM;/*FIXME: remove (here for TEST)*/
 	/*deal with multi-GPU*/
 	if(lib_runtime.cudas.n_gpu>1){
 		BOOL test_mem;
