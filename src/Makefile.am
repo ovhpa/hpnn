@@ -43,6 +43,20 @@ EXTRA_DIST = \
 
 if HAVE_CUDA
 # THE only working so far
+
+nvcc_verbose = $(nvcc_verbose_$(V))
+nvcc_verbose_ = $(nvcc_verbose_$(AM_DEFAULT_VERBOSITY))
+nvcc_verbose_0 = @echo "  NVCC  " $@; 
+nvcc_verbose_1 = 
+
+ltnvcc_verbose = $(ltnvcc_verbose_$(V))
+ltnvcc_verbose_ = $(ltnvcc_verbose_$(AM_DEFAULT_VERBOSITY))
+ltnvcc_verbose_0 = --quiet
+ltnvcc_verbose_1 =
+
+
 .cu.lo:
-	$(LIBTOOL) --tag=CC --mode=compile $(NVCC) --compile -Xcompiler="-fPIC -DPIC" $(NVCCFLAGS) $(AM_CFLAGS) -o $@ $^ -prefer-non-pic 
+	$(nvcc_verbose)$(LIBTOOL) $(ltnvcc_verbose) --tag=CC --mode=compile $(NVCC) --compile -Xcompiler="-fPIC -DPIC" $(NVCCFLAGS) $(AM_CFLAGS) -o $@ $^ -prefer-non-pic
+
+
 endif
