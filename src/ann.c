@@ -671,12 +671,12 @@ if(stream==0){/*master kernel generation*/
 //			KERN.hiddens[idx].weights[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
 			w_ptr[jdx]=2.0*(temp_rnd-0.5)/sqrt((DOUBLE)M);
 		}
-	}
 #ifdef   _CUDA
-	/*transfer to GPU*/
-	scuda_ann_weight_transfer_C2G(kernel,idx,w_ptr,cudas);
-	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+		/*transfer back w_ptr to GPU*/
+		scuda_ann_weight_transfer_C2G(kernel,idx,w_ptr,cudas);
+		if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
 #endif /*_CUDA*/
+	}
 	/*randomly fill output weight*/
 	N=KERN.output.n_neurons;
 	M=KERN.output.n_inputs;
