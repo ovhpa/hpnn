@@ -214,7 +214,7 @@ BOOL _NN(init,CUDA)(){
 		CHK_ERR(init_device_handle);
 	}
 #endif /*_CUBLAS*/
-	lib_runtime.cudas.mem_model=CUDA_MEM_CMM;/*FIXME: remove (here for TEST)*/
+//	lib_runtime.cudas.mem_model=CUDA_MEM_CMM;// TEST CMM
 	/*deal with multi-GPU*/
 	if(lib_runtime.cudas.n_gpu>1){
 		BOOL test_mem;
@@ -1237,6 +1237,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
 				res=0.;
 				break;
 			}
+			break;
 		case NN_TYPE_UKN:
 			res=0.;/*not ready yet*/
 			break;
@@ -1283,6 +1284,7 @@ void _NN(run,kernel)(nn_def *conf){
 	UINT   jdx;
 #ifdef   _CUDA
 	cudastreams *cudas=_NN(get,cudas)();
+	cudaSetDevice(0);/*useful?*/
 #endif /*_CUDA*/
 	/**/
 	curr_file=NULL;
@@ -1332,6 +1334,13 @@ void _NN(run,kernel)(nn_def *conf){
 	jdx=0;
 	while(jdx<file_number){
 #define _K ((kernel_ann *)(_CONF.kernel))
+#ifdef   _CUDA
+		if(cudas->mem_model==CUDA_MEM_CMM){
+			/*Prefetch input array to CPU*/
+			cudaMemPrefetchAsync(_K->in,
+				_K->n_inputs*sizeof(DOUBLE),cudaCpuDeviceId,NULL);
+		}
+#endif /*_CUDA*/
 		/*get a random number between 0 and file_number-1*/
 		idx=(UINT) ((DOUBLE) random()*file_number / RAND_MAX);
 		while(flist[idx]==NULL){
@@ -1361,7 +1370,12 @@ void _NN(run,kernel)(nn_def *conf){
 			if(cudas->mem_model!=CUDA_MEM_CMM){
 				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
 			}else{
+				cudaDeviceSynchronize();/*we are still on GPU[0]*/
 				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+				/*Prefetch input array to GPU[0]*/
+				cudaMemPrefetchAsync(_K->in,
+					_K->n_inputs*sizeof(DOUBLE),0,NULL);
+				cudaDeviceSynchronize();/*necessary?*/
 			}
 #endif /*_CUDA*/
 			ann_kernel_run(_K);
@@ -1373,7 +1387,12 @@ void _NN(run,kernel)(nn_def *conf){
 				ALLOC(out,_K->n_outputs,DOUBLE);
 				CUDA_G2C_CP(out,_K->output.vec,_K->n_outputs,DOUBLE);
 			}else{
+				/*Prefetch the output array to CPU*/
+				cudaSetDevice(0);/*useful?*/
+				cudaMemPrefetchAsync(_K->output.vec,
+					_K->n_outputs*sizeof(DOUBLE),cudaCpuDeviceId,NULL);
 				out=_K->output.vec;
+				cudaDeviceSynchronize();/*necessary?*/
 			}
 #endif /*_CUDA*/
 			res=-1.;is_ok=TRUE;
@@ -1398,7 +1417,12 @@ void _NN(run,kernel)(nn_def *conf){
 			if(cudas->mem_model!=CUDA_MEM_CMM){
 				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
 			}else{
+				cudaDeviceSynchronize();/*we are still on GPU[0]*/
 				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
+				/*Prefetch input array to GPU[0]*/
+				cudaMemPrefetchAsync(_K->in,
+					_K->n_inputs*sizeof(DOUBLE),0,NULL);
+				cudaDeviceSynchronize();/*necessary?*/
 			}
 #endif /*_CUDA*/
 			snn_kernel_run(_K);
@@ -1410,7 +1434,12 @@ void _NN(run,kernel)(nn_def *conf){
 				ALLOC(out,_K->n_outputs,DOUBLE);
 				CUDA_G2C_CP(out,_K->output.vec,_K->n_outputs,DOUBLE);
 			}else{
+				/*Prefetch the output array to CPU*/
+				cudaSetDevice(0);/*useful?*/
+				cudaMemPrefetchAsync(_K->output.vec,
+					_K->n_outputs*sizeof(DOUBLE),cudaCpuDeviceId,NULL);
 				out=_K->output.vec;
+				cudaDeviceSynchronize();/*necessary?*/
 			}
 #endif /*_CUDA*/
 			res=0.;guess=0;is_ok=0.;
@@ -1440,6 +1469,11 @@ void _NN(run,kernel)(nn_def *conf){
 		FREE(tr_out);
 #ifdef   _CUDA
 		if(cudas->mem_model!=CUDA_MEM_CMM) FREE(out);
+		else{
+			/*Prefetch output array to GPU[0]*/
+			cudaMemPrefetchAsync(_K->output.vec,
+				_K->n_outputs*sizeof(DOUBLE),0,NULL);
+		}
 #endif /*_CUDA*/
 	}
 	FREE(curr_dir);

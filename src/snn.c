@@ -1458,7 +1458,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 		ptr=kernel->output.vec;
 #endif /*_CUDA*/
 		/*1- determine max_p, p_trg -- TODO start from probe=-inf?*/
-		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
+		probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
 			if(probe<ptr[idx]){
 				probe=ptr[idx];
@@ -1535,7 +1535,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 		ptr=kernel->output.vec;
 #endif /*_CUDA*/
 		/*1- determine max_p, p_trg*/
-		is_ok=TRUE;probe=-1.0;max_p=0;p_trg=0;
+		probe=-1.0;max_p=0;p_trg=0;
 		for(idx=0;idx<KERN.n_outputs;idx++){
 			if(probe < ptr[idx]){
 				probe = ptr[idx];
