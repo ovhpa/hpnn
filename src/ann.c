@@ -217,7 +217,7 @@ kernel_ann *ann_load(CHAR *f_kernel){
 	UINT n_out;
 	UINT n_hid;
 	UINT n_par;
-	DOUBLE *w_ptr;
+	DOUBLE *w_ptr=NULL;
 #ifdef _CUDA
 	cudastreams *cudas=_NN(get,cudas)();
 #endif /*_CUDA*/
@@ -614,6 +614,9 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 load_kernel_fail:
 	MPI_BAIL_SEND;
 	/*un-allocate kernel*/
+#ifdef   _CUDA
+	if(cudas->mem_model!=CUDA_MEM_CMM) FREE(w_ptr);
+#endif /*_CUDA*/
 	ann_kernel_free(kernel);
 	FREE(kernel);
 	FREE(name);
@@ -766,7 +769,7 @@ void ann_dump(kernel_ann *kernel,FILE *out){
 	UINT jdx;
 	UINT kdx;
 	UINT N,M;
-	DOUBLE *w_ptr;
+	DOUBLE *w_ptr=NULL;
 #ifdef _CUDA
 	cudastreams *cudas=_NN(get,cudas)();
 #endif

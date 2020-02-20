@@ -1395,7 +1395,7 @@ void _NN(run,kernel)(nn_def *conf){
 				cudaDeviceSynchronize();/*necessary?*/
 			}
 #endif /*_CUDA*/
-			res=-1.;is_ok=TRUE;
+			res=-1.;is_ok=TRUE;guess=_K->n_outputs;
 			for(idx=0;idx<_K->n_outputs;idx++){
 				if(res<out[idx]) {
 					guess=idx;

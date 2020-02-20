@@ -61,7 +61,7 @@ void dump_help(){
 }
 int main (int argc, char *argv[]){
 	UINT idx,jdx;
-	nn_def *neural;
+	nn_def *neural=NULL;
 	BOOL have_filename=FALSE;
 #ifdef _OMP
 	UINT  n_o, n_b;
@@ -222,7 +222,7 @@ next_arg:
 	_NN(deinit,all)();
 	return 0;
 FAIL:
-	_NN(deinit,conf)(neural);
+	if(neural!=NULL) _NN(deinit,conf)(neural);
 	FREE(neural);
 	_NN(deinit,all)();
 	FREE(nn_filename);
