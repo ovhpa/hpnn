@@ -378,7 +378,7 @@ void scuda_ann_weight_transfer_C2G
 		}
 		break;
 	case CUDA_MEM_CMM:
-		/*cuda CMM can be access directly on GPU*/
+		/*weights can be access directly on GPU*/
 		break;
 	default:
 		return;
@@ -412,7 +412,7 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 		}
 		break;
 	case CUDA_MEM_CMM:
-		/*cuda CMM can be access directly on CPU*/
+		/*weights can be access directly on CPU*/
 		break;
 	default:
 		return;
@@ -434,9 +434,100 @@ void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas){
 	kernel_ann *kx;
 	int kdx;
 	total_s=cudas->cuda_n_streams*cudas->n_gpu;
-	if(cudas->mem_model==CUDA_MEM_CMM){
-		/*prefetch all kernel?*/
+if(cudas->mem_model==CUDA_MEM_CMM){
+	/*Prefetch everything now*/
+/*>>> all GPU but last one*/
+	for(gpu=0;gpu<cudas->n_gpu-1;gpu++){
+		cudaSetDevice(gpu);
+		/*prefetch all input for all GPUs*/
+		cudaMemPrefetchAsync(_K.in,_K.n_inputs*sizeof(double),gpu,NULL);
+		/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+		for(idx=1;idx<_K.n_hiddens;idx++){
+			N=_K.hiddens[idx].n_neurons;
+			M=_K.hiddens[idx].n_inputs;
+			red=N/total_s;
+			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+				jdx=kdx+gpu*(cudas->cuda_n_streams);
+				cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+					M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+				cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+					red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			}
+		}
+		/*prefetch output.weights and output.vec*/
+		N=_K.output.n_neurons;
+		M=_K.output.n_inputs;
+		red=N/total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+				M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+				red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
 	}
+/*>>> last GPU*/
+	cudaSetDevice(gpu);
+	/*prefetch all input for all GPUs*/
+	cudaMemPrefetchAsync(_K.in,_K.n_inputs*sizeof(double),gpu,NULL);
+	/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+	for(idx=1;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		red=N/total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+				M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+				red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
+	}
+	/*prefetch output.weights and output.vec*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	red=N/total_s;
+	for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_streams);
+		cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+			M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+			red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+	}
+/*>>> last stream*/
+	jdx=total_s-1;
+	/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+	for(idx=1;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		red=N/total_s;
+		rem=N%total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+				M*(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+				(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
+	}
+	/*prefetch output.weights and output.vec*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	red=N/total_s;
+	rem=N%total_s;
+	for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_streams);
+		cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+			M*(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+		(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+	}
+	/*sync all streams/threads on all GPUs*/
+	for(gpu=0;gpu<cudas->n_gpu;gpu++){
+		cudaSetDevice(gpu);
+		cudaDeviceSynchronize();
+	}
+}
 /*+++ I - input +++*/
 	N=_K.hiddens[0].n_neurons;
 	M=_K.hiddens[0].n_inputs;

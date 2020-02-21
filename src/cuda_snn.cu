@@ -163,6 +163,100 @@ void scuda_snn_forward(kernel_ann *kernel,cudastreams *cudas){
 	kernel_ann *kx;
 	int kdx;
 	total_s=cudas->cuda_n_streams*cudas->n_gpu;
+if(cudas->mem_model==CUDA_MEM_CMM){
+	/*Prefetch everything now*/
+/*>>> all GPU but last one*/
+	for(gpu=0;gpu<cudas->n_gpu-1;gpu++){
+		cudaSetDevice(gpu);
+		/*prefetch all input for all GPUs*/
+		cudaMemPrefetchAsync(_K.in,_K.n_inputs*sizeof(double),gpu,NULL);
+		/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+		for(idx=1;idx<_K.n_hiddens;idx++){
+			N=_K.hiddens[idx].n_neurons;
+			M=_K.hiddens[idx].n_inputs;
+			red=N/total_s;
+			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+				jdx=kdx+gpu*(cudas->cuda_n_streams);
+				cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+					M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+				cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+					red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			}
+		}
+		/*prefetch output.weights and output.vec*/
+		N=_K.output.n_neurons;
+		M=_K.output.n_inputs;
+		red=N/total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+				M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+				red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
+	}
+/*>>> last GPU*/
+	cudaSetDevice(gpu);
+	/*prefetch all input for all GPUs*/
+	cudaMemPrefetchAsync(_K.in,_K.n_inputs*sizeof(double),gpu,NULL);
+	/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+	for(idx=1;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		red=N/total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+				M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+				red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
+	}
+	/*prefetch output.weights and output.vec*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	red=N/total_s;
+	for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_streams);
+		cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+			M*red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+			red*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+	}
+/*>>> last stream*/
+	jdx=total_s-1;
+	/*prefetch hiddens[idx].weights and hiddens[idx].vec*/
+	for(idx=1;idx<_K.n_hiddens;idx++){
+		N=_K.hiddens[idx].n_neurons;
+		M=_K.hiddens[idx].n_inputs;
+		red=N/total_s;
+		rem=N%total_s;
+		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+			jdx=kdx+gpu*(cudas->cuda_n_streams);
+			cudaMemPrefetchAsync(_K.hiddens[idx].weights+jdx*M*red,
+				M*(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+			cudaMemPrefetchAsync(_K.hiddens[idx].vec+jdx*red,
+				(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		}
+	}
+	/*prefetch output.weights and output.vec*/
+	N=_K.output.n_neurons;
+	M=_K.output.n_inputs;
+	red=N/total_s;
+	rem=N%total_s;
+	for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
+		jdx=kdx+gpu*(cudas->cuda_n_streams);
+		cudaMemPrefetchAsync(_K.output.weights+jdx*M*red,
+			M*(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+		cudaMemPrefetchAsync(_K.output.vec+jdx*red,
+		(red+rem)*sizeof(double),gpu,cudas->cuda_streams[jdx]);
+	}
+	/*sync all streams/threads on all GPUs*/
+	for(gpu=0;gpu<cudas->n_gpu;gpu++){
+		cudaSetDevice(gpu);
+		cudaDeviceSynchronize();
+	}
+}
 /*+++ I - input +++*/
 	N=_K.hiddens[0].n_neurons;
 	M=_K.hiddens[0].n_inputs;
@@ -845,7 +939,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	/*SOFTMAX: calculate dv*/
 	CUDA_G2C_CP(&dv,&(_K.tmp_gpu[0]),1,double);
 	dv+=TINY;
-	/*SOFTMAX: calculate output*/
+	/*SOFTMAX: calculate output on GPU[0]*/
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		fw_scal<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
 			(red,dv,_K.output.vec+jdx*red);
@@ -853,6 +947,9 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	}
 	fw_scal<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 		(red+rem,dv,_K.output.vec+jdx*red);
+if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
+	/*nothing to do?*/
+}else{
 	/*put back vec from GPU[0] to all GPUs*/
 	for(jdx=0;jdx<cudas->cuda_n_streams-1;jdx++){
 		for(gpu=1;gpu<cudas->n_gpu;gpu++){
@@ -867,6 +964,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaMemcpyAsync(_Kx.output.vec+jdx*red,_K.output.vec+jdx*red,
 			red+rem,cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
 	}
+}
 	cudaDeviceSynchronize();/*sync GPU[0]*/
 }
 /*--------------------------------*/
