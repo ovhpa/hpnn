@@ -179,7 +179,8 @@ BOOL _NN(init,CUDA)(){
 	return FALSE;
 #else /*_CUDA*/
 	int is_ok,gpu;
-	cudaGetDeviceCount(&(lib_runtime.cudas.n_gpu));
+	cudaGetDeviceCount(&(gpu));
+	lib_runtime.cudas.n_gpu=(UINT)gpu;
 	CHK_ERR(init_device_count);
 	if(lib_runtime.cudas.n_gpu<1) {
 		NN_WARN(stderr,"CUDA error: no CUDA-capable device reported.\n");
@@ -242,7 +243,7 @@ BOOL _NN(init,CUDA)(){
 				CHK_ERR(chk_cmm_access);
 				test_mem&=(is_ok==1);
 			}
-			if(test_mem=TRUE) lib_runtime.cudas.mem_model=CUDA_MEM_CMM;
+			if(test_mem==TRUE) lib_runtime.cudas.mem_model=CUDA_MEM_CMM;
 			else{
 				lib_runtime.cudas.mem_model=CUDA_MEM_EXP;
 			}
@@ -271,6 +272,7 @@ BOOL _NN(init,CUDA)(){
 			return FALSE;
 	}
 #endif /*_CUDA*/
+	return TRUE;
 }
 BOOL _NN(init,BLAS)(){
 #if !defined (PBLAS) && !defined (SBLAS)
@@ -434,6 +436,7 @@ BOOL _NN(get,n_gpu)(UINT *n_gpu){
 	return FALSE;
 #else  /*_CUDA*/
 	*n_gpu=lib_runtime.cudas.n_gpu;
+	return TRUE;
 #endif /*_CUDA*/
 }
 BOOL _NN(set,cuda_streams)(UINT n_streams){
