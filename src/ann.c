@@ -2227,7 +2227,11 @@ DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
+if(cudas->mem_model==CUDA_MEM_CMM){
+	CUDA_ALLOC_MM(train_gpu,KERN.n_outputs,DOUBLE);
+}else{
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
+}
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
 	scuda_ann_forward(kernel,cudas);
 	dEp=scuda_ann_error(kernel,train_gpu,cudas);
@@ -2308,7 +2312,11 @@ DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
+if(cudas->mem_model==CUDA_MEM_CMM){
+	CUDA_ALLOC_MM(train_gpu,KERN.n_outputs,DOUBLE);
+}else{
 	CUDA_ALLOC(train_gpu,KERN.n_outputs,DOUBLE);
+}
 	CUDA_C2G_CP(train_out,train_gpu,KERN.n_outputs,DOUBLE);
 	scuda_ann_forward(kernel,cudas);
 	dEp=scuda_ann_error(kernel,train_gpu,cudas);

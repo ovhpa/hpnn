@@ -1097,7 +1097,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cublasDasum(cudas->cuda_handle[0],N,_K.tmp_gpu,1,&dEp);
 	CHK_ERR(err_asum);
 #else /*_CUBLAS*/
-	/*TODO: optimize on multi-GPU*/
+	/*TODO: optimize on multi-GPU similarly to CUBLAS (w/ kernel dasum)*/
 	cudaSetDevice(0);/*only on master GPU*/
 	amb_smax_acc<<<_KG(_K.n_outputs),sizeof(double)*2*(_TPB)>>>
 		(_K.n_outputs,_K.tmp_gpu,train,_K.output.vec);

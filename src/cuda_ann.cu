@@ -1255,12 +1255,17 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*-----------------------------------------------*/
 double scuda_ann_error(kernel_ann *kernel,double *train,cudastreams *cudas){
 	double dEp=0.;
+if(cudas->mem_model==CUDA_MEM_CMM){
+	cudaMemPrefetchAsync(_K.output.vec,_K.n_outputs*sizeof(double),0,NULL);
+	cudaMemPrefetchAsync(_K.tmp_gpu,_K.n_outputs*sizeof(double),0,NULL);
+	cudaMemPrefetchAsync(train,_K.n_outputs*sizeof(double),0,NULL);
+}
 #ifdef   _CUBLAS
+	cudaSetDevice(0);/*only on master*/
 	/*amb can be stream o=(t-v)*(t-v) -- worth it?*/
 	amb<<<_KG(_K.n_outputs)>>>(_K.n_outputs,_K.tmp_gpu,train,_K.output.vec);
 	CHK_ERR(err_amb);
 	/*it is possible to accumulate Ep within stream -- worth it?*/
-	cudaSetDevice(0);/*only on master*/
 	cublasSetStream(cudas->cuda_handle[0],NULL);
 	cublasDasum(cudas->cuda_handle[0],_K.n_outputs,_K.tmp_gpu,1,&dEp);
 	CHK_ERR(err_asum);
