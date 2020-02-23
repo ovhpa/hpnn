@@ -206,9 +206,9 @@ int64_t scuda_ann_allocate(kernel_ann *kernel,cudastreams *cudas){
 					CUDA_ALLOC(_Kx.hiddens[idx].vec,
 						_Kx.hiddens[idx].n_neurons,DOUBLE);
 				}
-				CUDA_ALLOC(_K.output.weights,
+				CUDA_ALLOC(_Kx.output.weights,
 						_Kx.output.n_inputs*_K.output.n_neurons,DOUBLE);
-				CUDA_ALLOC(_K.output.vec,
+				CUDA_ALLOC(_Kx.output.vec,
 						_Kx.output.n_neurons,DOUBLE);
 				/*allocate the temporary GPU array*/
 				CUDA_ALLOC(_Kx.tmp_gpu,_Kx.max_index,DOUBLE);
@@ -637,8 +637,9 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		(red+rem,_Kx.hiddens[0].vec+jdx*red);
 	CHK_ERR(fw_sigmoid);
 	/*transfer to GPU[0]*/
-	cudaMemcpyAsync(_K.hiddens[0].vec+jdx*red,_Kx.hiddens[0].vec+jdx*red,
-					red+rem,cudaMemcpyDeviceToDevice,cudas->cuda_streams[jdx]);
+	cudaMemcpyAsync(_K.hiddens[0].vec+jdx*red,
+		_Kx.hiddens[0].vec+jdx*red,red+rem,cudaMemcpyDeviceToDevice,
+		cudas->cuda_streams[jdx]);
 	CHK_ERR(fw_vec_cpy);
 	/*put back vec from GPU[0] to all GPUs*/
 	red=N/cudas->cuda_n_streams;

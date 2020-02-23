@@ -170,7 +170,7 @@ if(n_gpu>1){
 			_CP(output.n_inputs);
 			_CP(max_index);
 			ALLOC_REPORT((*kx).hiddens,n_hiddens,layer_ann,allocate);
-			for(jdx=1;jdx<n_hiddens;jdx++){
+			for(jdx=0;jdx<n_hiddens;jdx++){
 				_CP(hiddens[jdx].n_inputs);
 				_CP(hiddens[jdx].n_neurons);
 			}
@@ -1831,7 +1831,17 @@ void ann_momentum_init(kernel_ann *kernel){
 		KERN.output.n_inputs*KERN.output.n_neurons,
 		DOUBLE,allocate);
 #else  /*_CUDA*/
+	cudastreams *cudas=_NN(get,cudas)();
 	UINT64 g_allocate=0;
+/*add other CPU dw for CUDA_MEM_EXP*/
+if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
+	UINT gpu;
+	kernel_ann *kx;
+	for(gpu=1;gpu<cudas->n_gpu;gpu++){
+		kx=kernel->kerns[gpu];
+		ALLOC_REPORT(kx->dw,kx->n_hiddens+1,DOUBLE *,allocate);
+	}
+}
 	g_allocate=scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
 #endif /*_CUDA*/
 	NN_OUT(stdout,"[CPU] MOMENTUM ALLOC: %lu (bytes)\n",allocate);
