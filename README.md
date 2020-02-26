@@ -1,7 +1,7 @@
 # hpnn
 
 High performance neural networks.\
-currently: v. 0.2 (alpha).
+currently: [v. 0.2](https://github.com/ovhpa/hpnn/releases/tag/v0.1) (alpha).
 
 Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki) for implementation details.
 
