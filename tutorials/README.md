@@ -60,7 +60,7 @@ in which we will briefly describe each field.
 
 `[name]` is the optional name of the ANN (any text is allowed).\
 `[type]` is the type of ANN used. Here ANN refers to `NN_TYPE_ANN`.
-Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki) for details on each ANN type.\
+Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki/ANN) for details on each ANN type.\
 `[init]` should either be the name of the ANN kernel or the word `generate` if a start from a randomly generated neural network is required.\
 `[seed]` is the seed that will be used to initialize the random number generator. If that value is zero, seed will be initialized with a number depending on the date - which mean that two consecutive runs will leads to different results.\
 `[input]` is the number of input values used in the sample files and in the kernel definition.\
@@ -82,10 +82,16 @@ Please check the [Wiki](https://github.com/ovhpa/hpnn/wiki) for details on each 
 Compared to the `run_nn` program, `train_nn` require slightly different steps:
 1. initialize the library;
 2. load (or generate) the ANN and load its parameters;
-4. train ANN with all samples;
-5. verify wether the output produce by the ANN is consistent with the one from the sample file.
-6. de-initialize the library and exit.
+3. train ANN with all samples; so that ANN applied to each sample produce is close to its intended output.
+4. de-initialize the library and exit.
 
+#### 1. initialization
+
+#### 2. loading ANN
+
+#### 3. Train the ANN
+
+#### 5. de-initialization
 
 
 ## API tutorials
