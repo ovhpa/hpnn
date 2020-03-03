@@ -118,10 +118,11 @@ void _NN(inc,verbose)();
 void _NN(dec,verbose)();
 void _NN(set,verbose)(SHORT verbosity);
 void _NN(get,verbose)(SHORT *verbosity);
-int _NN(return,verbose)();
+SHORT _NN(return,verbose)();
 void _NN(toggle,dry)();
-nn_cap _NN(get,capabilities)();
+void _NN(get,capabilities)(nn_cap *capabilities);
 void _NN(unset,capability)(nn_cap capability);
+nn_cap _NN(return,capabilities)();
 BOOL _NN(init,OMP)();
 BOOL _NN(init,MPI)();
 BOOL _NN(init,CUDA)();
@@ -148,7 +149,7 @@ BOOL _NN(set,cuda_streams)(UINT n_streams);
 BOOL _NN(get,cuda_streams)(UINT *n_streams);
 BOOL _NN(set,omp_blas)(UINT n_blas);
 BOOL _NN(get,omp_blas)(UINT *n_blas);
-cudastreams *_NN(get,cudas)();
+cudastreams *_NN(return,cudas)();
 /*---------------------*/
 /*+++ configuration +++*/
 /*---------------------*/

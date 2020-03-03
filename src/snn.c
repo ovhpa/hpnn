@@ -76,7 +76,7 @@
 void snn_kernel_run(kernel_ann *kernel){
 #ifdef   _CUDA
 	/*the _NN(run,kernel) is now in charge of transfer(s)*/
-	scuda_snn_forward(kernel,_NN(get,cudas)());
+	scuda_snn_forward(kernel,_NN(return,cudas)());
 #else  /*_CUDA*/
 	/*simple, one pass kernel*/
 	UINT idx,jdx,M,N;
@@ -1422,7 +1422,7 @@ DOUBLE snn_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE
 	DOUBLE *ptr;
 	DOUBLE probe;
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
@@ -1441,7 +1441,7 @@ DOUBLE snn_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE
 	do{
 		iter++;
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_snn_train(kernel,train_gpu,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_snn_train(kernel,train_gpu,_NN(return,cudas)());
 if(cudas->mem_model!=CUDA_MEM_CMM){
 		/*we have to sync output.cuda_v -> out*/
 		cudaSetDevice(0);/*make sure transfer happen from GPU[0]*/
@@ -1499,7 +1499,7 @@ DOUBLE snn_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
 	DOUBLE probe;
 	ann_raz_momentum(kernel);
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
@@ -1518,7 +1518,7 @@ DOUBLE snn_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
 	do{
 		iter++;
 #ifdef _CUDA
-		dEp=(DOUBLE)scuda_snn_train_momentum(kernel,train_gpu,alpha,_NN(get,cudas)());
+		dEp=(DOUBLE)scuda_snn_train_momentum(kernel,train_gpu,alpha,_NN(return,cudas)());
 if(cudas->mem_model!=CUDA_MEM_CMM){
 		/*we have to sync output.cuda_v -> out*/
 		cudaSetDevice(0);/*make sure transfer happen from GPU[0]*/

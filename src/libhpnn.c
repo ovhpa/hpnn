@@ -66,7 +66,7 @@ nn_runtime lib_runtime;
 /*--------------------------*/
 void _NN(inc,verbose)(){
 	if(lib_runtime.nn_verbose>2) return;
-        lib_runtime.nn_verbose++;
+	lib_runtime.nn_verbose++;
 	NN_DBG(stdout,"verbosity set to %i.\n",lib_runtime.nn_verbose);
 }
 void _NN(dec,verbose)(){
@@ -79,13 +79,35 @@ void _NN(set,verbose)(SHORT verbosity){
 void _NN(get,verbose)(SHORT *verbosity){
 	*verbosity=lib_runtime.nn_verbose;
 }
-int _NN(return,verbose)(){
+SHORT _NN(return,verbose)(){
 	return lib_runtime.nn_verbose;
 }
 void _NN(toggle,dry)(){
         lib_runtime.nn_dry^=lib_runtime.nn_dry;
 }
-nn_cap _NN(get,capabilities)(){
+void _NN(get,capabilities)(nn_cap *capabilities){
+	UINT res=0;
+#ifdef _OMP
+	res+=(1<<0);
+#endif
+#ifdef _MPI
+	res+=(1<<1);
+#endif
+#ifdef _CUDA
+	res+=(1<<2);
+#endif
+#ifdef _CUBLAS
+	res+=(1<<3);
+#endif
+	/*(1<<4) is reserved for OCL*/
+#ifdef PBLAS
+	res+=(1<<5);
+#elif defined(SBLAS)
+	res+=(1<<6);
+#endif
+	*capabilities=(nn_cap)res;
+}
+nn_cap _NN(return,capabilities)(){
 	UINT res=0;
 #ifdef _OMP
 	res+=(1<<0);
@@ -133,7 +155,7 @@ void _NN(unset,capability)(nn_cap capability){
 	}
 }
 void _NN(init,runtime)(){
-	lib_runtime.capability=_NN(get,capabilities)();
+	lib_runtime.capability=_NN(return,capabilities)();
 	lib_runtime.nn_verbose=0;
 	lib_runtime.nn_dry=FALSE;
 	lib_runtime.nn_num_threads=1;
@@ -365,7 +387,7 @@ BOOL _NN(deinit,BLAS)(){
 }
 int _NN(deinit,all)(){
 	BOOL is_ok=FALSE;
-	nn_cap capability = _NN(get,capabilities)();
+	nn_cap capability = _NN(return,capabilities)();
 	if(capability & NN_CAP_OMP) is_ok|=_NN(deinit,OMP)();
 	if(capability & NN_CAP_MPI) is_ok|=_NN(deinit,MPI)();
 	if(capability & NN_CAP_CUDA) is_ok|=_NN(deinit,CUDA)();
@@ -505,7 +527,7 @@ BOOL _NN(get,omp_blas)(UINT *n_blas){
 	return TRUE;
 #endif
 }
-cudastreams *_NN(get,cudas)(){
+cudastreams *_NN(return,cudas)(){
 	return &(lib_runtime.cudas);
 }
 /*---------------------*/
@@ -1286,7 +1308,7 @@ void _NN(run,kernel)(nn_def *conf){
 	UINT   idx;
 	UINT   jdx;
 #ifdef   _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	cudaSetDevice(0);/*useful?*/
 #endif /*_CUDA*/
 	/**/

@@ -75,10 +75,10 @@ BOOL ann_kernel_free(kernel_ann *kernel){
 	UINT idx;
 	if(kernel==NULL) return FALSE;
 #ifdef   _CUDA
-	scuda_ann_deallocate(kernel,_NN(get,cudas)());
+	scuda_ann_deallocate(kernel,_NN(return,cudas)());
 	FREE(KERN.hiddens);
 	FREE(KERN.kerns);
-	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
+	scuda_ann_free_momentum(kernel,_NN(return,cudas)());
 	FREE(KERN.dw);
 #else  /*_CUDA*/
 	FREE(KERN.name);
@@ -112,7 +112,7 @@ BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
 	UINT64 allocate=0;
 #ifdef _CUDA
 	uint64_t g_allocate=0;
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	UINT n_gpu,jdx;
 #endif /*_CUDA*/
 	UINT idx;
@@ -219,7 +219,7 @@ kernel_ann *ann_load(CHAR *f_kernel){
 	UINT n_par;
 	DOUBLE *w_ptr=NULL;
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 #endif /*_CUDA*/
 	/*init*/
 	n_in =0;
@@ -634,7 +634,7 @@ kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
 	DOUBLE temp_rnd;
 	UINT N,M;
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 #endif
 	DOUBLE *w_ptr;
 #ifdef _MPI
@@ -771,7 +771,7 @@ void ann_dump(kernel_ann *kernel,FILE *out){
 	UINT N,M;
 	DOUBLE *w_ptr=NULL;
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 #endif
 #ifdef _MPI
 	UINT n_streams,stream;
@@ -889,7 +889,7 @@ DOUBLE ann_dact(DOUBLE y){
 void ann_kernel_run(kernel_ann *kernel){
 #ifdef   _CUDA
 	/*the _NN(run,kernel) is now in charge of transfer(s)*/
-	scuda_ann_forward(kernel,_NN(get,cudas)());
+	scuda_ann_forward(kernel,_NN(return,cudas)());
 #else  /*_CUDA*/
 	/*simple, one pass kernel*/
 	UINT idx,jdx,M,N;
@@ -1831,7 +1831,7 @@ void ann_momentum_init(kernel_ann *kernel){
 		KERN.output.n_inputs*KERN.output.n_neurons,
 		DOUBLE,allocate);
 #else  /*_CUDA*/
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	UINT64 g_allocate=0;
 /*add other CPU dw for CUDA_MEM_EXP*/
 if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
@@ -1842,7 +1842,7 @@ if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
 		ALLOC_REPORT(kx->dw,kx->n_hiddens+1,DOUBLE *,allocate);
 	}
 }
-	g_allocate=scuda_ann_allocate_momentum(kernel,_NN(get,cudas)());
+	g_allocate=scuda_ann_allocate_momentum(kernel,_NN(return,cudas)());
 #endif /*_CUDA*/
 	NN_OUT(stdout,"[CPU] MOMENTUM ALLOC: %lu (bytes)\n",allocate);
 #ifdef   _CUDA
@@ -1862,7 +1862,7 @@ void ann_raz_momentum(kernel_ann *kernel){
 	memset(KERN.dw[KERN.n_hiddens],0,sizeof(DOUBLE)*
 		(KERN.output.n_inputs*KERN.output.n_neurons));
 #else  /*_CUDA*/
-	scuda_ann_raz_momentum(kernel,_NN(get,cudas)());
+	scuda_ann_raz_momentum(kernel,_NN(return,cudas)());
 #endif /*_CUDA*/
 }
 /*----------------------------*/
@@ -1876,7 +1876,7 @@ void ann_momentum_free(kernel_ann *kernel){
 	FREE(KERN.dw[KERN.n_hiddens]);
 #else  /*_CUDA*/
 	/*allocate everything in CUDA*/
-	scuda_ann_free_momentum(kernel,_NN(get,cudas)());
+	scuda_ann_free_momentum(kernel,_NN(return,cudas)());
 #endif /*_CUDA*/
 	FREE(KERN.dw);
 }
@@ -2233,7 +2233,7 @@ DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE
 	DOUBLE *ptr;
 	DOUBLE probe;
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
@@ -2318,7 +2318,7 @@ DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
 	DOUBLE probe;
 	ann_raz_momentum(kernel);
 #ifdef _CUDA
-	cudastreams *cudas=_NN(get,cudas)();
+	cudastreams *cudas=_NN(return,cudas)();
 	DOUBLE *train_gpu;
 	cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 	CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
