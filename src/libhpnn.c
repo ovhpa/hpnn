@@ -1322,8 +1322,8 @@ void _NN(run,kernel)(nn_def *conf){
 	/*process sample files*/
 	OPEN_DIR(directory,_CONF.tests);
 	if(directory==NULL){
-		NN_ERROR(stderr,"can't open sample directory: %s\n",
-			_CONF.samples);
+		NN_ERROR(stderr,"can't open test directory: %s\n",
+			_CONF.tests);
 		return;
 	}
 	STRCAT(curr_dir,_CONF.tests,"/");
@@ -1394,6 +1394,15 @@ void _NN(run,kernel)(nn_def *conf){
 			/*copy to GPU*/
 			if(cudas->mem_model!=CUDA_MEM_CMM){
 				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
+				if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
+					kernel_ann *kx;
+					/*distribute input to other GPUs*/
+					for(int gpu=1;gpu<cudas->n_gpu;gpu++){
+						/*copy*/
+						kx=(kernel_ann *)_K->kerns[gpu];
+						CUDA_G2G_CP(_K->in,kx->in,_K->n_inputs,DOUBLE);
+					}
+				}
 			}else{
 				cudaDeviceSynchronize();/*we are still on GPU[0]*/
 				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
@@ -1441,6 +1450,15 @@ void _NN(run,kernel)(nn_def *conf){
 			/*copy to GPU*/
 			if(cudas->mem_model!=CUDA_MEM_CMM){
 				CUDA_C2G_CP(tr_in,_K->in,_K->n_inputs,DOUBLE);
+				if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
+					kernel_ann *kx;
+					/*distribute input to other GPUs*/
+					for(int gpu=1;gpu<cudas->n_gpu;gpu++){
+						/*copy*/
+						kx=(kernel_ann *)_K->kerns[gpu];
+						CUDA_G2G_CP(_K->in,kx->in,_K->n_inputs,DOUBLE);
+					}
+				}
 			}else{
 				cudaDeviceSynchronize();/*we are still on GPU[0]*/
 				ARRAY_CP(tr_in,_K->in,_K->n_inputs);
