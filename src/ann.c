@@ -575,10 +575,10 @@ for(idx=0;idx<n_hid;idx++){
 #else  /*_CUDA*/
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+		if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	}else{
 		w_ptr=KERN.hiddens[idx].weights;
 	}
-	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -596,11 +596,11 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 #else  /*_CUDA*/
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+		if(stream==0)
+			scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	}else{
 		w_ptr=KERN.output.weights;
 	}
-	if(stream==0)
-		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -638,7 +638,6 @@ kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
 #endif
 	DOUBLE *w_ptr;
 #ifdef _MPI
-	UINT N,M;
 	UINT n_streams,stream;
 	_NN(get,mpi_tasks)(&n_streams);
 	_NN(get,curr_mpi_task)(&stream);
@@ -710,7 +709,8 @@ if(stream==0){/*master kernel generation*/
 if(stream!=0){/*slave(s)*/
 	/*allocation - NO NEED TO REPORT*/
 	ALLOC(kernel,1,kernel_ann);
-	ann_kernel_allocate(kernel,n_in,n_hid,parameter,n_out);
+//	ann_kernel_allocate(kernel,n_in,n_hid,parameter,n_out);
+	ann_kernel_allocate(kernel,n_inputs,n_hiddens,hiddens,n_outputs);
 }
 for(idx=0;idx<n_hiddens;idx++){
 	N=KERN.hiddens[idx].n_neurons;
@@ -721,11 +721,11 @@ for(idx=0;idx<n_hiddens;idx++){
 #else  /*_CUDA*/
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+		if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	}else{
 		w_ptr=KERN.hiddens[idx].weights;
 	}
 	/*master transfer weights*/
-	if(stream==0) scuda_ann_weight_transfer_G2C(kernel,idx,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){
@@ -743,12 +743,12 @@ MPI_Bcast(KERN.output.weights,N*M,MPI_DOUBLE,0,MPI_COMM_WORLD);
 #else  /*_CUDA*/
 	if(cudas->mem_model!=CUDA_MEM_CMM){
 		ALLOC(w_ptr,M*N,DOUBLE);/*CPU MPI ARRAY*/
+		if(stream==0)
+			scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	}else{
 		w_ptr=KERN.output.weights;
 	}
 	/*master transfer weights*/
-	if(stream==0)
-		scuda_ann_weight_transfer_G2C(kernel,KERN.n_hiddens,&w_ptr,cudas);
 	MPI_Bcast(w_ptr,M*N,MPI_DOUBLE,0,MPI_COMM_WORLD);
 	/*now, everyone received CPU... put it back on GPU*/
 	if(stream!=0){

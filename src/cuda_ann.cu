@@ -335,6 +335,15 @@ void scuda_ann_weight_transfer_C2G
 	/*index correspond to the hidden layer index
 	 * unless index>=n_hiddens then weight comes
 	 * from the output layer.           -- OVHPA*/
+	if(index>=_K.n_hiddens){
+		/*target: output*/
+		N=_K.output.n_neurons;
+		M=_K.output.n_inputs;
+	}else{
+		/*target: hiddens[idx]*/
+		N=_K.hiddens[index].n_neurons;
+		M=_K.hiddens[index].n_inputs;
+	}
 	switch(cudas->mem_model){
 	case CUDA_MEM_EXP:
 		/*transfer to other GPUs*/
@@ -346,14 +355,10 @@ void scuda_ann_weight_transfer_C2G
 				kx=_K.kerns[gpu];
 				if(index>=_K.n_hiddens){
 					/*target: output*/
-					N=_Kx.output.n_neurons;
-					M=_Kx.output.n_inputs;
 					CUDA_C2G_CP(weight,_Kx.output.weights,M*N,double);
 					CHK_ERR(weights_transfer_C2G);
 				}else{
 					/*target: hiddens[idx]*/
-					N=_Kx.hiddens[index].n_neurons;
-					M=_Kx.hiddens[index].n_inputs;
 					CUDA_C2G_CP(weight,_Kx.hiddens[index].weights,M*N,double);
 					CHK_ERR(weights_transfer_C2G);
 				}
@@ -365,14 +370,10 @@ void scuda_ann_weight_transfer_C2G
 		cudaSetDevice(0);/*make sure all transfer happen to gpu[0]*/
 		if(index>=_K.n_hiddens){
 			/*target: output*/
-			N=_K.output.n_neurons;
-			M=_K.output.n_inputs;
 			CUDA_C2G_CP(weight,_K.output.weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}else{
 			/*target: hiddens[idx]*/
-			N=_K.hiddens[index].n_neurons;
-			M=_K.hiddens[index].n_inputs;
 			CUDA_C2G_CP(weight,_K.hiddens[index].weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}
@@ -391,6 +392,13 @@ void scuda_ann_weight_transfer_C2G
 void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 									DOUBLE **weight,cudastreams *cudas){
 	int M, N;
+	if(index>=_K.n_hiddens){
+		N=_K.output.n_neurons;
+		M=_K.output.n_inputs;
+	}else{
+		N=_K.hiddens[index].n_neurons;
+		M=_K.hiddens[index].n_inputs;
+	}
 	switch(cudas->mem_model){
 	case CUDA_MEM_EXP:
 		/*no need to transfer from other GPUs!*/
@@ -399,14 +407,10 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
 		cudaSetDevice(0);/*make sure all transfer happen from gpu[0]*/
 		if(index>=_K.n_hiddens){
 			/*target: output*/
-			N=_K.output.n_neurons;
-			M=_K.output.n_inputs;
 			CUDA_G2C_CP(*weight,_K.output.weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}else{
 			/*target: hiddens[idx]*/
-			N=_K.hiddens[index].n_neurons;
-			M=_K.hiddens[index].n_inputs;
 			CUDA_G2C_CP(*weight,_K.hiddens[index].weights,M*N,double);
 			CHK_ERR(weights_transfer_C2G);
 		}
@@ -435,7 +439,7 @@ void scuda_ann_forward(kernel_ann *kernel,cudastreams *cudas){
 	int kdx;
 	total_s=cudas->cuda_n_streams*cudas->n_gpu;
 if(cudas->mem_model==CUDA_MEM_CMM){
-	/*Prefetch everything now*/
+/*+++ Prefetch everything +++*/
 /*>>> all GPU but last one*/
 	for(gpu=0;gpu<cudas->n_gpu-1;gpu++){
 		cudaSetDevice(gpu);
