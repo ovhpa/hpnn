@@ -123,7 +123,7 @@
 	UINT __len=0;\
 	STRLEN(src,__len);\
 	STRDUP(src,dest);\
-	mem+=__len*sizeof(CHAR);\
+	mem+=(__len)*sizeof(CHAR);\
 }while(0)
 #define STRCAT(dest,src1,src2) do{\
 	dest=g_strconcat(src1,src2,NULL);\
@@ -193,7 +193,7 @@
 	STRLEN(src,__len);\
 	if(__len!=0){\
 		ALLOC(dest,__len+1,CHAR);\
-		mem+=__len*sizeof(CHAR);\
+		mem+=(__len)*sizeof(CHAR);\
 		__len--;\
 		while(__len>0) {\
 			dest[__len]=src[__len];\
@@ -244,7 +244,7 @@
 /*report memory usage*/
 #define ALLOC_REPORT(pointer,size,type,mem) do{\
 	ALLOC(pointer,size,type);\
-	mem+=size*sizeof(type);\
+	mem+=(size)*sizeof(type);\
 }while(0)
 /*useful*/
 #define SKIP_BLANK(pointer) \
@@ -336,14 +336,14 @@
 /*allocations*/
 #define CUDA_ALLOC(pointer,size,type) do{\
 	cudaError_t _err;\
-	_err=cudaMalloc((void **)(&pointer),size*sizeof(type));\
+	_err=cudaMalloc((void **)(&pointer),(size)*sizeof(type));\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA alloc error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
 		_OUT(stderr,"CUDA report: %s\n",cudaGetErrorString(_err));\
 		exit(-1);\
 	}\
-	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	_err=cudaMemset((void *)pointer,0,(size)*sizeof(type));\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
@@ -353,7 +353,7 @@
 }while(0)
 #define CUDA_ALLOC_REPORT(pointer,size,type,mem) do{\
 	CUDA_ALLOC(pointer,size,type);\
-	mem+=size*sizeof(type);\
+	mem+=(size)*sizeof(type);\
 }while(0)
 #define CUDA_FREE(pointer) do{\
 	if(pointer!=NULL) cudaFree(pointer);\
@@ -361,7 +361,7 @@
 }while(0)
 #define CUDA_RAZ(pointer,size,type) do{\
 	cudaError_t _err;\
-	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	_err=cudaMemset((void *)pointer,0,(size)*sizeof(type));\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
 			 FUNCTION,__LINE__);\
@@ -372,13 +372,13 @@
 #define CUDA_ALLOC_MM(pointer,size,type) do{\
 	cudaError_t _err;\
 	_err=cudaMallocManaged((void **)(&pointer),\
-		size*sizeof(type),cudaMemAttachGlobal);\
+		(size)*sizeof(type),cudaMemAttachGlobal);\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA alloc_MM error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
-	_err=cudaMemset((void *)pointer,0,size*sizeof(type));\
+	_err=cudaMemset((void *)pointer,0,(size)*sizeof(type));\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"CUDA memset error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
@@ -387,7 +387,7 @@
 }while(0)
 #define CUDA_ALLOC_MM_REPORT(pointer,size,type,mem) do{\
 	CUDA_ALLOC_MM(pointer,size,type);\
-	mem+=size*sizeof(type);\
+	mem+=(size)*sizeof(type);\
 }while(0)
 
 #define CUDA_LAST_ERROR(num) do{\
@@ -397,10 +397,10 @@
 
 /*sync*/
 #define CUDA_C2G_CP(cpu,gpu,size,type) do{\
-	cudaMemcpy(gpu,cpu,size*sizeof(type),cudaMemcpyHostToDevice);\
+	cudaMemcpy(gpu,cpu,(size)*sizeof(type),cudaMemcpyHostToDevice);\
 }while(0)
 #define CUDA_G2C_CP(cpu,gpu,size,type) do{\
-	cudaMemcpy(cpu,gpu,size*sizeof(type),cudaMemcpyDeviceToHost);\
+	cudaMemcpy(cpu,gpu,(size)*sizeof(type),cudaMemcpyDeviceToHost);\
 }while(0)
 #define CUBLAS_SET_VECTOR(cpu_v,ldc,gpu_v,ldg,size,type) do{\
 	cublasStatus_t _err;\
@@ -441,13 +441,31 @@
 /*COPY*/
 #define CUDA_G2G_CP(src,dest,size,type) do{\
 	cudaError_t _err;\
-	_err=cudaMemcpy(dest,src,size*sizeof(type),cudaMemcpyDeviceToDevice);\
+	_err=cudaMemcpy(dest,src,(size)*sizeof(type),cudaMemcpyDeviceToDevice);\
 	if(_err!=cudaSuccess) {\
 		_OUT(stderr,"GPU to GPU transfer error (function %s, line %i)\n",\
 			FUNCTION,__LINE__);\
 		exit(-1);\
 	}\
 }while(0)
+
+#define CUDA_G2G_SCP(src,dest,size,type,stream) do{\
+	cudaError_t _err;\
+	_err=cudaMemcpyAsync(dest,src,(size)*sizeof(type),cudaMemcpyDeviceToDevice,stream);\
+	if(_err!=cudaSuccess) {\
+		_OUT(stderr,"GPU to GPU async transfer error (function %s, line %i)\n",\
+			FUNCTION,__LINE__);\
+		exit(-1);\
+	}\
+}while(0)
+
+/*DEBUG*/
+#define CUDA_TRACE_V(handle,vec,n) do{\
+        double __trace=0.;\
+        cublasDasum(handle,n,vec,1,&(__trace));\
+        fprintf(stdout,"DBG: __trace[%s]=%f\n",QUOTE(vec),__trace);\
+}while(0)
+
 #endif /*_CUDA*/
 
 typedef enum {
