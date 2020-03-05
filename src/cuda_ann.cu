@@ -1392,8 +1392,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get part of train from GPU[0]*/
-		cudaMemcpy(ptr[gpu],train+gpu*(cudas->cuda_n_streams),
-				   cudas->cuda_n_streams*red,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(train+gpu*(cudas->cuda_n_streams),
+			ptr[gpu],cudas->cuda_n_streams*red,double);
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
 			dsigmoid_mul_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
@@ -1410,8 +1410,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get part of train from GPU[0]*/
-	cudaMemcpy(ptr[gpu],train+gpu*(cudas->cuda_n_streams),
-			   cudas->cuda_n_streams*red+rem,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(train+gpu*(cudas->cuda_n_streams),
+		ptr[gpu],cudas->cuda_n_streams*red+rem,double);
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
 		dsigmoid_mul_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
@@ -1511,8 +1511,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[_Kx.n_hiddens],
-				   N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+			ptr[gpu],N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1535,7 +1535,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(ptr[gpu],delta_ptr[_Kx.n_hiddens],N,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+		ptr[gpu],N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1615,8 +1616,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[_Kx.n_hiddens],
-				   N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+			ptr[gpu],N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1635,7 +1636,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(ptr[gpu],delta_ptr[_Kx.n_hiddens],N,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+		ptr[gpu],N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1732,7 +1734,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx+1] from GPU[0]*/
-			cudaMemcpy(ptr[gpu],delta_ptr[idx+1],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx+1],
+				ptr[gpu],N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1756,7 +1759,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx+1] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[idx+1],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx+1],ptr[gpu],N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1832,7 +1835,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx+1] from GPU[0]*/
-			cudaMemcpy(ptr[gpu],delta_ptr[idx+1],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx+1],
+				ptr[gpu],N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1851,7 +1855,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx+1] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[idx+1],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx+1],
+			ptr[gpu],N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1946,7 +1951,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[1] from GPU[0]*/
-			cudaMemcpy(ptr[gpu],delta_ptr[1],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[1],
+				ptr[gpu],N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -1970,7 +1976,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[1] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[1],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[1],
+			ptr[gpu],N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2046,7 +2053,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[1] from GPU[0]*/
-			cudaMemcpy(ptr[gpu],delta_ptr[1],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[1],
+				ptr[gpu],N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2065,7 +2073,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[1] from GPU[0]*/
-		cudaMemcpy(ptr[gpu],delta_ptr[1],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[1],
+			ptr[gpu],N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2192,8 +2201,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_Kx.n_hiddens],M,
-				   cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+			_Kx.tmp_gpu,M,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2214,8 +2223,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_K.n_hiddens],M,
-			   cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_K.n_hiddens],
+		_Kx.tmp_gpu,M,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2286,8 +2295,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_Kx.n_hiddens],M,
-				   cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+			_Kx.tmp_gpu,M,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2306,8 +2315,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_Kx.n_hiddens],M,
-			   cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],
+		_Kx.tmp_gpu,M,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2390,7 +2399,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx] from GPU[0]*/
-			cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],M,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx],
+				_Kx.tmp_gpu,M,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2411,7 +2421,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],M,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx],
+			_Kx.tmp_gpu,M,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2482,7 +2493,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx] from GPU[0]*/
-			cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],M,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,M,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2502,7 +2513,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],M,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,M,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2582,7 +2593,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[0] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],M,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,M,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2602,7 +2613,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[idx] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],M,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,M,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2671,7 +2682,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[0] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],M,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,M,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -2690,7 +2701,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[idx] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],M,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,M,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3064,8 +3075,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_Kx.n_hiddens],N,
-				   cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],_Kx.tmp_gpu,N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3095,8 +3105,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_K.n_hiddens],N,
-			   cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_K.n_hiddens],_Kx.tmp_gpu,N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3187,8 +3196,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_Kx.n_hiddens],N,
-				   cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens],_Kx.tmp_gpu,N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3210,8 +3218,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[_K.n_hiddens] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[_K.n_hiddens],N,
-			   cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[_K.n_hiddens],_Kx.tmp_gpu,N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3331,7 +3338,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx] from GPU[0]*/
-			cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3361,7 +3368,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3453,7 +3460,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 			cudaSetDevice(gpu);
 			kx=_K.kerns[gpu];
 			/*1- get full delta[idx] from GPU[0]*/
-			cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+			CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 			/*we don't need to sync (I think)*/
 			for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 				jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3474,7 +3481,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[idx] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 		/*no sync needed (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3592,7 +3599,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[0] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3621,7 +3628,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[idx] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3708,7 +3715,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		cudaSetDevice(gpu);
 		kx=_K.kerns[gpu];
 		/*1- get full delta[0] from GPU[0]*/
-		cudaMemcpy(_Kx.tmp_gpu,delta_ptr[0],N,cudaMemcpyDeviceToDevice);
+		CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
 		/*we don't need to sync (I think)*/
 		for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
 			jdx=kdx+gpu*(cudas->cuda_n_streams);
@@ -3728,7 +3735,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 	cudaSetDevice(gpu);
 	kx=_K.kerns[gpu];
 	/*1- get full delta[idx] from GPU[0]*/
-	cudaMemcpy(_Kx.tmp_gpu,delta_ptr[idx],N,cudaMemcpyDeviceToDevice);
+	CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
 	/*no sync needed (I think)*/
 	for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
 		jdx=kdx+gpu*(cudas->cuda_n_streams);
