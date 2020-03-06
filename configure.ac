@@ -13,6 +13,14 @@ AC_PROG_CC
 AC_PROG_MAKE_SET
 
 # +++ deal with switches +++
+# DEBUG
+AC_MSG_CHECKING([if DEBUG was required])
+AC_ARG_ENABLE([debug],
+        [AS_HELP_STRING([--enable-debug],
+        [enable [DEBUG] @<:@default=no if not given@:>@])],
+        [],
+        [enable_debug=no])
+AC_MSG_RESULT([$enable_debug])
 # MPI
 AC_MSG_CHECKING([if MPI was required])
 AC_ARG_ENABLE([mpi],
@@ -208,6 +216,16 @@ if test "x$is_icc" != xyes; then
 	#intel compiler include math library
 	AC_SEARCH_LIBS([sqrt], [m])
 	AC_CHECK_FUNCS([getcwd memset exp sqrt])
+fi
+# -------------
+# +++ DEBUG +++
+# -------------
+if test "x$enable_debug" != xno; then
+	CFLAGS+=" -DDEBUG"
+	if test "x$enable_cuda" != xno -a "x$enable_cuda" != xnone; then
+		NVCCFLAGS+=" -DDEBUG"
+		LIBS+=" -lcuda"
+	fi
 fi
 # --------------
 # +++ OpenMP +++
@@ -571,6 +589,10 @@ if test "x$use_nvcc" != xnone; then
 fi
 #try to give a full configure command
 configure_cmd="./configure "
+#DEBUG
+if test "x$enable_debug" != xno; then
+	configure_cmd+="--enable-debug "
+fi
 #MPI
 if test "x$enable_mpi" != xno; then
 	configure_cmd+="--enable-mpi "

@@ -24,59 +24,59 @@
 /*+++ library capabilities +++*/
 /*----------------------------*/
 typedef enum {
-	NN_CAP_NONE=0,
-	NN_CAP_OMP=(1<<0),
-	NN_CAP_MPI=(1<<1),
-	NN_CAP_CUDA=(1<<2),
-	NN_CAP_CUBLAS=(1<<3),
-	/*(1<<4) is reserved for OCL*/
-	NN_CAP_PBLAS=(1<<5),
-	NN_CAP_SBLAS=(1<<6),
+    NN_CAP_NONE=0,
+    NN_CAP_OMP=(1<<0),
+    NN_CAP_MPI=(1<<1),
+    NN_CAP_CUDA=(1<<2),
+    NN_CAP_CUBLAS=(1<<3),
+    /*(1<<4) is reserved for OCL*/
+    NN_CAP_PBLAS=(1<<5),
+    NN_CAP_SBLAS=(1<<6),
 } nn_cap;
 /*----------------------------------*/
 /*+++ library runtime parameters +++*/
 /*----------------------------------*/
 typedef struct {
-	nn_cap capability;
-	SHORT nn_verbose;
-	BOOL  nn_dry;
-	UINT  nn_num_threads;
-	UINT  nn_num_blas;
-	UINT  nn_num_tasks;
-	cudastreams cudas;
+    nn_cap capability;
+    SHORT nn_verbose;
+    BOOL  nn_dry;
+    UINT  nn_num_threads;
+    UINT  nn_num_blas;
+    UINT  nn_num_tasks;
+    cudastreams cudas;
 } nn_runtime;
 /*--------------------------------*/
 /*+++ types of neural networks +++*/
 /*--------------------------------*/
 typedef enum {
-	NN_TYPE_ANN = 0,	/*feed-forward, activation base nn*/
-	NN_TYPE_LNN = 1,	/*feed-forward, activation (hidden) + linear (output)*/
-	NN_TYPE_SNN = 2,	/*NN_TYPE_ANN + softmax*/
-	NN_TYPE_UKN =-1,	/*unknown*/
+    NN_TYPE_ANN = 0,    /*feed-forward, activation base nn*/
+    NN_TYPE_LNN = 1,    /*feed-forward, activation (hidden) + linear (output)*/
+    NN_TYPE_SNN = 2,    /*NN_TYPE_ANN + softmax*/
+    NN_TYPE_UKN =-1,    /*unknown*/
 } nn_type;
 /*-------------------------*/
 /*+++ types of training +++*/
 /*-------------------------*/
 typedef enum {
-	NN_TRAIN_BP  = 0,	/*simple back-propagation*/
-	NN_TRAIN_BPM = 1,	/*back-propagation with momentum*/
-	NN_TRAIN_CG  = 2,	/*conjugate gradients*/
-	NN_TRAIN_UKN =-1,	/*unknown*/
+    NN_TRAIN_BP  = 0,   /*simple back-propagation*/
+    NN_TRAIN_BPM = 1,   /*back-propagation with momentum*/
+    NN_TRAIN_CG  = 2,   /*conjugate gradients*/
+    NN_TRAIN_UKN =-1,   /*unknown*/
 } nn_train;
 /*-----------------------------*/
 /*+++ NN definition handler +++*/
 /*-----------------------------*/
 typedef struct {
-	nn_runtime *rr;		/*each NN should link to the runtime parameters*/
-	CHAR     *name;		/*name of the NN*/
-	nn_type   type;		/*NN type*/
-	BOOL need_init;		/*require initialization*/
-	UINT      seed;		/*seed used in case of initialization*/
-	void   *kernel;		/*NN kernel*/
-	CHAR *f_kernel;		/*kernel filename*/
-	nn_train train;		/*training type*/
-	CHAR  *samples;		/*samples directory (for training)*/
-	CHAR    *tests;		/*tests directory (for validation)*/
+    nn_runtime *rr;     /*each NN should link to the runtime parameters*/
+    CHAR     *name;     /*name of the NN*/
+    nn_type   type;     /*NN type*/
+    BOOL need_init;     /*require initialization*/
+    UINT      seed;     /*seed used in case of initialization*/
+    void   *kernel;     /*NN kernel*/
+    CHAR *f_kernel;     /*kernel filename*/
+    nn_train train;     /*training type*/
+    CHAR  *samples;     /*samples directory (for training)*/
+    CHAR    *tests;     /*tests directory (for validation)*/
 } nn_def;
 /*------------------*/
 /*+++ NN methods +++*/
@@ -84,16 +84,16 @@ typedef struct {
 #define _NN(a,b) nn_##a##_##b
 /*new defs to take into account verbosity*/
 #define NN_DBG(_file,...) do{\
-	if((_NN(return,verbose)())>2){\
-		_OUT((_file),"NN(DBG): ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
+    if((_NN(return,verbose)())>2){\
+        _OUT((_file),"NN(DBG): ");\
+        _OUT((_file), __VA_ARGS__);\
+    }\
 }while(0)
 #define NN_OUT(_file,...) do{\
-	if((_NN(return,verbose)())>1){\
-		_OUT((_file),"NN: ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
+    if((_NN(return,verbose)())>1){\
+        _OUT((_file),"NN: ");\
+        _OUT((_file), __VA_ARGS__);\
+    }\
 }while(0)
 #define NN_COUT(_file,...) do{\
         if((_NN(return,verbose)())>1){\
@@ -101,14 +101,14 @@ typedef struct {
         }\
 }while(0)
 #define NN_WARN(_file,...) do{\
-	if((_NN(return,verbose)())>0){\
-		_OUT((_file),"NN(WARN): ");\
-		_OUT((_file), __VA_ARGS__);\
-	}\
+    if((_NN(return,verbose)())>0){\
+        _OUT((_file),"NN(WARN): ");\
+        _OUT((_file), __VA_ARGS__);\
+    }\
 }while(0)
 #define NN_ERROR(_file,...) do{\
-	_OUT((_file),"NN(ERR): ");\
-	_OUT((_file), __VA_ARGS__);\
+    _OUT((_file),"NN(ERR): ");\
+    _OUT((_file), __VA_ARGS__);\
 }while(0)
 #define NN_WRITE _OUT
 /*--------------------------*/

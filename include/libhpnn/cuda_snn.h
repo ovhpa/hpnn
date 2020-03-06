@@ -35,7 +35,7 @@ void scuda_snn_forward(kernel_ann *kernel,cudastreams *cudas);
 double scuda_snn_error(kernel_ann *kernel,double *train,cudastreams *cudas);
 double scuda_snn_train(kernel_ann *kernel,double *train,cudastreams *cudas);
 double scuda_snn_train_momentum(kernel_ann *kernel,double *train,double moment,
-								cudastreams *cudas);
+    cudastreams *cudas);
 #if __cplusplus
 }
 #endif

@@ -15,7 +15,7 @@ UNROLL_FOR(init,end,magnitude,operation,index)
  * not provide a way to control the unroll magnitude...
  * 
  * Most likely for GCC (and other) that do not provide a 
-	#pragma unroll n
+    #pragma unroll n
  * or any control of the unroll magnitude.
  * 
  * If you did not understand the meaning of this, DO NOT use this 
@@ -75,13 +75,13 @@ do{
  * where unrolling is quite explicit.
  * 
  * Mod: 2018-05 hubert.valencia _at_ laposte.net
- * 		hubert.valencia _at_ imass.nagoya-u.ac.jp
+ *      hubert.valencia _at_ imass.nagoya-u.ac.jp
  *
  * Mod: 2013-02 hubert.valencia _at_ laposte.net
- *		hubert.valencia _at_ riam.kyushu-u.ac.jp
+ *      hubert.valencia _at_ riam.kyushu-u.ac.jp
  * 
  * Mod: 2012-10 hubert.valencia _at_ laposte.net
- *		hubert.valencia _at_ aist.go.jp
+ *      hubert.valencia _at_ aist.go.jp
  * 
  * Org: 2008-04 hubert.valencia _at_ laposte.net
  */
@@ -123,24 +123,24 @@ do{
 //head INS
 #define INS_N__(nn,op,ix) INS_ ## nn (op,ix) 
 # define UNROLL_N_(nn,op,ix) do{\
-	INS_N__(nn,op,ix);\
-	}while(0)
+    INS_N__(nn,op,ix);\
+    }while(0)
 //loop define
 // serial version:
 #ifndef __INTEL_COMPILER
 #define UNROLL_FOR(init,end,nn,op,ix) do{\
 if (nn>abs(end-init)) {for(ix=init;ix<end;ix++) {OP_ ##op (ix);}\
 } else {\
-	int uu=(end-init)%nn;\
-	for(ix=init;ix<uu;ix++) {OP_ ##op (ix);}\
-	for(ix=uu;ix<end;ix+=nn){\
-		UNROLL_N_(nn,op,ix);\
-		}\
-	}\
+    int uu=(end-init)%nn;\
+    for(ix=init;ix<uu;ix++) {OP_ ##op (ix);}\
+    for(ix=uu;ix<end;ix+=nn){\
+        UNROLL_N_(nn,op,ix);\
+        }\
+    }\
 }while(0)
 #else //__INTEL_COMPILER
 #define UNROLL_FOR(init,end,nn,op,ix) PRAGMA(unroll(nn));\
-	for(ix=init;ix<end;ix++) OP_ ##op (ix)
+    for(ix=init;ix<end;ix++) OP_ ##op (ix)
 #endif //__INTEL_COMPILER
 // parallel version:
 #ifndef _OMP
@@ -149,9 +149,9 @@ if (nn>abs(end-init)) {for(ix=init;ix<end;ix++) {OP_ ##op (ix);}\
 #else //_OMP
 #ifndef OLD_GCC
 #define _1ST_LOOP(ix,init,uu,op) PRAGMA(omp parallel for private(ix))\
-	for(ix=init;ix<uu;ix++) {OP_ ##op (ix);}
+    for(ix=init;ix<uu;ix++) {OP_ ##op (ix);}
 #define _2ND_LOOP(ix,uu,end,nn,op) PRAGMA(omp parallel for private(ix))\
-	for(ix=uu;ix<end;ix+=nn){UNROLL_N_(nn,op,ix);}
+    for(ix=uu;ix<end;ix+=nn){UNROLL_N_(nn,op,ix);}
 #else //OLD_GCC
 /*#warning "OLD GCC version can't handle 2 pragma in 1 macro"*/
 //in such case only the second loop is parallelized
@@ -163,10 +163,10 @@ if (nn>abs(end-init)) {for(ix=init;ix<end;ix++) {OP_ ##op (ix);}\
 #define UNROLL_OMP_FOR(init,end,nn,op,ix) do{\
 if (nn>abs(end-init)) {for(ix=init;ix<end;ix++) {OP_ ##op (ix);}\
 } else {\
-	int uu=(end-init)%nn;\
-	_1ST_LOOP(ix,init,uu,op);\
-	_2ND_LOOP(ix,uu,end,nn,op);\
-	}\
+    int uu=(end-init)%nn;\
+    _1ST_LOOP(ix,init,uu,op);\
+    _2ND_LOOP(ix,uu,end,nn,op);\
+    }\
 }while(0)
 #endif //_OMP
 /* vim: filetype=c: set syntax=c */

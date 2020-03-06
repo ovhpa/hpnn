@@ -27,40 +27,40 @@
 #endif /*ANN_UNROLL*/
 
 #define DBG_TRACE(array,N) do{\
-	acc=0.;\
-	for(rdx=0;rdx<(N);rdx++) acc+=(array)[rdx];\
-	fprintf(stdout,"#DBG: acc=%.15f\n",acc);\
+    acc=0.;\
+    for(rdx=0;rdx<(N);rdx++) acc+=(array)[rdx];\
+    fprintf(stdout,"#DBG: acc=%.15f\n",acc);\
 }while(0)
 
 typedef struct {
-	UINT n_neurons;		/*number of neurons*/
-	UINT n_inputs;		/*number of inputs*/
-	DOUBLE *weights;	/*weights for this layer*/
-	DOUBLE *vec;		/*output of this layer*/
+    UINT n_neurons;     /*number of neurons*/
+    UINT n_inputs;      /*number of inputs*/
+    DOUBLE *weights;    /*weights for this layer*/
+    DOUBLE *vec;        /*output of this layer*/
 } layer_ann;
 
 typedef struct kann{
-	CHAR *name;			/*ANN name*/
-	UINT n_inputs;		/*number of inputs*/
-	DOUBLE *in;			/*input array*/
-	UINT n_hiddens;		/*number of hidden layers*/
-	layer_ann *hiddens;	/*hidden layers*/
-	UINT n_outputs;		/*number of outputs*/
-	layer_ann output;	/*output layer*/
-	DOUBLE **dw;		/*weight momentum (when relevant)*/
-	UINT max_index;		/*maximum array index*/
-	DOUBLE *tmp_cpu;	/*temporary array (CPU)*/
-	DOUBLE *tmp_gpu;	/*temporary array (GPU))*/
-	struct kann **kerns;/*multiple allocation (when relevant)*/
+    CHAR *name;         /*ANN name*/
+    UINT n_inputs;      /*number of inputs*/
+    DOUBLE *in;         /*input array*/
+    UINT n_hiddens;     /*number of hidden layers*/
+    layer_ann *hiddens; /*hidden layers*/
+    UINT n_outputs;     /*number of outputs*/
+    layer_ann output;   /*output layer*/
+    DOUBLE **dw;        /*weight momentum (when relevant)*/
+    UINT max_index;     /*maximum array index*/
+    DOUBLE *tmp_cpu;    /*temporary array (CPU)*/
+    DOUBLE *tmp_gpu;    /*temporary array (GPU))*/
+    struct kann **kerns;/*multiple allocation (when relevant)*/
 } kernel_ann;
 
 /*functions*/
 BOOL ann_kernel_free(kernel_ann *kernel);
 BOOL ann_kernel_allocate(kernel_ann *kernel,UINT n_inputs,UINT n_hiddens,
-						 UINT *h_neurons, UINT n_outputs);
+                         UINT *h_neurons, UINT n_outputs);
 kernel_ann *ann_load(CHAR *f_kernel);
 kernel_ann *ann_generate(UINT *seed,UINT n_inputs,UINT n_hiddens,
-						 UINT n_outputs,UINT *hiddens);
+                         UINT n_outputs,UINT *hiddens);
 void ann_dump(kernel_ann *kernel,FILE *out);
 BOOL ann_validate_kernel(kernel_ann *kernel);
 DOUBLE ann_act(DOUBLE x);
@@ -70,8 +70,11 @@ DOUBLE ann_kernel_train(kernel_ann *kernel,const DOUBLE *train);
 void ann_momentum_init(kernel_ann *kernel);
 void ann_raz_momentum(kernel_ann *kernel);
 void ann_momentum_free(kernel_ann *kernel);
-DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE alpha);
-DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
-DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
+DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,
+    const DOUBLE *train,DOUBLE alpha);
+DOUBLE ann_train_BP(kernel_ann *kernel,
+    DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
+DOUBLE ann_train_BPM(kernel_ann *kernel,
+    DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
 
 #endif /*ANN_H*/
