@@ -2094,7 +2094,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 		jdx=total_s-1;
 		dsigmoid_mul_delta_T<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
 			(red+rem,M,N,_Kx.hiddens[1].weights+jdx*red,ptr[gpu],
-			_Kx.hiddens[0].vec+jdx*red,delta_ptr[0]+jdx*red);
+			_Kx.hiddens[0].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
 		CHK_ERR(train_dsigmoid_mul_delta_T);
 		/*send result to delta[0] on GPU[0]*/
 		CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -2141,7 +2141,7 @@ double scuda_ann_train(kernel_ann *kernel,double *train,cudastreams *cudas){
 	ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
 	for(idx=0;idx<_K.n_hiddens;idx++)
 		CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
-	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.n_outputs,DOUBLE);/*DEVICE*/
+	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.output.n_neurons,DOUBLE);/*DEVICE*/
 /*+++ I - FORWARD +++*/
 /*>>> in all cases, the FORWARD move should have already be done <<<*/
 	Ep=scuda_ann_error(kernel,train,cudas);
@@ -2984,7 +2984,7 @@ double scuda_ann_train_momentum
 	for(idx=0;idx<_K.n_hiddens;idx++){
 		CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
 	}
-	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.n_outputs,DOUBLE);/*DEVICE*/
+	CUDA_ALLOC(delta_ptr[_K.n_hiddens],_K.output.n_neurons,DOUBLE);/*DEVICE*/
 /*+++ I - FORWARD +++*/
 /*>>> in all cases, the FORWARD move should have already be done <<<*/
 	Ep=scuda_ann_error(kernel,train,cudas);
