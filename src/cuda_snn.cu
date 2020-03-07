@@ -370,7 +370,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
         _K.hiddens[0].vec+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
     CHK_ERR(fw_vec_cpy);
-    /*put back vec from GPU[0] to all GPUs*/
+/*put back vec from GPU[0] to all GPUs*/
     red=N/cudas->cuda_n_streams;
     rem=N%cudas->cuda_n_streams;
     CUDA_SET_DEV(*cudas,0);
@@ -614,7 +614,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             _K.hiddens[idx].vec+jdx*red,red+rem,
             double,cudas->cuda_streams[jdx]);
         CHK_ERR(fw_vec_cpy);
-        /*put back vec from GPU[0] to all GPUs*/
+/*put back vec from GPU[0] to all GPUs*/
         red=N/cudas->cuda_n_streams;
         rem=N%cudas->cuda_n_streams;
         CUDA_SET_DEV(*cudas,0);
@@ -827,11 +827,11 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     jdx=total_s-1;
     cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
     cublasDgemv(cudas->cuda_handle[gpu],
-        CUBLAS_OP_T,M,red+rem,&_alpha,_K.output.weights+jdx*M*red,M,
-        _K.hiddens[_K.n_hiddens-1].vec,1,&_beta,_K.output.vec+jdx*red,1);
+        CUBLAS_OP_T,M,red+rem,&_alpha,_Kx.output.weights+jdx*M*red,M,
+        _Kx.hiddens[_Kx.n_hiddens-1].vec,1,&_beta,_Kx.output.vec+jdx*red,1);
     CHK_ERR(fw_gemv);
     /*transfer to GPU[0]*/
-    CUDA_G2G_SCP(_Kx.output.vec+jdx*red,_K.output.vec+jdx*red,red,
+    CUDA_G2G_SCP(_Kx.output.vec+jdx*red,_K.output.vec+jdx*red,red+rem,
                  double,cudas->cuda_streams[jdx]);
     CHK_ERR(fw_vec_cpy);
 }
@@ -914,7 +914,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CHK_ERR(fw_vec_cpy);
 }
 #endif /*_CUBLAS*/
-    for(gpu=0;gpu<cudas->n_gpu;gpu++){
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         CUDA_SYNC();
     }
@@ -1216,7 +1216,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
     jdx=total_s-1;
     dsmax_diff<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-        (red+rem,ptr[gpu]+kdx*red,_K.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+        (red+rem,ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
     CHK_ERR(train_dsmax_dif);
     /*send back data to delta_ptr*/
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1224,7 +1224,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
 }
-    for(gpu=0;gpu<cudas->n_gpu;gpu++){
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         CUDA_SYNC();
     }
