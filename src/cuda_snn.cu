@@ -1185,8 +1185,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
         /*1- get part of train from GPU[0]*/
-        CUDA_G2G_CP(train+gpu*(cudas->cuda_n_streams),
-            ptr[gpu],cudas->cuda_n_streams*red,double);
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_CP(train+jdx*red,ptr[gpu]+jdx*red,red*cudas->cuda_n_streams,double);
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
@@ -1204,8 +1204,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
     /*1- get part of train from GPU[0]*/
-    CUDA_G2G_CP(train+gpu*(cudas->cuda_n_streams),
-        ptr[gpu],cudas->cuda_n_streams*red+rem,double);
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_CP(train+jdx*red,ptr[gpu]+jdx*red,red*cudas->cuda_n_streams+rem,double);
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
