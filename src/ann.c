@@ -2294,6 +2294,15 @@ DOUBLE ann_train_BP(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBLE
     DOUBLE *train_gpu;
     CUDA_SET_DEV(*cudas,0);/*make sure all transfer happen to gpu[0]*/
     CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
+    if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
+        kernel_ann *kx;
+        /*distribute input to other GPUs*/
+        for(int gpu=1;gpu<cudas->n_gpu;gpu++){
+            /*copy*/
+            kx=KERN.kerns[gpu];
+            CUDA_G2G_CP(KERN.in,kx->in,KERN.n_inputs,DOUBLE);
+        }
+    }
 if(cudas->mem_model==CUDA_MEM_CMM){
     CUDA_ALLOC_MM(train_gpu,KERN.n_outputs,DOUBLE);
 }else{
@@ -2379,6 +2388,15 @@ DOUBLE ann_train_BPM(kernel_ann *kernel,DOUBLE *train_in,DOUBLE *train_out,DOUBL
     DOUBLE *train_gpu;
     CUDA_SET_DEV(*cudas,0);/*make sure all transfer happen to gpu[0]*/
     CUDA_C2G_CP(train_in,KERN.in,KERN.n_inputs,DOUBLE);
+    if((cudas->mem_model==CUDA_MEM_EXP)&&(cudas->n_gpu>1)){
+        kernel_ann *kx; 
+        /*distribute input to other GPUs*/
+        for(int gpu=1;gpu<cudas->n_gpu;gpu++){
+            /*copy*/
+            kx=KERN.kerns[gpu];
+            CUDA_G2G_CP(KERN.in,kx->in,KERN.n_inputs,DOUBLE);
+        }
+    }
 if(cudas->mem_model==CUDA_MEM_CMM){
     CUDA_ALLOC_MM(train_gpu,KERN.n_outputs,DOUBLE);
 }else{

@@ -166,6 +166,7 @@ void scuda_snn_forward(kernel_ann *kernel,cudastreams *cudas){
     kernel_ann *kx;
     int kdx;
     total_s=cudas->cuda_n_streams*cudas->n_gpu;
+    CUDA_SET_DEV(*cudas,0);/*always start from GPU[0]*/
 if(cudas->mem_model==CUDA_MEM_CMM){
     /*Prefetch everything now*/
 /*>>> all GPU but last one*/
@@ -969,6 +970,7 @@ double scuda_snn_error(kernel_ann *kernel,double *train,cudastreams *cudas){
     double **ptr;/*this is used as a GPU-local storage for CUDA_MEM_EXP*/
     int kdx;
     total_s=cudas->cuda_n_streams*cudas->n_gpu;
+    CUDA_SET_DEV(*cudas,0);/*always start from GPU[0]*/
     ALLOC(ptr,cudas->n_gpu,DOUBLE *);/*HOST*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=0;gpu<cudas->n_gpu;gpu++) ptr[gpu]=NULL;
@@ -1103,6 +1105,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         kx=_K.kerns[gpu];
         CUDA_FREE(ptr[gpu]);
     }
+    CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] <- just in case*/
     FREE(ptr);
 }
     dEp/=((double)N);
@@ -1125,6 +1128,7 @@ void scuda_snn_delta(kernel_ann *kernel,
     double **ptr;/*this is used as a GPU-local storage for CUDA_MEM_EXP*/
     int kdx;
     total_s=cudas->cuda_n_streams*cudas->n_gpu;
+    CUDA_SET_DEV(*cudas,0);/*always start from GPU[0]*/
     ALLOC(ptr,cudas->n_gpu,DOUBLE *);/*HOST*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=0;gpu<cudas->n_gpu;gpu++) ptr[gpu]=NULL;
@@ -1898,6 +1902,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         kx=_K.kerns[gpu];
         CUDA_FREE(ptr[gpu]);
     }
+    CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] <- just in case*/
     FREE(ptr);
 }
 }
@@ -1919,8 +1924,8 @@ double scuda_snn_train(kernel_ann *kernel,double *train,cudastreams *cudas){
     kernel_ann *kx;
     int kdx;
     total_s=cudas->cuda_n_streams*cudas->n_gpu;
+    CUDA_SET_DEV(*cudas,0);/*always start from GPU[0]*/
     /*allocate delta_ptr*/
-    CUDA_SET_DEV(*cudas,0);/*make sure all allocation happen on gpu[0]*/
     ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
     for(idx=0;idx<_K.n_hiddens;idx++)
         CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
@@ -2551,8 +2556,8 @@ double scuda_snn_train_momentum(kernel_ann *kernel,double *train,double moment,
     kernel_ann *kx;
     int kdx;
     total_s=cudas->cuda_n_streams*cudas->n_gpu;
+    CUDA_SET_DEV(*cudas,0);/*always start from GPU[0]*/
     /*allocate delta_ptr*/
-    CUDA_SET_DEV(*cudas,0);/*make sure all allocation happen on gpu[0]*/
     ALLOC(delta_ptr,_K.n_hiddens+1,DOUBLE *);/*HOST*/
     for(idx=0;idx<_K.n_hiddens;idx++)
         CUDA_ALLOC(delta_ptr[idx],_K.hiddens[idx].n_neurons,DOUBLE);/*DEVICE*/
