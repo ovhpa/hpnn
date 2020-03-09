@@ -372,6 +372,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.hiddens[0].vec+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
     CHK_ERR(fw_vec_cpy);
 /*put back vec from GPU[0] to all GPUs*/
+    /*TODO: only missing parts of vec*/
     red=N/cudas->cuda_n_streams;
     rem=N%cudas->cuda_n_streams;
     CUDA_SET_DEV(*cudas,0);
@@ -915,7 +916,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CHK_ERR(fw_vec_cpy);
 }
 #endif /*_CUBLAS*/
-    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+    for(gpu=0;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         CUDA_SYNC();
     }
