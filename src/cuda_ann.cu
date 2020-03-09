@@ -2281,6 +2281,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.output.weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -2370,6 +2389,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
         _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -2481,6 +2519,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
             double,cudas->cuda_streams[jdx]);
         CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+        /*TODO: stream copy version*/
+        /*before that we may need to sync all copies to GPU[0]*/
+        for(gpu=1;gpu<cudas->n_gpu;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            CUDA_SYNC();
+        }
+        CUDA_SET_DEV(*cudas,0);
+        /*TRANSFER*/
+        for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+            kx=_K.kerns[gpu];
+            /*left part*/
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                cudas->cuda_n_streams*gpu*M*red,double);
+            /*right part*/
+            if(gpu==cudas->n_gpu-1) continue;
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+        }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -2570,6 +2627,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
             double,cudas->cuda_streams[jdx]);
         CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+        /*TODO: stream copy version*/
+        /*before that we may need to sync all copies to GPU[0]*/
+        for(gpu=1;gpu<cudas->n_gpu;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            CUDA_SYNC();
+        }
+        CUDA_SET_DEV(*cudas,0);
+        /*TRANSFER*/
+        for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+            kx=_K.kerns[gpu];
+            /*left part*/
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                cudas->cuda_n_streams*gpu*M*red,double);
+            /*right part*/
+            if(gpu==cudas->n_gpu-1) continue;
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+        }
 }
 #endif /*_CUBLAS*/
         for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -2670,6 +2746,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -2759,6 +2854,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -3183,6 +3297,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.output.weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -3280,6 +3413,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.output.weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -3447,6 +3599,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
             double,cudas->cuda_streams[jdx]);
         CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+        /*TODO: stream copy version*/
+        /*before that we may need to sync all copies to GPU[0]*/
+        for(gpu=1;gpu<cudas->n_gpu;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            CUDA_SYNC();
+        }
+        CUDA_SET_DEV(*cudas,0);
+        /*TRANSFER*/
+        for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+            kx=_K.kerns[gpu];
+            /*left part*/
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                cudas->cuda_n_streams*gpu*M*red,double);
+            /*right part*/
+            if(gpu==cudas->n_gpu-1) continue;
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+        }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -3543,6 +3714,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
             double,cudas->cuda_streams[jdx]);
         CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+        /*TODO: stream copy version*/
+        /*before that we may need to sync all copies to GPU[0]*/
+        for(gpu=1;gpu<cudas->n_gpu;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            CUDA_SYNC();
+        }
+        CUDA_SET_DEV(*cudas,0);
+        /*TRANSFER*/
+        for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+            kx=_K.kerns[gpu];
+            /*left part*/
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                cudas->cuda_n_streams*gpu*M*red,double);
+            /*right part*/
+            if(gpu==cudas->n_gpu-1) continue;
+            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+                M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+        }
 }
 #endif /*_CUBLAS*/
         for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -3706,6 +3896,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -3795,6 +4004,25 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
+/*>>> put back weights from GPU[0] to all GPUs*/
+    /*TODO: stream copy version*/
+    /*before that we may need to sync all copies to GPU[0]*/
+    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);
+    /*TRANSFER*/
+    for(gpu=cudas->n_gpu-1;gpu>0;gpu--){
+        kx=_K.kerns[gpu];
+        /*left part*/
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            cudas->cuda_n_streams*gpu*M*red,double);
+        /*right part*/
+        if(gpu==cudas->n_gpu-1) continue;
+        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+            M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
+    }
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
