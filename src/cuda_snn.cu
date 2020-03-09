@@ -533,8 +533,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
         jdx=total_s-1;
         cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
-        cublasDgemv(cudas->cuda_handle[gpu],
-            CUBLAS_OP_T,M,red+rem,&_alpha,
+        cublasDgemv(cudas->cuda_handle[gpu],CUBLAS_OP_T,M,red+rem,&_alpha,
             _K.hiddens[idx].weights+jdx*M*red,M,
             _K.hiddens[idx-1].vec,1,&_beta,
             _K.hiddens[idx].vec+jdx*red,1);
@@ -828,9 +827,10 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
     jdx=total_s-1;
     cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
-    cublasDgemv(cudas->cuda_handle[gpu],
-        CUBLAS_OP_T,M,red+rem,&_alpha,_Kx.output.weights+jdx*M*red,M,
-        _Kx.hiddens[_Kx.n_hiddens-1].vec,1,&_beta,_Kx.output.vec+jdx*red,1);
+    cublasDgemv(cudas->cuda_handle[gpu],CUBLAS_OP_T,M,red+rem,&_alpha,
+                _Kx.output.weights+jdx*M*red,M,
+                _Kx.hiddens[_Kx.n_hiddens-1].vec,1,&_beta,
+                _Kx.output.vec+jdx*red,1);
     CHK_ERR(fw_gemv);
     /*transfer to GPU[0]*/
     CUDA_G2G_SCP(_Kx.output.vec+jdx*red,_K.output.vec+jdx*red,red+rem,
