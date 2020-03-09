@@ -1188,11 +1188,11 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         kx=_K.kerns[gpu];
         /*1- get part of train from GPU[0]*/
         jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(train+jdx*red,ptr[gpu]+jdx*red,red*cudas->cuda_n_streams,double);
+        CUDA_G2G_CP(train+jdx*red,ptr[gpu],red*cudas->cuda_n_streams,double);
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-                (red,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,
+                (red,ptr[gpu],_Kx.output.vec+jdx*red,
                 _Kx.tmp_gpu+jdx*red);
             CHK_ERR(train_dsmax_dif);
             /*send back data to delta_ptr*/
@@ -1207,11 +1207,11 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     kx=_K.kerns[gpu];
     /*1- get part of train from GPU[0]*/
     jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(train+jdx*red,ptr[gpu]+jdx*red,red*cudas->cuda_n_streams+rem,double);
+    CUDA_G2G_CP(train+jdx*red,ptr[gpu],red*cudas->cuda_n_streams+rem,double);
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-            (red,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+            (red,ptr[gpu],_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
         CHK_ERR(train_dsmax_dif);
         /*send back data to delta_ptr*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1222,7 +1222,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
     jdx=total_s-1;
     dsmax_diff<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-        (red+rem,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+        (red+rem,ptr[gpu],_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
     CHK_ERR(train_dsmax_dif);
     /*send back data to delta_ptr*/
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1230,7 +1230,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         double,cudas->cuda_streams[jdx]);
     CHK_ERR(delta_transfer);
 }
-    for(gpu=1;gpu<cudas->n_gpu;gpu++){
+    for(gpu=0;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         CUDA_SYNC();
     }

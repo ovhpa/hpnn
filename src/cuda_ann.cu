@@ -1262,7 +1262,11 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     }
 }
 #endif /*_CUBLAS*/
-CUDA_SYNC();
+    for(gpu=0;gpu<cudas->n_gpu;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        CUDA_SYNC();
+    }
+    CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] (just in case)*/
 }
 /*-----------------------------------------------*/
 /*+++ Calculate Training Error TODO: optimize +++*/
@@ -2086,9 +2090,9 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SET_DEV(*cudas,gpu);
         CUDA_FREE(ptr[gpu]);
     }
-    CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] <- just in case*/
     FREE(ptr);
 }
+    CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] <- just in case*/
 }
 #define LEARN_RATE 0.01
 /*------------------------*/
