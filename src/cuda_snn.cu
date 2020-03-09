@@ -980,6 +980,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
+        /*TODO: ptr is over-sized*/
         CUDA_ALLOC(ptr[gpu],_Kx.max_index,DOUBLE);
     }
 }
@@ -1038,7 +1039,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
             amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
                 (red,_Kx.tmp_gpu+jdx*red,
-                ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+                ptr[gpu],_Kx.output.vec+jdx*red);
             CHK_ERR(err_amb_smax);
             /*3- send result to tmp_gpu on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1059,7 +1060,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
         amb_smax<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
             (red,_Kx.tmp_gpu+jdx*red,
-            ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+            ptr[gpu],_Kx.output.vec+jdx*red);
         CHK_ERR(err_amb_smax);
         /*3- send result to tmp_gpu on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1071,7 +1072,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
     amb_smax<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
         (red+rem,_Kx.tmp_gpu+jdx*red,
-        ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red);
+        ptr[gpu],_Kx.output.vec+jdx*red);
     CHK_ERR(err_amb_smax);
     /*3- send result to tmp_gpu on GPU[0]*/
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1191,7 +1192,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-                (red,ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red,
+                (red,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,
                 _Kx.tmp_gpu+jdx*red);
             CHK_ERR(train_dsmax_dif);
             /*send back data to delta_ptr*/
@@ -1210,7 +1211,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         dsmax_diff<<<_KG(red),0,cudas->cuda_streams[jdx]>>>
-            (red,ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+            (red,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
         CHK_ERR(train_dsmax_dif);
         /*send back data to delta_ptr*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1221,7 +1222,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last stream*/
     jdx=total_s-1;
     dsmax_diff<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
-        (red+rem,ptr[gpu]+kdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+        (red+rem,ptr[gpu]+jdx*red,_Kx.output.vec+jdx*red,_Kx.tmp_gpu+jdx*red);
     CHK_ERR(train_dsmax_dif);
     /*send back data to delta_ptr*/
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1317,7 +1318,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             &_beta,_Kx.tmp_gpu+jdx*red,1);
             CHK_ERR(train_gemv);
             dsigmoid<<<_KG(red),0,cudas->cuda_streams[jdx]>>>(red,
-                _K.hiddens[_K.n_hiddens-1].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+                _Kx.hiddens[_Kx.n_hiddens-1].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
             CHK_ERR(train_dsigmoid);
             /*3- send result to delta[_K.n_hiddens-1] on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1341,7 +1342,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         &_beta,_Kx.tmp_gpu+jdx*red,1);
         CHK_ERR(train_gemv);
         dsigmoid<<<_KG(red),0,cudas->cuda_streams[jdx]>>>(red,
-            _K.hiddens[_K.n_hiddens-1].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
+            _Kx.hiddens[_Kx.n_hiddens-1].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
         CHK_ERR(train_dsigmoid);
         /*3- send result to delta[_K.n_hiddens-1] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1882,7 +1883,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         jdx=total_s-1;
         dsigmoid_mul_delta_T<<<_KG(red+rem),0,cudas->cuda_streams[jdx]>>>
             (red+rem,M,N,_Kx.hiddens[1].weights+jdx*red,ptr[gpu],
-            _Kx.hiddens[0].vec+jdx*red,delta_ptr[0]+jdx*red);
+            _Kx.hiddens[0].vec+jdx*red,_Kx.tmp_gpu+jdx*red);
         CHK_ERR(train_dsigmoid_mul_delta_T);
         /*send result to delta[0] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
@@ -1900,7 +1901,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 }else{
     for(gpu=1;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
-        kx=_K.kerns[gpu];
         CUDA_FREE(ptr[gpu]);
     }
     CUDA_SET_DEV(*cudas,0);/*go back to GPU[0] <- just in case*/
@@ -2232,7 +2232,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
                 jdx=kdx+gpu*(cudas->cuda_n_streams);
                 /*2- calculate weights (vec is GPU-local)*/
-                cublasSetStream(cudas->cuda_handle[gpu],cudas->cuda_streams[jdx]);
+                cublasSetStream(cudas->cuda_handle[gpu],
+                                cudas->cuda_streams[jdx]);
                 cublasDger(cudas->cuda_handle[gpu],M,red,&_alpha,
                     _Kx.hiddens[idx-1].vec,1,_Kx.tmp_gpu+jdx*red,1,
                     _Kx.hiddens[idx].weights+jdx*M*red,M);
