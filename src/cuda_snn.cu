@@ -340,7 +340,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*transfer to GPU[0]*/
             CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
                 _K.hiddens[0].vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
     }
 /*>>> last GPU*/
@@ -359,7 +358,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*transfer to GPU[0]*/
         CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
             _K.hiddens[0].vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -374,7 +372,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*transfer to GPU[0]*/
     CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
         _K.hiddens[0].vec+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-    CHK_ERR(fw_vec_cpy);
 /*put back vec from GPU[0] to all GPUs*/
     /*TODO: only missing parts of vec*/
     red=N/cudas->cuda_n_streams;
@@ -449,7 +446,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*transfer to GPU[0]*/
             CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
                 _K.hiddens[0].vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
     }
 /*>>> last GPU*/
@@ -464,7 +460,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*transfer to GPU[0]*/
         CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
             _K.hiddens[0].vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -475,7 +470,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*transfer to GPU[0]*/
     CUDA_G2G_SCP(_Kx.hiddens[0].vec+jdx*red,
         _K.hiddens[0].vec+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-    CHK_ERR(fw_vec_cpy);
     /*put back vec from GPU[0] to all GPUs*/
     red=N/cudas->cuda_n_streams;
     rem=N%cudas->cuda_n_streams;
@@ -585,7 +579,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
                     _K.hiddens[idx].vec+jdx*red,red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(fw_vec_cpy);
             }
         }
 /*>>> last GPU*/
@@ -607,7 +600,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
                 _K.hiddens[idx].vec+jdx*red,red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -624,7 +616,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
             _K.hiddens[idx].vec+jdx*red,red+rem,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
 /*put back vec from GPU[0] to all GPUs*/
         red=N/cudas->cuda_n_streams;
         rem=N%cudas->cuda_n_streams;
@@ -701,7 +692,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
                     _K.hiddens[idx].vec+jdx*red,red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(fw_vec_cpy);
             }
         }
 /*>>> last GPU*/
@@ -717,7 +707,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
                 _K.hiddens[idx].vec+jdx*red,red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -729,7 +718,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].vec+jdx*red,
             _K.hiddens[idx].vec+jdx*red,red+rem,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
         /*put back vec from GPU[0] to all GPUs*/
         red=N/cudas->cuda_n_streams;
         rem=N%cudas->cuda_n_streams;
@@ -819,7 +807,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*transfer to GPU[0]*/
             CUDA_G2G_SCP(_Kx.output.vec+jdx*red,
                 _K.output.vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
     }
 /*>>> last GPU*/
@@ -836,7 +823,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*transfer to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.vec+jdx*red,
             _K.output.vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -849,7 +835,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*transfer to GPU[0]*/
     CUDA_G2G_SCP(_Kx.output.vec+jdx*red,_K.output.vec+jdx*red,red+rem,
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(fw_vec_cpy);
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -901,7 +886,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*transfer to GPU[0]*/
             CUDA_G2G_SCP(_Kx.output.vec+jdx*red,
                 _K.output.vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(fw_vec_cpy);
         }
     }
 /*>>> last GPU*/
@@ -916,7 +900,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*transfer to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.vec+jdx*red,
             _K.output.vec+jdx*red,red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(fw_vec_cpy);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -927,7 +910,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*transfer to GPU[0] (we are not on GPU[0])*/
     CUDA_G2G_SCP(_Kx.output.vec+jdx*red,
         _K.output.vec+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-    CHK_ERR(fw_vec_cpy);
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -1060,7 +1042,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*3- send result to tmp_gpu on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 _K.tmp_gpu+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(error_transfer);
         }
     }
 /*>>> last GPU*/
@@ -1082,7 +1063,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*3- send result to tmp_gpu on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             _K.tmp_gpu+jdx*red,red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(error_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -1094,7 +1074,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*3- send result to tmp_gpu on GPU[0]*/
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
         _K.tmp_gpu+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-    CHK_ERR(error_transfer);
 }
     /*get dEp*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -1215,7 +1194,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[_Kx.n_hiddens]+jdx*red,red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -1233,7 +1211,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[_Kx.n_hiddens]+jdx*red,red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -1244,7 +1221,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
         delta_ptr[_Kx.n_hiddens]+jdx*red,red+rem,
         double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 }
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
@@ -1340,7 +1316,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[_Kx.n_hiddens-1]+jdx*red,
                 red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -1364,7 +1339,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[_Kx.n_hiddens-1]+jdx*red,red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -1381,7 +1355,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
         delta_ptr[_Kx.n_hiddens-1]+jdx*red,red+rem,
         double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -1442,7 +1415,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[_Kx.n_hiddens-1]+jdx*red,red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -1462,7 +1434,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[_Kx.n_hiddens-1]+jdx*red,red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -1475,7 +1446,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
         delta_ptr[_Kx.n_hiddens-1]+jdx*red,red+rem,
         double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 }
 #endif /*_CUBLAS*/
     for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -1565,7 +1535,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 /*3- send result to delta[idx] on GPU[0]*/
                 CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                     delta_ptr[idx]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -1588,7 +1557,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*3- send result to delta[idx] on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[idx]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -1603,7 +1571,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*send result to delta[idx] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[idx]+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -1660,7 +1627,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 /*3- send result to delta[idx] on GPU[0]*/
                 CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                     delta_ptr[idx]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -1679,7 +1645,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*3- send result to delta[idx] on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[idx]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -1690,7 +1655,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*send result to delta[idx] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[idx]+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 }
 #endif /*_CUBLAS*/
             for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -1779,7 +1743,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 /*3- send result to delta[0] on GPU[0]*/
                 CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                     delta_ptr[0]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -1803,7 +1766,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*3- send result to delta[0] on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,delta_ptr[0]+jdx*red,red,
                          double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -1818,7 +1780,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*send result to delta[0] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,delta_ptr[0]+jdx*red,red+rem,
                      double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 }
 #else  /*_CUBLAS*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
@@ -1874,7 +1835,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 /*3- send result to delta[0] on GPU[0]*/
                 CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,delta_ptr[0]+jdx*red,red,
                              double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -1893,7 +1853,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             /*3- send result to delta[0] on GPU[0]*/
             CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
                 delta_ptr[0]+jdx*red,red,double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -1904,7 +1863,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*send result to delta[0] on GPU[0]*/
         CUDA_G2G_SCP(_Kx.tmp_gpu+jdx*red,
             delta_ptr[0]+jdx*red,red+rem,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 }
 #endif /*_CUBLAS*/
         for(gpu=0;gpu<cudas->n_gpu;gpu++){
@@ -2027,7 +1985,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
                 _K.output.weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -2048,7 +2005,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*3- transfer back weights to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
             _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2062,7 +2018,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
         _K.output.weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -2143,7 +2098,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
                 _K.output.weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -2162,7 +2116,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*3- transfer back weights to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
             _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2173,7 +2126,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     /*3- transfer back weights to GPU[0]*/
     CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
         _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -2268,7 +2220,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                     _K.hiddens[idx].weights+jdx*M*red,M*red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -2289,7 +2240,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                 _K.hiddens[idx].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -2302,7 +2252,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
                      double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
         /*TODO: stream copy version*/
         /*before that we may need to sync all copies to GPU[0]*/
@@ -2383,7 +2332,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                     _K.hiddens[idx].weights+jdx*M*red,M*red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -2403,7 +2351,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                 _K.hiddens[idx].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -2415,7 +2362,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
                      double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
         /*TODO: stream copy version*/
         /*before that we may need to sync all copies to GPU[0]*/
@@ -2503,7 +2449,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
                 _K.hiddens[0].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -2523,7 +2468,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
             _K.hiddens[0].weights+jdx*M*red,M*red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2535,7 +2479,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -2616,7 +2559,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
                 _K.hiddens[0].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -2636,7 +2578,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
             _K.hiddens[0].weights+jdx*M*red,M*red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2648,7 +2589,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -2829,7 +2769,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
                 _K.output.weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         /*PS: The same portion of momentum is always applied to the same GPU*/
         }
     }
@@ -2858,7 +2797,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*3- transfer back weights to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
             _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2879,7 +2817,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
         _K.output.weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -2965,7 +2902,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
                 _K.output.weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         /*PS: The same portion of momentum is always applied to the same GPU*/
         }
     }
@@ -2986,7 +2922,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         /*3- transfer back weights to GPU[0]*/
         CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
             _K.output.weights+jdx*M*red,M*red,double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -2999,7 +2934,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.output.weights+jdx*M*red,
         _K.output.weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -3135,7 +3069,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                     _K.hiddens[idx].weights+jdx*M*red,M*red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -3165,7 +3098,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                 _K.hiddens[idx].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -3186,7 +3118,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
                      double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
         /*TODO: stream copy version*/
         /*before that we may need to sync all copies to GPU[0]*/
@@ -3272,7 +3203,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                     _K.hiddens[idx].weights+jdx*M*red,M*red,
                     double,cudas->cuda_streams[jdx]);
-                CHK_ERR(delta_transfer);
             }
         }
 /*>>> last GPU*/
@@ -3293,7 +3223,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
                 _K.hiddens[idx].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
 /*>>> last stream*/
         jdx=total_s-1;
@@ -3306,7 +3235,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[idx].weights+jdx*M*red,
             _K.hiddens[idx].weights+jdx*M*red,M*(red+rem),
                      double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
         /*TODO: stream copy version*/
         /*before that we may need to sync all copies to GPU[0]*/
@@ -3439,7 +3367,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
                 _K.hiddens[0].weights+jdx*M*red,M*red,
                 double,cudas->cuda_streams[jdx]);
-            CHK_ERR(delta_transfer);
         }
     }
 /*>>> last GPU*/
@@ -3468,7 +3395,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
             _K.hiddens[0].weights+jdx*M*red,M*red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -3489,7 +3415,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
@@ -3589,7 +3514,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
             _K.hiddens[0].weights+jdx*M*red,M*red,
             double,cudas->cuda_streams[jdx]);
-        CHK_ERR(delta_transfer);
     }
 /*>>> last stream*/
     jdx=total_s-1;
@@ -3601,7 +3525,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     CUDA_G2G_SCP(_Kx.hiddens[0].weights+jdx*M*red,
         _K.hiddens[0].weights+jdx*M*red,M*(red+rem),
                  double,cudas->cuda_streams[jdx]);
-    CHK_ERR(delta_transfer);
 /*>>> put back weights from GPU[0] to all GPUs*/
     /*TODO: stream copy version*/
     /*before that we may need to sync all copies to GPU[0]*/
