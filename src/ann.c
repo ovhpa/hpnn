@@ -2361,6 +2361,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         if(iter>10239) break;/*failsafe number of wrong iteration*/
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
+    NN_COUT(stdout," final=%15.10f",dEp);
     if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
     else NN_COUT(stdout," FAIL!\n");
     fflush(stdout);
@@ -2454,6 +2455,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         if(iter>10239) break;/*failsafe number of wrong iteration*/ 
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
+    NN_COUT(stdout," final=%15.10f",dEp);
     if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
     else NN_COUT(stdout," FAIL!\n");
     fflush(stdout);
