@@ -1462,7 +1462,6 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         /*we have to sync output.cuda_v -> out*/
         CUDA_SET_DEV(*cudas,0);/*make sure transfer happen from GPU[0]*/
         CUDA_G2C_CP(kernel->tmp_cpu,kernel->output.vec,KERN.n_outputs,DOUBLE);
-        CUDA_SYNC();/*<-useful?*/
         ptr=kernel->tmp_cpu;
 }else{
         /*CMM can use GPU memory directly*/
@@ -1554,7 +1553,6 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         /*we have to sync output.cuda_v -> out*/
         CUDA_SET_DEV(*cudas,0);/*make sure transfer happen from GPU[0]*/
         CUDA_G2C_CP(kernel->tmp_cpu,kernel->output.vec,KERN.n_outputs,DOUBLE);
-        CUDA_SYNC();/*<-useful?*/
         ptr=kernel->tmp_cpu;
 }else{
         /*CMM can use GPU memory directly*/

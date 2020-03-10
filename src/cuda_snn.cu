@@ -1113,7 +1113,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         (_K.n_outputs,_K.tmp_gpu,train,_K.output.vec);
     CHK_ERR(err_amb_smax_acc);
     CUDA_G2C_CP(&dEp,&(_K.tmp_gpu[0]),1,double);
-    CHK_ERR(err_g2c_cp);
 #endif /*_CUBLAS*/
     CUDA_SYNC();/*only gpu[0]*/
 if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){

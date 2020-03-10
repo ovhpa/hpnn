@@ -400,10 +400,24 @@
 
 /*sync*/
 #define CUDA_C2G_CP(cpu,gpu,size,type) do{\
-    cudaMemcpy(gpu,cpu,(size)*sizeof(type),cudaMemcpyHostToDevice);\
+    cudaError_t _err;\
+    _err=cudaMemcpy(gpu,cpu,(size)*sizeof(type),cudaMemcpyHostToDevice);\
+    if(_err != CUBLAS_STATUS_SUCCESS){\
+        _OUT(stderr,"CPU to GPU transfer error (function %s, line %i)\n",\
+            FUNCTION,__LINE__);\
+        _OUT(stderr,"CUDA report: %s\n",cudaGetErrorString(_err));\
+        exit(-1);\
+    }\
 }while(0)
 #define CUDA_G2C_CP(cpu,gpu,size,type) do{\
-    cudaMemcpy(cpu,gpu,(size)*sizeof(type),cudaMemcpyDeviceToHost);\
+    cudaError_t _err;\
+    _err=cudaMemcpy(cpu,gpu,(size)*sizeof(type),cudaMemcpyDeviceToHost);\
+    if(_err != CUBLAS_STATUS_SUCCESS){\
+        _OUT(stderr,"GPU to CPU transfer error (function %s, line %i)\n",\
+            FUNCTION,__LINE__);\
+        _OUT(stderr,"CUDA report: %s\n",cudaGetErrorString(_err));\
+        exit(-1);\
+    }\
 }while(0)
 #define CUBLAS_SET_VECTOR(cpu_v,ldc,gpu_v,ldg,size,type) do{\
     cublasStatus_t _err;\

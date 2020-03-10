@@ -294,8 +294,8 @@ int64_t scuda_ann_allocate_momentum(kernel_ann *kernel,cudastreams *cudas){
             for(gpu=1;gpu<cudas->n_gpu;gpu++){
                 CUDA_SET_DEV(*cudas,gpu);
                 kx=_K.kerns[gpu];
-                CUDA_ALLOC_REPORT(_Kx.dw[_Kx.n_hiddens],
-                    _Kx.output.n_inputs*_Kx.output.n_neurons,DOUBLE,allocate);
+                CUDA_ALLOC(_Kx.dw[_Kx.n_hiddens],
+                    _Kx.output.n_inputs*_Kx.output.n_neurons,DOUBLE);
                 for(idx=0;idx<_Kx.n_hiddens;idx++)
                     CUDA_ALLOC(_Kx.dw[idx],
                         _Kx.hiddens[idx].n_inputs*_Kx.hiddens[idx].n_neurons,
@@ -359,11 +359,9 @@ void scuda_ann_weight_transfer_C2G
                 if(index>=_K.n_hiddens){
                     /*target: output*/
                     CUDA_C2G_CP(weight,_Kx.output.weights,M*N,double);
-                    CHK_ERR(weights_transfer_C2G);
                 }else{
                     /*target: hiddens[idx]*/
                     CUDA_C2G_CP(weight,_Kx.hiddens[index].weights,M*N,double);
-                    CHK_ERR(weights_transfer_C2G);
                 }
             }
         }
@@ -374,11 +372,9 @@ void scuda_ann_weight_transfer_C2G
         if(index>=_K.n_hiddens){
             /*target: output*/
             CUDA_C2G_CP(weight,_K.output.weights,M*N,double);
-            CHK_ERR(weights_transfer_C2G);
         }else{
             /*target: hiddens[idx]*/
             CUDA_C2G_CP(weight,_K.hiddens[index].weights,M*N,double);
-            CHK_ERR(weights_transfer_C2G);
         }
         break;
     case CUDA_MEM_CMM:
@@ -411,11 +407,9 @@ void scuda_ann_weight_transfer_G2C(kernel_ann *kernel,int index,
         if(index>=_K.n_hiddens){
             /*target: output*/
             CUDA_G2C_CP(*weight,_K.output.weights,M*N,double);
-            CHK_ERR(weights_transfer_C2G);
         }else{
             /*target: hiddens[idx]*/
             CUDA_G2C_CP(*weight,_K.hiddens[index].weights,M*N,double);
-            CHK_ERR(weights_transfer_C2G);
         }
         break;
     case CUDA_MEM_CMM:
@@ -1328,7 +1322,6 @@ if(cudas->mem_model==CUDA_MEM_CMM){
         (_K.n_outputs,_K.tmp_gpu,train,_K.output.vec);
     CHK_ERR(err_amb_acc);
     CUDA_G2C_CP(&dEp,&(_K.tmp_gpu[0]),1,double);
-    CHK_ERR(err_g2c_cp);
 #endif /*_CUBLAS*/
     dEp*=0.5;
     return dEp;
