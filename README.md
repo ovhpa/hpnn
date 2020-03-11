@@ -40,7 +40,7 @@ The library is written in plain C, and optimized for use in parallel systems wit
 * OpenMP - for the intra-nodes computations
 * CUDA - for GPGPU computations
 
-Some other technologies (ie. openCL) may be added later.
+Combination of the above is also provided: MPI/OpenMP and MPI/CUDA. Some other technologies (ie. openCL) may be added later.
 
 This work is still at a very, very early stage!
 Some _demonstration_ wrapper are provided which shows an example of integration with the library: these are not the programs you are looking for ;)
