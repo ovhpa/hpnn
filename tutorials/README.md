@@ -4,9 +4,41 @@ This section will contain some basic tutorial in order to demonstrate the use of
 The examples that are provided are, by no means, intended to be _meaningful_ ones.
 Hopefully, though, it could lead to applications that will be.
 
+## API tutorials
+
+### RRUFF X-ray diffraction database
+
+This simple tutorial relies on the RRUFF X-ray diffraction (XRD) database.
+An extra program is required to convert from the original database format to the simple input/ouput format used by libhpnn.
+
+This tutorial is provided in order to understand libhpnn API, it is by no mean a guide of good practice in producing reasonable model for XRD predicting the geometry of a crystal using XRD pattern.
+-> in case you are interested by such application, I recommend reading the following paper: 
+P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). A preprint is available [here](https://arxiv.org/abs/1812.05625)
+
+A tutorial is provided for this type in the form of a bash script, [tutorial.bash](tutorials/ann/tutorial.bash).\
+Following is a walk-through of what the script is doing. 
+
+The tutorial relies on two executable programs that are described thereafter: `run_nn` and `train_nn`, for running and training a NN, respectively.
+
+After `libhpnn` have been successfully prepared, the [tutorial.bash](tutorials/ann/tutorial.bash) script can be launched.\
+Here are the step that are executed in the script:
+
+1. The RRUFF database is downloaded (on press of the `Y` key, be careful it is quite sensitive).
+2. The files are renamed to follow a more practical R[number].txt scheme - in which number it the experiment number.
+3. files are process by the `pdif` program that will translate it to a raw format that can be read by `train_nn` and `run_nn`.
+4. A first training is done from a randomly generated NN kernel.
+5. 10 round of optimization are then performed on this kernel.
+6. Finally a run of the kernel on data is performed to check if it was optimized.
+
+*Of course, there is now meaning in training and running a NN kernel with the exact same sample!*\
+This is just a demonstration of a process flow (training/running) intended to understand the functionning of `libhpnn`.
+
+
+
 ## RUN and TRAIN programs
 
-The `train_nn` and `run_nn` programs are the most basic use of libhpnn, and are not part of tutorials, but it can be useful to examine how they are linked to the library.
+The `train_nn` and `run_nn` programs are the most basic use of libhpnn, and are not part of tutorials, but it can be useful to examine how they are linked to the library.\
+_Since our goal is not to train a batch of samples efficiently, but to optimize a NN 'on the fly', this 2 programs are provided as an illustration only._ If you are looking for an *optimized* way to train a NN using batch techniques, please see other (very performant) programs such as [chainer](https://github.com/chainer/chainer) and others.
 
 ### The RUN program
 
@@ -92,21 +124,5 @@ Compared to the `run_nn` program, `train_nn` require slightly different steps:
 #### 3. Train the ANN
 
 #### 5. de-initialization
-
-
-## API tutorials
-
-### RRUFF X-ray diffraction database
-
-This simple tutorial relies on the RRUFF X-ray diffraction (XRD) database.
-An extra program is required to convert from the original database format to the simple input/ouput format used by libhpnn.
-
-This tutorial is provided in order to understand libhpnn API, it is by no mean a guide of good practice in producing reasonable model for XRD predicting the geometry of a crystal using XRD pattern.
--> in case you are interested by such application, I recommend reading the following paper: 
-P.M. Vecsei, K. Choo, J. Chang, and T. Neupert, Phys. Rev. B 99, 245120 (2019). A preprint is available [here](https://arxiv.org/abs/1812.05625)
-
-
-
-A tutorial is provided for this type in the form of a bash script, [tutorial.bash](tutorials/ann/tutorial.bash). Following is a walk-through of what the script is doing. 
 
 
