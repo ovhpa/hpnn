@@ -1365,7 +1365,7 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         delta_ptr[_K.n_hiddens]+jdx*red);
     CHK_ERR(delta_dsigmoid_mul_dif);
 }else{
-/*>>> broadcast train*/
+/*>>> broadcast parts of train*/
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         jdx=gpu*(cudas->cuda_n_streams);
@@ -2165,6 +2165,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[_K.n_hiddens]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2179,11 +2194,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2202,11 +2212,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams+rem,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -2286,6 +2291,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[_K.n_hiddens]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2298,11 +2318,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2319,11 +2334,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams+rem,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -2409,6 +2419,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_SYNC();
         }
 }else{
+/*>>> broadcast parts of delta[idx]*/
+        for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            kx=_K.kerns[gpu];
+            jdx=gpu*(cudas->cuda_n_streams);
+            CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                        red*cudas->cuda_n_streams,double,
+                        cudas->cuda_streams[jdx]);
+        }
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams+rem,double,
+                    cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
         CUDA_SET_DEV(*cudas,0);
         for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2422,11 +2447,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
             CUDA_SET_DEV(*cudas,gpu);
             kx=_K.kerns[gpu];
-            /*1- get part of delta[idx] from GPU[0]*/
-            jdx=gpu*(cudas->cuda_n_streams);
-            CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-            /*we don't need to sync (I think)*/
             for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
                 jdx=kdx+gpu*(cudas->cuda_n_streams);
                 /*2- calculate weights (vec is GPU-local)*/
@@ -2445,11 +2465,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[idx] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams+rem,double);
-        /*no sync needed (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2528,6 +2543,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_SYNC();
         }
 }else{
+/*>>> broadcast parts of delta[idx]*/
+        for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            kx=_K.kerns[gpu];
+            jdx=gpu*(cudas->cuda_n_streams);
+            CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                        red*cudas->cuda_n_streams,double,
+                        cudas->cuda_streams[jdx]);
+        }
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams+rem,double,
+                    cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
         CUDA_SET_DEV(*cudas,0);
         for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2540,9 +2570,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
             CUDA_SET_DEV(*cudas,gpu);
             kx=_K.kerns[gpu];
-            /*1- get full delta[idx] from GPU[0]*/
-            CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
-            /*we don't need to sync (I think)*/
             for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
                 jdx=kdx+gpu*(cudas->cuda_n_streams);
                 /*2- calculate weights (vec is GPU-local)*/
@@ -2559,9 +2586,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get full delta[idx] from GPU[0]*/
-        CUDA_G2G_CP(delta_ptr[idx],_Kx.tmp_gpu,N,double);
-        /*no sync needed (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2645,6 +2669,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[0]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2657,9 +2696,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get full delta[0] from GPU[0]*/
-        CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2676,9 +2712,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get full delta[idx] from GPU[0]*/
-    CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -2755,6 +2788,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[0]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -2767,9 +2815,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get full delta[0] from GPU[0]*/
-        CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -2786,9 +2831,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get full delta[idx] from GPU[0]*/
-    CUDA_G2G_CP(delta_ptr[0],_Kx.tmp_gpu,N,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -3156,6 +3198,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[_K.n_hiddens]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3177,11 +3234,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3208,11 +3260,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -3309,6 +3356,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[_K.n_hiddens]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[_Kx.n_hiddens]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3322,11 +3384,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3345,11 +3402,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part of delta[_K.n_hiddens] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[_Kx.n_hiddens]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -3463,6 +3515,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_SYNC();
         }
 }else{
+/*>>> broadcast parts of delta[idx]*/
+        for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            kx=_K.kerns[gpu];
+            jdx=gpu*(cudas->cuda_n_streams);
+            CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                        red*cudas->cuda_n_streams,double,
+                        cudas->cuda_streams[jdx]);
+        }
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams+rem,double,
+                    cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
         CUDA_SET_DEV(*cudas,0);
         for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3484,11 +3551,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
             CUDA_SET_DEV(*cudas,gpu);
             kx=_K.kerns[gpu];
-            /*1- get part of delta[idx] from GPU[0]*/
-            jdx=gpu*(cudas->cuda_n_streams);
-            CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                        _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-            /*we don't need to sync (I think)*/
             for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
                 jdx=kdx+gpu*(cudas->cuda_n_streams);
                 /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3515,11 +3577,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[idx] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*no sync needed (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -3618,6 +3675,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             CUDA_SYNC();
         }
 }else{
+/*>>> broadcast parts of delta[idx]*/
+        for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+            CUDA_SET_DEV(*cudas,gpu);
+            kx=_K.kerns[gpu];
+            jdx=gpu*(cudas->cuda_n_streams);
+            CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                        red*cudas->cuda_n_streams,double,
+                        cudas->cuda_streams[jdx]);
+        }
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[idx]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams+rem,double,
+                    cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
         CUDA_SET_DEV(*cudas,0);
         for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3631,11 +3703,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
             CUDA_SET_DEV(*cudas,gpu);
             kx=_K.kerns[gpu];
-            /*1- get part of delta[idx] from GPU[0]*/
-            jdx=gpu*(cudas->cuda_n_streams);
-            CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                        _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-            /*we don't need to sync (I think)*/
             for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
                 jdx=kdx+gpu*(cudas->cuda_n_streams);
                 /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3653,11 +3720,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[idx] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[idx]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*no sync needed (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec is GPU-local)*/
@@ -3770,6 +3832,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[0]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3791,11 +3868,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part of delta[0] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[0]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3821,11 +3893,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part delta[idx] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[0]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
@@ -3920,6 +3987,21 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
         CUDA_SYNC();
     }
 }else{
+/*>>> broadcast parts of delta[0]*/
+    for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
+        CUDA_SET_DEV(*cudas,gpu);
+        kx=_K.kerns[gpu];
+        jdx=gpu*(cudas->cuda_n_streams);
+        CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                    red*cudas->cuda_n_streams,double,
+                    cudas->cuda_streams[jdx]);
+    }
+    CUDA_SET_DEV(*cudas,gpu);
+    kx=_K.kerns[gpu];
+    jdx=gpu*(cudas->cuda_n_streams);
+    CUDA_G2G_SCP(delta_ptr[0]+jdx*red,_Kx.tmp_gpu+jdx*red,
+                red*cudas->cuda_n_streams+rem,double,
+                cudas->cuda_streams[jdx]);
 /*>>> first GPU[0]*/
     CUDA_SET_DEV(*cudas,0);
     for(jdx=0;jdx<cudas->cuda_n_streams;jdx++){
@@ -3932,11 +4014,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
     for(gpu=1;gpu<cudas->n_gpu-1;gpu++){
         CUDA_SET_DEV(*cudas,gpu);
         kx=_K.kerns[gpu];
-        /*1- get part delta[0] from GPU[0]*/
-        jdx=gpu*(cudas->cuda_n_streams);
-        CUDA_G2G_CP(delta_ptr[0]+jdx*red,
-                    _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-        /*we don't need to sync (I think)*/
         for(kdx=0;kdx<cudas->cuda_n_streams;kdx++){
             jdx=kdx+gpu*(cudas->cuda_n_streams);
             /*2- calculate weights (vec, dw are GPU-local)*/
@@ -3953,11 +4030,6 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
 /*>>> last GPU*/
     CUDA_SET_DEV(*cudas,gpu);
     kx=_K.kerns[gpu];
-    /*1- get part of delta[idx] from GPU[0]*/
-    jdx=gpu*(cudas->cuda_n_streams);
-    CUDA_G2G_CP(delta_ptr[0]+jdx*red,
-                _Kx.tmp_gpu+jdx*red,red*cudas->cuda_n_streams,double);
-    /*no sync needed (I think)*/
     for(kdx=0;kdx<cudas->cuda_n_streams-1;kdx++){
         jdx=kdx+gpu*(cudas->cuda_n_streams);
         /*2- calculate weights (vec is GPU-local)*/
