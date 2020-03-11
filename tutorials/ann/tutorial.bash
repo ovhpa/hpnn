@@ -2,29 +2,46 @@
 # tutorial demonstrating ANN with RRUFF XRD database
 # hubert.valencia _at_ imass.nagoya-u.ac.jp    -- [OVHPA]
 
-if [ -z "$OMP_NUM_THREADS" ]&>/dev/null; then
-	export OMP_NUM_THREADS=2
-fi
+# modify to suits your train_nn best parameters
+export OMP_NUM_THREADS=4
+TRAIN_ARG="-O4 -B4"
+RUN_ARG="-O1"
 
-#check or make pdif
+#check pdif
 if [ -x "./pdif" ]&>/dev/null; then
 	PDIF=./pdif
 else
-	make pdif
-	if [ -x "./pdif" ]&>/dev/null; then
-		PDIF=./pdif
-	else
-		echo "Can't make pdif executable!, bailing!"
+	PDIF=`which pdif 2>/dev/null`
+	if [ -z "$PDIF" ]&>/dev/null; then
+		echo "Can't find pdif!"
+		echo "Please make pdif executable before executing tutorial!"
 		exit
 	fi
 fi
-#check or make train_nn
-if [ -x "../../bin/train_nn" ]&>/dev/null; then
-	TRAIN=../../bin/train_nn
+#check train_nn
+if [ -x "../../tests/train_nn" ]&>/dev/null; then
+	TRAIN=`pwd`/../../tests/train_nn
 else
-	echo "Can't find train_nn executable!, bailing!"
-	exit
+	TRAIN=`which train_nn 2>/dev/null`
+	if [ -z "$TRAIN" ]&>/dev/null; then
+		echo "Can't train_nn!"
+		echo "Please make train_nn before executing tutorial!"
+		exit
+	fi
 fi
+#check run_nn
+if [ -x "../../tests/run_nn" ]&>/dev/null; then
+        RUN=`pwd`/../../tests/run_nn
+else
+	RUN=`which run_nn 2>/dev/null`
+	if [ -z "$RUN" ]&>/dev/null; then
+		echo "Can't find run_nn!"
+	        echo "Please make run_nn before executing tutorial!"
+		exit
+	fi
+fi
+TRAIN_CMD="$TRAIN $TRAIN_ARG"
+RUN_CMD="$RUN $RUN_ARG"
 #prepare rruff
 echo "For the tutorial,  the RRUFF database is required"
 echo "in the ./rruff directory. If you have not done so"
@@ -82,7 +99,8 @@ fi
 if [ -d "./rruff" ]&>/dev/null; then
 	echo "starting from rruff directory..."
 else
-	echo "rruff directory not present -bailing!"
+	echo "rruff directory is not present!"
+	echo "Something went wrong..."
 	exit
 fi
 # prepare samples
@@ -125,7 +143,7 @@ echo "training NN -- turn 0"
 cp $TRAIN ./rruff
 cd rruff
 #first round
-./train_nn -O2
+eval $TRAIN_CMD
 echo "Initial training done!"
 rm -f nn.conf
 mv nn2.conf nn.conf
@@ -133,20 +151,10 @@ mv nn2.conf nn.conf
 for idx in `seq 10`
 do
 	echo "training NN -- turn $idx"
-	./train_nn
+	eval $TRAIN_CMD
 done
 echo "ANN should be trained enough for a rough test."
 cp ./samples/* ./tests/
-if [ -x "../../bin/run_nn" ]&>/dev/null; then
-	../../bin/run_nn
-else
-	echo "Can't find run_nn executable!"
-	echo "Please try run_nn, from the rruff directory..."
-fi
+eval $RUN_CMD
 echo "All done!"
-
-
-
-
-
 

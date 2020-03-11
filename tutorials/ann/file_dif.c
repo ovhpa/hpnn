@@ -19,6 +19,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef DEBUG
+#include <cuda.h>
+#endif /*DEBUG*/
+
 #include <libhpnn/common.h>
 #include "file_dif.h"
 

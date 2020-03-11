@@ -21,6 +21,9 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <math.h>
+#ifdef DEBUG
+#include <cuda.h>
+#endif /*DEBUG*/
 
 /* Artificial Neuron Network ---------------------- preparation and training. */
 /* ^^^^^^^^^^^^^^^^^^^^^^^This is an example processing RRUFF XRD database[1] */

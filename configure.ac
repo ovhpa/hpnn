@@ -572,6 +572,7 @@ Makefile
 src/libhpnn.pc
 src/Makefile
 tests/Makefile
+tutorials/ann/Makefile
 ])
 # -------
 # SUMMARY
@@ -634,6 +635,11 @@ if test "x$use_nvcc" != xnone; then
 	fi
 	if test "x$with_cuda_lib" != "xauto"; then
 		configure_cmd+=" --with-cuda-lib=${with_cuda_lib}"
+	fi
+	if test "x$auto_cublas" = xyes; then
+		configure_cmd+=" --enable-cublas"
+	else
+		configure_cmd+=" --disable-cublas"
 	fi
 fi
 AC_MSG_NOTICE(>>> configure COMMAND:)

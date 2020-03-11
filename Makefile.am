@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 ## Re-written OVHPA @2019
 
-SUBDIRS = src tests
+SUBDIRS = src tests tutorials/ann
 
 dist_doc_DATA = \
 	README \
