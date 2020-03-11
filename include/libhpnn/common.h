@@ -510,7 +510,7 @@
 }while(0)
 #else /*DEBUG*/
 /*for debugging purpose, we are going to 'emulate' a 2-GPUs system*/
-#define N_GPU_CTX 2
+#define N_GPU_CTX 3
 #define CUDA_INITIALIZE() do{\
     cuInit(0);\
     cudaDeviceReset();\

@@ -2253,7 +2253,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+        CUDA_G2G_CP(_K.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -2370,7 +2371,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+        CUDA_G2G_CP(_K.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -2505,7 +2507,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 cudas->cuda_n_streams*gpu*M*red,double);
             /*right part*/
             if(gpu==cudas->n_gpu-1) continue;
-            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+            CUDA_G2G_CP(_K.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+                _Kx.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
                 M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
         }
         CUDA_SYNC();
@@ -2624,7 +2627,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 cudas->cuda_n_streams*gpu*M*red,double);
             /*right part*/
             if(gpu==cudas->n_gpu-1) continue;
-            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+            CUDA_G2G_CP(_K.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+                _Kx.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
                 M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
         }
         CUDA_SYNC();
@@ -2750,7 +2754,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+        CUDA_G2G_CP(_K.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -2869,7 +2874,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+        CUDA_G2G_CP(_K.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -3315,7 +3321,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+        CUDA_G2G_CP(_K.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -3441,7 +3448,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.output.weights,_Kx.output.weights,
+        CUDA_G2G_CP(_K.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.output.weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -3634,7 +3642,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 cudas->cuda_n_streams*gpu*M*red,double);
             /*right part*/
             if(gpu==cudas->n_gpu-1) continue;
-            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+            CUDA_G2G_CP(_K.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+                _Kx.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
                 M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
         }
         CUDA_SYNC();
@@ -3760,7 +3769,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
                 cudas->cuda_n_streams*gpu*M*red,double);
             /*right part*/
             if(gpu==cudas->n_gpu-1) continue;
-            CUDA_G2G_CP(_K.hiddens[idx].weights,_Kx.hiddens[idx].weights,
+            CUDA_G2G_CP(_K.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+                _Kx.hiddens[idx].weights+M*red*cudas->cuda_n_streams*(1+gpu),
                 M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
         }
         CUDA_SYNC();
@@ -3949,7 +3959,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+        CUDA_G2G_CP(_K.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
@@ -4068,7 +4079,8 @@ if((cudas->mem_model!=CUDA_MEM_EXP)||(cudas->n_gpu<2)){
             cudas->cuda_n_streams*gpu*M*red,double);
         /*right part*/
         if(gpu==cudas->n_gpu-1) continue;
-        CUDA_G2G_CP(_K.hiddens[0].weights,_Kx.hiddens[0].weights,
+        CUDA_G2G_CP(_K.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
+            _Kx.hiddens[0].weights+M*red*cudas->cuda_n_streams*(1+gpu),
             M*(N-red*cudas->cuda_n_streams*(1+gpu)),double);
     }
     CUDA_SYNC();
