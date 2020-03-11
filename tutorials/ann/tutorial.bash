@@ -4,8 +4,8 @@
 
 # modify to suits your train_nn best parameters
 export OMP_NUM_THREADS=4
-TRAIN_ARG="-O4 -B4"
-RUN_ARG="-O1"
+TRAIN_ARG="-v -v -v -O4 -B4"
+RUN_ARG="-v -v -v -O1"
 
 #check pdif
 if [ -x "./pdif" ]&>/dev/null; then
