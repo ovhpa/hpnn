@@ -30,6 +30,17 @@ Here are the step that are executed in the script:
 5. 10 round of optimization are then performed on this kernel.
 6. Finally a run of the kernel on data is performed to check if it was optimized.
 
+In this really simplistic example, we have chose to represent an XRD diffraction pattern as a 1D data. Each value represent the integral value of XRD counts between a regular interval between 5 and 90 degree. The resulting array produced by `pdif` have 850 values, which means each value correspond to the integration over a 0.1 degree interval.
+
+The output arrays was chosen to represent the space-group of the crystal system for which the XRD pattern was recorded. There are 230 space group considered, each of them are given the value -1.0 (indicating a wrong result) or 1.0 (positive result).
+
+To acheive better "results", the temperature was added as a parameter, and we chose to add it directly to the input array. Therefore the input array have 851 values, the first one being temperature.
+
+Note that the temperature was added as a relative value, that is a value in Kelvin divided by 273.15 which is 0C in Kelvin. It is generally a good idea to use relative values and to make sure all values in the input array are within the same order of magnitude. To this effect, the value of XRD count integrals is also scaled so that the maximum is 1.0 at the highest.
+
+After training the `run_nn` program shows that training have been successful by correctly ascribing each structure its space group (minus some few failure).
+
+
 *Of course, there is now meaning in training and running a NN kernel with the exact same sample!*\
 This is just a demonstration of a process flow (training/running) intended to understand the functionning of `libhpnn`.
 
