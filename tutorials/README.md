@@ -44,6 +44,24 @@ After training the `run_nn` program shows that training have been successful by 
 *Of course, there is now meaning in training and running a NN kernel with the exact same sample!*\
 This is just a demonstration of a process flow (training/running) intended to understand the functionning of `libhpnn`.
 
+NOTE: by changing the line 472 of the `file__dif.c` file from
+```
+		else fprintf(dest," -1.0");
+```
+to
+```
+		else fprintf(dest," 0.0");
+```
+and the line 130 of the `tutorial.bash` file from
+```
+echo "[type] ANN" >> nn.conf
+```
+to
+```
+echo "[type] SNN" >> nn.conf
+```
+one can actually use the SOFTMAX type (NN_TYPE_SNN) of neural network.\
+In such case, the output is given as a 'probabilistic-like' result, with the guessed ascribed value given as a percent. 
 
 
 ## RUN and TRAIN programs
