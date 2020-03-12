@@ -34,15 +34,14 @@ In this really simplistic example, we have chose to represent an XRD diffraction
 
 The output arrays was chosen to represent the space-group of the crystal system for which the XRD pattern was recorded. There are 230 space group considered, each of them are given the value -1.0 (indicating a wrong result) or 1.0 (positive result).
 
-To acheive better "results", the temperature was added as a parameter, and we chose to add it directly to the input array. Therefore the input array have 851 values, the first one being temperature.
+To achieve better "results", the temperature was added as a parameter, and we chose to add it directly to the input array. Therefore the input array have 851 values, the first one being temperature.
 
 Note that the temperature was added as a relative value, that is a value in Kelvin divided by 273.15 which is 0C in Kelvin. It is generally a good idea to use relative values and to make sure all values in the input array are within the same order of magnitude. To this effect, the value of XRD count integrals is also scaled so that the maximum is 1.0 at the highest.
 
 After training the `run_nn` program shows that training have been successful by correctly ascribing each structure its space group (minus some few failure).
 
-
 *Of course, there is now meaning in training and running a NN kernel with the exact same sample!*\
-This is just a demonstration of a process flow (training/running) intended to understand the functionning of `libhpnn`.
+This is just a demonstration of a process flow (training/running) intended to understand the functioning of `libhpnn`.
 
 NOTE: by changing the line 472 of the `file__dif.c` file from
 ```
