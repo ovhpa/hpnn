@@ -5,11 +5,12 @@
 # modify to suits your train_nn best parameters
 export OMP_NUM_THREADS=4
 TRAIN_ARG="-v -v -v -O4 -B4"
-RUN_ARG="-v -v -v -O1"
+RUN_ARG="-v -v -O1"
+PDIF_ARG=". -i 850 -o 230"
 
 #check pdif
 if [ -x "./pdif" ]&>/dev/null; then
-	PDIF=./pdif
+	PDIF=`pwd`/pdif
 else
 	PDIF=`which pdif 2>/dev/null`
 	if [ -z "$PDIF" ]&>/dev/null; then
@@ -42,6 +43,7 @@ else
 fi
 TRAIN_CMD="$TRAIN $TRAIN_ARG"
 RUN_CMD="$RUN $RUN_ARG"
+PDIF_CMD="$PDIF $PDIF_ARG"
 #prepare rruff
 echo "For the tutorial,  the RRUFF database is required"
 echo "in the ./rruff directory. If you have not done so"
@@ -122,9 +124,8 @@ if [ -d "./rruff/tests" ]&>/dev/null; then
 fi
 mkdir -p ./rruff/tests
 echo "preparing samples"
-cp $PDIF ./rruff
 cd rruff
-./pdif . -i 850 -o 230
+eval $PDIF_CMD
 echo "preparing configuration files"
 echo "[name] tutorial" > nn.conf
 echo "[type] ANN" >> nn.conf
@@ -140,7 +141,6 @@ sed 's/generate/kernel.opt/g' nn.conf > nn2.conf
 #all done
 cd ..
 echo "training NN -- turn 0"
-cp $TRAIN ./rruff
 cd rruff
 #first round
 eval $TRAIN_CMD
