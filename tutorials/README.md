@@ -43,12 +43,18 @@ After training the `run_nn` program shows that training have been successful by 
 *Of course, there is now meaning in training and running a NN kernel with the exact same sample!*\
 This is just a demonstration of a process flow (training/running) intended to understand the functioning of `libhpnn`.
 
-NOTE: by changing the line 472 of the `file__dif.c` file from
+NOTE: by changing the lines 469 to 472 of the `file__dif.c` file from
 ```
+	else fprintf(dest,"-1.0");
+	for(idx=1;idx<n_outputs;idx++){
+		if(idx==DIF.space-1) fprintf(dest," 1.0");
 		else fprintf(dest," -1.0");
 ```
 to
 ```
+	else fprintf(dest,"0.0");
+	for(idx=1;idx<n_outputs;idx++){
+		if(idx==DIF.space-1) fprintf(dest," 1.0");
 		else fprintf(dest," 0.0");
 ```
 and the line 130 of the `tutorial.bash` file from
