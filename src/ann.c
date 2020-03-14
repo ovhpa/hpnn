@@ -2419,10 +2419,6 @@ if(cudas->mem_model==CUDA_MEM_CMM){
         iter++;
 #ifdef _CUDA
         dEp=(DOUBLE)scuda_ann_train_momentum(kernel,train_gpu,alpha,cudas);
-        if(dEp<0.) {
-            fprintf(stdout,"@");
-            dEp=1.0;
-        }
 if(cudas->mem_model!=CUDA_MEM_CMM){
         /*we have to sync output.cuda_v -> out*/
         CUDA_SET_DEV(*cudas,0);/*make sure transfer happen from GPU[0]*/
