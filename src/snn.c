@@ -419,7 +419,7 @@ _HT;
 #undef OP_SX
     }
 #else /*_MPI*/
-#pragma omp parallel for private(jdx,kdx) _NT
+#pragma omp parallel for private(jdx,kdx) reduction(+:dv) _NT
     for(jdx=0;jdx<N;jdx++){
         KERN.output.vec[jdx]=0.;/*TRAP*/
 #define OP_WI(ix) KERN.output.vec[jdx]+=KERN.output.weights[_2D_IDX(M,jdx,ix)]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
