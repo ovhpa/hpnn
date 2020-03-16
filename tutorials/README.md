@@ -8,7 +8,7 @@ Hopefully, though, it could lead to applications that will be.
 
 ### RRUFF X-ray diffraction database
 
-This simple tutorial relies on the RRUFF X-ray diffraction (XRD) database.
+This simple tutorial relies on the [RRUFF](https://rruff.info) X-ray diffraction (XRD) database [\[1\]](#references).\
 An extra program is required to convert from the original database format to the simple input/ouput format used by libhpnn.
 
 This tutorial is provided in order to understand libhpnn API, it is by no mean a guide of good practice in producing reasonable model for XRD predicting the geometry of a crystal using XRD pattern.
@@ -159,4 +159,7 @@ Compared to the `run_nn` program, `train_nn` require slightly different steps:
 
 #### 5. de-initialization
 
+## References
+
+\[1\] B. Lafuente, R.T. Downs, H. Yang, and N. Stone, Chapter Title: "The power of databases: the RRUFF project.", In: "Highlights in Mineralogical Crystallography", T Armbruster and R M Danisi, eds. Berlin, Germany, W. De Gruyter, pp 1-30.
 
