@@ -2275,7 +2275,6 @@ _HT;
     FREE(delta_ptr);
     return Ep-Epr;
 }
-
 /*--------------------------*/
 /* train ANN sample with BP */
 /*--------------------------*/
@@ -2357,7 +2356,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>10239) break;/*failsafe number of wrong iteration*/
+        if(iter>MAX_BP_ITER) break;/*failsafe number of wrong iteration*/
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
@@ -2450,7 +2449,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>10239) break;/*failsafe number of wrong iteration*/ 
+        if(iter>MAX_BPM_ITER) break;/*failsafe number of wrong iteration*/ 
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
@@ -2462,5 +2461,4 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
 #endif /*_CUDA*/
     return dEp;
 }
-
 #undef KERN

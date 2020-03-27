@@ -76,5 +76,4 @@ DOUBLE ann_train_BP(kernel_ann *kernel,
     DOUBLE *train_in,DOUBLE *train_out,DOUBLE delta);
 DOUBLE ann_train_BPM(kernel_ann *kernel,
     DOUBLE *train_in,DOUBLE *train_out,DOUBLE alpha,DOUBLE delta);
-
 #endif /*ANN_H*/

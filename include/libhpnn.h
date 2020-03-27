@@ -61,8 +61,12 @@ typedef enum {
     NN_TRAIN_BP  = 0,   /*simple back-propagation*/
     NN_TRAIN_BPM = 1,   /*back-propagation with momentum*/
     NN_TRAIN_CG  = 2,   /*conjugate gradients*/
+    NN_TRAIN_SPLX =3,   /*simplex optimization*/
     NN_TRAIN_UKN =-1,   /*unknown*/
 } nn_train;
+#define MIN_BP_ITER 64
+#define MAX_BP_ITER 1023999
+#define MAX_BPM_ITER 1023999
 /*-----------------------------*/
 /*+++ NN definition handler +++*/
 /*-----------------------------*/

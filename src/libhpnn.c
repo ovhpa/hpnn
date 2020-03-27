@@ -797,6 +797,9 @@ NN_OUT(stdout,"loading kernel!\n");
                 case 'C':
                     _CONF.train=NN_TRAIN_CG;
                     break;
+                case 'S':
+                    _CONF.train=NN_TRAIN_SPLX;
+                    break;
                 default:
                     _CONF.train=NN_TRAIN_UKN;
             }
@@ -919,6 +922,9 @@ void _NN(dump,conf)(nn_def *conf,FILE *fp){
             break;
         case NN_TRAIN_CG:
             NN_WRITE(fp,"[train] CG\n");
+            break;
+        case NN_TRAIN_SPLX:
+            NN_WRITE(fp,"[train] SPLX\n");
             break;
         default:
             NN_WRITE(fp,"[train] none\n");
@@ -1246,6 +1252,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
                 res=ann_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
                     0.000001);/*TODO: set as parameter*/
                 break;
+            case NN_TRAIN_SPLX:
             case NN_TRAIN_CG:
             default:
                 res=0.;
@@ -1264,6 +1271,7 @@ BOOL _NN(train,kernel)(nn_def *conf){
                 res=snn_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
                     0.000001);/*TODO: set as parameter*/
                 break;
+            case NN_TRAIN_SPLX:
             case NN_TRAIN_CG:
             default:
                 res=0.;

@@ -1454,6 +1454,7 @@ if(cudas->mem_model==CUDA_MEM_CMM){
 #endif /*_CUDA*/
     NN_COUT(stdout," init=%15.10f",dEp);
     iter=0;
+    delta=1E-5;
     do{
         iter++;
 #ifdef _CUDA
@@ -1473,28 +1474,27 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         dEp=snn_kernel_train(kernel,train_out);
         ptr=kernel->output.vec;
 #endif /*_CUDA*/
-        /*1- determine max_p, p_trg*/
-        probe=-1.0;max_p=0;p_trg=0;
-        for(idx=0;idx<KERN.n_outputs;idx++){
-            if(probe<ptr[idx]){
-                probe=ptr[idx];
-                max_p=idx;
-            }
-            if(train_out[idx]==1.0) p_trg=idx;
-        }
-        /*2- match*/
-        is_ok=(max_p==p_trg);
         if(iter==1){
             /*determine if we get a good answer at first try*/
+            /*1- determine max_p, p_trg*/
+            probe=-1.0;max_p=0;p_trg=0;
+            for(idx=0;idx<KERN.n_outputs;idx++){
+                if(probe<ptr[idx]){
+                    probe=ptr[idx];
+                    max_p=idx;
+                }
+                if(train_out[idx]==1.0) p_trg=idx;
+            }
+            /*2- match*/
+            is_ok=(max_p==p_trg);
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>10239) break;/*failsafe number of wrong iteration*/
-    }while((dEp > delta)||(!(is_ok==TRUE)));
+        if(iter>MAX_BP_ITER) break;/*failsafe number of wrong iteration*/
+    }while((iter<MIN_BP_ITER)||(dEp > delta));
+//    }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
-    NN_COUT(stdout," final=%15.10f",dEp);
-    if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");
-    else NN_COUT(stdout," FAIL!\n");
+    NN_COUT(stdout," final=%15.10f\n",dEp);
     fflush(stdout);
 #ifdef _CUDA
     CUDA_FREE(train_gpu);
@@ -1579,7 +1579,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>10239) break;/*failsafe number of wrong iteration*/ 
+        if(iter>MAX_BPM_ITER) break;/*failsafe number of wrong iteration*/ 
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
