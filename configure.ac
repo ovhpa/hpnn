@@ -573,6 +573,7 @@ src/libhpnn.pc
 src/Makefile
 tests/Makefile
 tutorials/ann/Makefile
+tutorials/mnist/Makefile
 ])
 # -------
 # SUMMARY
