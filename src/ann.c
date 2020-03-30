@@ -2356,7 +2356,8 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>MAX_BP_ITER) break;/*failsafe number of wrong iteration*/
+        if(iter>MAX_BP_ITER) break;/*do at most MAX iterations*/
+        is_ok&=(iter>MIN_BP_ITER);/*do at least MIN iterations*/
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
@@ -2449,7 +2450,8 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>MAX_BPM_ITER) break;/*failsafe number of wrong iteration*/ 
+        if(iter>MAX_BPM_ITER) break;/*do at most MAX iterations*/
+        is_ok&=(iter>MIN_BPM_ITER);/*do at least MIN iterations*/
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);

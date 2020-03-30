@@ -1474,25 +1474,25 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         dEp=snn_kernel_train(kernel,train_out);
         ptr=kernel->output.vec;
 #endif /*_CUDA*/
-        if(iter==1){
-            /*determine if we get a good answer at first try*/
-            /*1- determine max_p, p_trg*/
-            probe=-1.0;max_p=0;p_trg=0;
-            for(idx=0;idx<KERN.n_outputs;idx++){
-                if(probe<ptr[idx]){
-                    probe=ptr[idx];
-                    max_p=idx;
-                }
-                if(train_out[idx]==1.0) p_trg=idx;
+        /*determine if we get a good answer at first try*/
+        /*1- determine max_p, p_trg*/
+        probe=-1.0;max_p=0;p_trg=0;
+        for(idx=0;idx<KERN.n_outputs;idx++){
+            if(probe<ptr[idx]){
+                probe=ptr[idx];
+                max_p=idx;
             }
-            /*2- match*/
-            is_ok=(max_p==p_trg);
+            if(train_out[idx]==1.0) p_trg=idx;
+        }
+        /*2- match*/
+        is_ok=(max_p==p_trg);
+        if(iter==1){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>MAX_BP_ITER) break;/*failsafe number of wrong iteration*/
-    }while((iter<MIN_BP_ITER)||(dEp > delta));
-//    }while((dEp > delta)||(!(is_ok==TRUE)));
+        if(iter>MAX_BPM_ITER) break;/*do at most MAX iterations*/
+        is_ok&=(iter>MIN_BPM_ITER);/*do at least MIN iterations*/
+    }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f\n",dEp);
     fflush(stdout);
@@ -1579,7 +1579,8 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>MAX_BPM_ITER) break;/*failsafe number of wrong iteration*/ 
+        if(iter>MAX_BPM_ITER) break;/*do at most MAX iterations*/
+        is_ok&=(iter>MIN_BPM_ITER);/*do at least MIN iterations*/
     }while((dEp > delta)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
