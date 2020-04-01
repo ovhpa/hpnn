@@ -1545,6 +1545,7 @@ if(cudas->mem_model==CUDA_MEM_CMM){
 #endif /*_CUDA*/
     NN_COUT(stdout," init=%15.10f",dEp);
     iter=0;
+    delta=0.000001;
     do{
         iter++;
 #ifdef _CUDA

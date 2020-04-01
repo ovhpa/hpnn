@@ -52,10 +52,10 @@ void write_output(FILE *sample_f,mnist_data data){
 	fprintf(sample_f,"\n");
 	fprintf(sample_f,"[output] %i  #%d\n",10,data.label);
 	if(data.label == 0) fprintf(sample_f,"1.0");
-	else fprintf(sample_f,"0.0");
+	else fprintf(sample_f,"-1.0");
 	for(idx=1;idx<10;idx++) 
 		if(data.label == idx) fprintf(sample_f," 1.0");
-		else fprintf(sample_f," 0.0");
+		else fprintf(sample_f," -1.0");
 	fprintf(sample_f,"\n");
 }
 /*-------------------*/
