@@ -64,10 +64,14 @@ typedef enum {
     NN_TRAIN_SPLX =3,   /*simplex optimization*/
     NN_TRAIN_UKN =-1,   /*unknown*/
 } nn_train;
+#define BP_LEARN_RATE 0.001
 #define MIN_BP_ITER 31
 #define MAX_BP_ITER 10239
-#define MIN_BPM_ITER 31
+#define DELTA_BP 1E-6
+#define BPM_LEARN_RATE 0.0005
+#define MIN_BPM_ITER 15
 #define MAX_BPM_ITER 10239
+#define DELTA_BPM 1E-6
 /*-----------------------------*/
 /*+++ NN definition handler +++*/
 /*-----------------------------*/

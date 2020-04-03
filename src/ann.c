@@ -1633,15 +1633,15 @@ DOUBLE ann_kernel_train(kernel_ann *kernel,const DOUBLE *train){
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-    cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+stream*red,
+    cblas_dger(CblasRowMajor,red,M,BP_LEARN_RATE,delta_ptr[KERN.n_hiddens]+stream*red,
     1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.output.weights+stream*M*red,M);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
-        cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+n_streams*red,
+        cblas_dger(CblasRowMajor,rem,M,BP_LEARN_RATE,delta_ptr[KERN.n_hiddens]+n_streams*red,
         1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.output.weights+n_streams*M*red,M);
     }
 #else /*_MPI*/
-    cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[KERN.n_hiddens],1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.output.weights,M);
+    cblas_dger(CblasRowMajor,N,M,BP_LEARN_RATE,delta_ptr[KERN.n_hiddens],1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.output.weights,M);
 #endif /*_MPI*/
 #elif defined(SBLAS)
     /*move the ger into a series of axpy*/
@@ -1650,7 +1650,7 @@ DOUBLE ann_kernel_train(kernel_ann *kernel,const DOUBLE *train){
     for(idx=0;idx<red;idx++){
 _HT;
         cblas_daxpy(
-        M,delta_ptr[KERN.n_hiddens][idx+stream*red]*LEARN_RATE,
+        M,delta_ptr[KERN.n_hiddens][idx+stream*red]*BP_LEARN_RATE,
         &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,&(KERN.output.weights[_2D_IDX(M,idx+stream*red,0)]),1);
     }
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
@@ -1659,7 +1659,7 @@ _HT;
         for(idx=0;idx<rem;idx++){
 _HT;
             cblas_daxpy(
-            M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*LEARN_RATE,
+            M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*BP_LEARN_RATE,
             &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
             &(KERN.output.weights[_2D_IDX(M,idx+n_streams*red,0)]),1);
         }
@@ -1669,7 +1669,7 @@ _HT;
     for(idx=0;idx<N;idx++){
 _HT;
         cblas_daxpy(
-        M,delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
+        M,delta_ptr[KERN.n_hiddens][idx]*BP_LEARN_RATE,
         &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
         &(KERN.output.weights[_2D_IDX(M,idx,0)]),1);
     }
@@ -1679,7 +1679,7 @@ _HT;
 #pragma omp parallel for private(idx,jdx) _NT
     for(idx=0;idx<red;idx++){
 #define OP_DH(ix) KERN.output.weights[_2D_IDX(M,idx+stream*red,ix)]+=\
-    LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+stream*red]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+stream*red]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
         UNROLL_FOR(0,M,ANN_UNROLL,DH,jdx);
 #undef OP_DH
     }
@@ -1688,7 +1688,7 @@ _HT;
 #pragma omp parallel for private(idx,jdx) _NT
         for(idx=0;idx<rem;idx++){
 #define OP_DH(ix) KERN.output.weights[_2D_IDX(M,idx+n_streams*red,ix)]+=\
-    LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+n_streams*red]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+n_streams*red]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
             UNROLL_FOR(0,M,ANN_UNROLL,DH,jdx);
 #undef OP_DH
         }
@@ -1697,7 +1697,7 @@ _HT;
 #pragma omp parallel for private(idx,jdx) _NT
     for(idx=0;idx<N;idx++){
 #define OP_DH(ix) KERN.output.weights[_2D_IDX(M,idx,ix)]+=\
-    LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[ix]
         UNROLL_FOR(0,M,ANN_UNROLL,DH,jdx);
 #undef OP_DH
     }
@@ -1716,26 +1716,26 @@ _HT;
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-        cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+        cblas_dger(CblasRowMajor,red,M,BP_LEARN_RATE,
         delta_ptr[idx]+stream*red,1,
         KERN.hiddens[idx-1].vec,1,
         KERN.hiddens[idx].weights+stream*M*red,M);
         MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
         if(rem>0){
-            cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,
+            cblas_dger(CblasRowMajor,rem,M,BP_LEARN_RATE,
                 delta_ptr[idx]+n_streams*red,1,
                 KERN.hiddens[idx-1].vec,1,
                 KERN.hiddens[idx].weights+n_streams*M*red,M);
         }
 #else /*_MPI*/
-        cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[idx],1,KERN.hiddens[idx-1].vec,1,KERN.hiddens[idx].weights,M);
+        cblas_dger(CblasRowMajor,N,M,BP_LEARN_RATE,delta_ptr[idx],1,KERN.hiddens[idx-1].vec,1,KERN.hiddens[idx].weights,M);
 #endif /*_MPI*/
 #elif defined(SBLAS)
 #ifdef _MPI
 #pragma omp parallel for private(jdx) _NT
         for(jdx=0;jdx<red;jdx++){
 _HT;
-            cblas_daxpy(M,delta_ptr[idx][jdx+stream*red]*LEARN_RATE,
+            cblas_daxpy(M,delta_ptr[idx][jdx+stream*red]*BP_LEARN_RATE,
                 &(KERN.hiddens[idx-1].vec[0]),1,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx+stream*red,0)]),1);
         }
         MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
@@ -1743,7 +1743,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
             for(jdx=0;jdx<rem;jdx++){
 _HT;
-                cblas_daxpy(M,delta_ptr[idx][jdx+n_streams*red]*LEARN_RATE,
+                cblas_daxpy(M,delta_ptr[idx][jdx+n_streams*red]*BP_LEARN_RATE,
                 &(KERN.hiddens[idx-1].vec[0]),1,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx+n_streams*red,0)]),1);
             }
         }
@@ -1752,7 +1752,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
         for(jdx=0;jdx<N;jdx++){
 _HT;
-            cblas_daxpy(M,delta_ptr[idx][jdx]*LEARN_RATE,
+            cblas_daxpy(M,delta_ptr[idx][jdx]*BP_LEARN_RATE,
                 &(KERN.hiddens[idx-1].vec[0]),1,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx,0)]),1);
         }
 #endif /*_MPI*/
@@ -1761,7 +1761,7 @@ _HT;
 #pragma omp parallel for private(jdx,kdx) _NT
         for(jdx=0;jdx<red;jdx++){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx+stream*red,ix)]+=\
-    LEARN_RATE*delta_ptr[idx][jdx+stream*red]*KERN.hiddens[idx-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[idx][jdx+stream*red]*KERN.hiddens[idx-1].vec[ix]
             UNROLL_FOR(0,M,ANN_UNROLL,DH,kdx);
 #undef OP_DH
         }
@@ -1770,7 +1770,7 @@ _HT;
 #pragma omp parallel for private(jdx,kdx) _NT
             for(jdx=0;jdx<rem;jdx++){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx+n_streams*red,ix)]+=\
-    LEARN_RATE*delta_ptr[idx][jdx+n_streams*red]*KERN.hiddens[idx-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[idx][jdx+n_streams*red]*KERN.hiddens[idx-1].vec[ix]
                 UNROLL_FOR(0,M,ANN_UNROLL,DH,kdx);
 #undef OP_DH
             }
@@ -1779,7 +1779,7 @@ _HT;
 #pragma omp parallel for private(jdx,kdx) _NT
         for(jdx=0;jdx<N;jdx++){
 #define OP_DH(ix) KERN.hiddens[idx].weights[_2D_IDX(KERN.hiddens[idx].n_inputs,jdx,ix)]+=\
-    LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[ix]
+    BP_LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[ix]
             UNROLL_FOR(0,M,ANN_UNROLL,DH,kdx);
 #undef OP_DH
         }
@@ -1798,42 +1798,42 @@ _HT;
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-    cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.hiddens[0].weights+stream*M*red,M);
+    cblas_dger(CblasRowMajor,red,M,BP_LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.hiddens[0].weights+stream*M*red,M);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
         cblas_dger(CblasRowMajor,rem,M,
-            LEARN_RATE,delta_ptr[0]+n_streams*red,1,
+            BP_LEARN_RATE,delta_ptr[0]+n_streams*red,1,
             KERN.in,1,
             KERN.hiddens[0].weights+n_streams*M*red,M);
     }
 #else /*_MPI*/
-    cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[0],1,KERN.in,1,KERN.hiddens[0].weights,M);
+    cblas_dger(CblasRowMajor,N,M,BP_LEARN_RATE,delta_ptr[0],1,KERN.in,1,KERN.hiddens[0].weights,M);
 #endif /*_MPI*/
 #elif defined(SBLAS)
     /*move the ger into a series of axpy*/
 #ifdef _MPI
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<red;jdx++){
-        cblas_daxpy(M,LEARN_RATE*delta_ptr[0][jdx+stream*red],KERN.in,1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx+stream*red,0)]),1);
+        cblas_daxpy(M,BP_LEARN_RATE*delta_ptr[0][jdx+stream*red],KERN.in,1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx+stream*red,0)]),1);
     }
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
         for(jdx=0;jdx<rem;jdx++){
-            cblas_daxpy(M,LEARN_RATE*delta_ptr[0][jdx+n_streams*red],
+            cblas_daxpy(M,BP_LEARN_RATE*delta_ptr[0][jdx+n_streams*red],
             KERN.in,1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx+n_streams*red,0)]),1);
         }
     }
 #else /*_MPI*/
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<N;jdx++){
-        cblas_daxpy(M,LEARN_RATE*delta_ptr[0][jdx],KERN.in,1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx,0)]),1);
+        cblas_daxpy(M,BP_LEARN_RATE*delta_ptr[0][jdx],KERN.in,1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx,0)]),1);
     }
 #endif /*_MPI*/
 #else /*no PBLAS no SBLAS*/
 #ifdef _MPI
 #pragma omp parallel for private(jdx,kdx) _NT
     for(jdx=0;jdx<red;jdx++){
-#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx+stream*red,ix)]+=LEARN_RATE*delta_ptr[0][jdx+stream*red]*KERN.in[ix]
+#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx+stream*red,ix)]+=BP_LEARN_RATE*delta_ptr[0][jdx+stream*red]*KERN.in[ix]
         UNROLL_FOR(0,M,ANN_UNROLL,DI,kdx);
 #undef OP_DI
     }
@@ -1841,7 +1841,7 @@ _HT;
     if(rem>0){
 #pragma omp parallel for private(jdx,kdx) _NT
         for(jdx=0;jdx<rem;jdx++){
-#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx+n_streams*red,ix)]+=LEARN_RATE*delta_ptr[0][jdx+n_streams*red]*KERN.in[ix]
+#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx+n_streams*red,ix)]+=BP_LEARN_RATE*delta_ptr[0][jdx+n_streams*red]*KERN.in[ix]
             UNROLL_FOR(0,M,ANN_UNROLL,DI,kdx);
 #undef OP_DI
         }
@@ -1849,7 +1849,7 @@ _HT;
 #else /*_MPI*/
 #pragma omp parallel for private(jdx,kdx) _NT
     for(jdx=0;jdx<N;jdx++){
-#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx,ix)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[ix]
+#define OP_DI(ix) KERN.hiddens[0].weights[_2D_IDX(M,jdx,ix)]+=BP_LEARN_RATE*delta_ptr[0][jdx]*KERN.in[ix]
         UNROLL_FOR(0,M,ANN_UNROLL,DI,kdx);
 #undef OP_DI
     }
@@ -1979,21 +1979,21 @@ DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE a
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-    cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+stream*red,
+    cblas_dger(CblasRowMajor,red,M,BPM_LEARN_RATE,delta_ptr[KERN.n_hiddens]+stream*red,
     1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens]+stream*M*red,M);
     cblas_daxpy(red*M,1.0,KERN.dw[KERN.n_hiddens]+stream*M*red,1,KERN.output.weights+stream*M*red,1);
     cblas_dscal(red*M,alpha,KERN.dw[KERN.n_hiddens]+stream*M*red,1);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.output.weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[KERN.n_hiddens],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
-        cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,delta_ptr[KERN.n_hiddens]+n_streams*red,
+        cblas_dger(CblasRowMajor,rem,M,BPM_LEARN_RATE,delta_ptr[KERN.n_hiddens]+n_streams*red,
         1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens]+n_streams*M*red,M);
         cblas_daxpy(rem*M,1.0,KERN.dw[KERN.n_hiddens]+n_streams*M*red,1,KERN.output.weights+n_streams*M*red,1);
         cblas_dscal(rem*M,alpha,KERN.dw[KERN.n_hiddens]+n_streams*M*red,1);
     }
 #else /*_MPI*/
     /*unfortunately dger output can't be scaled*/
-    cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[KERN.n_hiddens],
+    cblas_dger(CblasRowMajor,N,M,BPM_LEARN_RATE,delta_ptr[KERN.n_hiddens],
     1,KERN.hiddens[KERN.n_hiddens-1].vec,1,KERN.dw[KERN.n_hiddens],M);
     cblas_daxpy(N*M,1.0,KERN.dw[KERN.n_hiddens],1,KERN.output.weights,1);
     cblas_dscal(N*M,alpha,KERN.dw[KERN.n_hiddens],1);
@@ -2004,7 +2004,7 @@ DOUBLE ann_kernel_train_momentum(kernel_ann *kernel,const DOUBLE *train,DOUBLE a
 #pragma omp parallel for private(idx) _NT
     for(idx=0;idx<red;idx++){
 _HT;
-        cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+stream*red]*LEARN_RATE,
+        cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+stream*red]*BPM_LEARN_RATE,
         &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
         &(KERN.dw[KERN.n_hiddens][(idx+stream*red)*M]),1);
         cblas_daxpy(M,1.0,
@@ -2018,7 +2018,7 @@ _HT;
 #pragma omp parallel for private(idx) _NT
         for(idx=0;idx<rem;idx++){
 _HT;
-            cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*LEARN_RATE,
+            cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx+n_streams*red]*BPM_LEARN_RATE,
             &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
             &(KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M]),1);
             cblas_daxpy(M,1.0,
@@ -2031,8 +2031,8 @@ _HT;
 #pragma omp parallel for private(idx) _NT
     for(idx=0;idx<N;idx++){
 _HT;
-        //dw += LEARN_RATE*delta*y
-        cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx]*LEARN_RATE,
+        //dw += BPM_LEARN_RATE*delta*y
+        cblas_daxpy(M,delta_ptr[KERN.n_hiddens][idx]*BPM_LEARN_RATE,
         &(KERN.hiddens[KERN.n_hiddens-1].vec[0]),1,
         &(KERN.dw[KERN.n_hiddens][idx*M]),1);
         //W += dw
@@ -2049,7 +2049,7 @@ _HT;
     for(idx=0;idx<red;idx++){
         for(jdx=0;jdx<M;jdx++){
             KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx]+=
-                LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+stream*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+                BPM_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+stream*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
             KERN.output.weights[(idx+stream*red)*M+jdx]+=KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx];
             KERN.dw[KERN.n_hiddens][(idx+stream*red)*M+jdx]*=alpha;
         }
@@ -2061,7 +2061,7 @@ _HT;
         for(idx=0;idx<rem;idx++){
             for(jdx=0;jdx<M;jdx++){
                 KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx]+=
-                    LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+n_streams*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+                    BPM_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx+n_streams*red]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
                 KERN.output.weights[(idx+n_streams*red)*M+jdx]+=KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx];
                 KERN.dw[KERN.n_hiddens][(idx+n_streams*red)*M+jdx]*=alpha;
             }
@@ -2071,7 +2071,7 @@ _HT;
 #pragma omp parallel for private(idx,jdx) _NT
     for(idx=0;idx<N;idx++){
         for(jdx=0;jdx<M;jdx++){
-            KERN.dw[KERN.n_hiddens][idx*M+jdx]+=LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
+            KERN.dw[KERN.n_hiddens][idx*M+jdx]+=BPM_LEARN_RATE*delta_ptr[KERN.n_hiddens][idx]*KERN.hiddens[KERN.n_hiddens-1].vec[jdx];
             KERN.output.weights[_2D_IDX(M,idx,jdx)]+=KERN.dw[KERN.n_hiddens][idx*M+jdx];
             KERN.dw[KERN.n_hiddens][idx*M+jdx]*=alpha;
         }
@@ -2088,20 +2088,20 @@ _HT;
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-    cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+    cblas_dger(CblasRowMajor,red,M,BPM_LEARN_RATE,
         delta_ptr[idx]+stream*red,1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx]+stream*M*red,M);
     cblas_daxpy(N*M,1.0,KERN.dw[idx]+stream*M*red,1,KERN.hiddens[idx].weights+stream*M*red,1);
     cblas_dscal(N*M,alpha,KERN.dw[idx]+stream*M*red,1);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[idx].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[idx],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
-        cblas_dger(CblasRowMajor,red,M,LEARN_RATE,
+        cblas_dger(CblasRowMajor,red,M,BPM_LEARN_RATE,
             delta_ptr[idx]+n_streams*red,1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx]+n_streams*M*red,M);
         cblas_daxpy(N*M,1.0,KERN.dw[idx]+n_streams*M*red,1,KERN.hiddens[idx].weights+n_streams*M*red,1);
         cblas_dscal(N*M,alpha,KERN.dw[idx]+n_streams*M*red,1);
     }
 #else /*_MPI*/
-    cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[idx],1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx],M);
+    cblas_dger(CblasRowMajor,N,M,BPM_LEARN_RATE,delta_ptr[idx],1,KERN.hiddens[idx-1].vec,1,KERN.dw[idx],M);
     cblas_daxpy(N*M,1.0,KERN.dw[idx],1,KERN.hiddens[idx].weights,1);
     cblas_dscal(N*M,alpha,KERN.dw[idx],1);
 #endif /*_MPI*/
@@ -2110,7 +2110,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<red;jdx++){
 _HT;
-        cblas_daxpy(M,delta_ptr[idx][jdx+stream*red]*LEARN_RATE,
+        cblas_daxpy(M,delta_ptr[idx][jdx+stream*red]*BPM_LEARN_RATE,
             KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][(jdx+stream*red)*M]),1);
         cblas_daxpy(M,1.0,&(KERN.dw[idx][(jdx+stream*red)*M]),1,&(KERN.hiddens[idx].weights[(jdx+stream*red)*M]),1);
         cblas_dscal(M,alpha,&(KERN.dw[idx][(jdx+stream*red)*M]),1);
@@ -2121,7 +2121,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
         for(jdx=0;jdx<rem;jdx++){
 _HT;
-            cblas_daxpy(M,delta_ptr[idx][jdx+n_streams*red]*LEARN_RATE,
+            cblas_daxpy(M,delta_ptr[idx][jdx+n_streams*red]*BPM_LEARN_RATE,
                 KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1);
             cblas_daxpy(M,1.0,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1,&(KERN.hiddens[idx].weights[(jdx+n_streams*red)*M]),1);
             cblas_dscal(M,alpha,&(KERN.dw[idx][(jdx+n_streams*red)*M]),1);
@@ -2131,8 +2131,8 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<N;jdx++){
 _HT;
-        //dw += LEARN_RATE*delta*y
-        cblas_daxpy(M,delta_ptr[idx][jdx]*LEARN_RATE,KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1);
+        //dw += BPM_LEARN_RATE*delta*y
+        cblas_daxpy(M,delta_ptr[idx][jdx]*BPM_LEARN_RATE,KERN.hiddens[idx-1].vec,1,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1);
         //W += dw
         cblas_daxpy(M,1.0,&(KERN.dw[idx][_2D_IDX(M,jdx,0)]),1,&(KERN.hiddens[idx].weights[_2D_IDX(M,jdx,0)]),1);
         //dw *= alpha
@@ -2145,7 +2145,7 @@ _HT;
     for(jdx=0;jdx<red;jdx++){
         for(kdx=0;kdx<M;kdx++){
             KERN.dw[idx][(jdx+stream*red)*M+kdx]+=
-                LEARN_RATE*delta_ptr[idx][jdx+stream*red]*KERN.hiddens[idx-1].vec[kdx];
+                BPM_LEARN_RATE*delta_ptr[idx][jdx+stream*red]*KERN.hiddens[idx-1].vec[kdx];
             KERN.hiddens[idx].weights[(jdx+stream*red)*M+kdx]+=KERN.dw[idx][(jdx+stream*red)*M+kdx];
             KERN.dw[idx][(jdx+stream*red)*M+kdx]*=alpha;
         }
@@ -2157,7 +2157,7 @@ _HT;
         for(jdx=0;jdx<rem;jdx++){
             for(kdx=0;kdx<M;kdx++){
                 KERN.dw[idx][(jdx+n_streams*red)*M+kdx]+=
-                    LEARN_RATE*delta_ptr[idx][jdx+n_streams*red]*KERN.hiddens[idx-1].vec[kdx];
+                    BPM_LEARN_RATE*delta_ptr[idx][jdx+n_streams*red]*KERN.hiddens[idx-1].vec[kdx];
                 KERN.hiddens[idx].weights[(jdx+n_streams*red)*M+kdx]+=KERN.dw[idx][(jdx+n_streams*red)*M+kdx];
                 KERN.dw[idx][(jdx+n_streams*red)*M+kdx]*=alpha;
             }
@@ -2167,7 +2167,7 @@ _HT;
 #pragma omp parallel for private(jdx,kdx) _NT
     for(jdx=0;jdx<N;jdx++){
         for(kdx=0;kdx<M;kdx++){
-            KERN.dw[idx][_2D_IDX(M,jdx,kdx)]+=LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[kdx];
+            KERN.dw[idx][_2D_IDX(M,jdx,kdx)]+=BPM_LEARN_RATE*delta_ptr[idx][jdx]*KERN.hiddens[idx-1].vec[kdx];
             KERN.hiddens[idx].weights[_2D_IDX(M,jdx,kdx)]+=KERN.dw[idx][_2D_IDX(M,jdx,kdx)];
             KERN.dw[idx][_2D_IDX(M,jdx,kdx)]*=alpha;
         }
@@ -2184,18 +2184,18 @@ _HT;
 #endif /*_MPI*/
 #ifdef PBLAS
 #ifdef _MPI
-    cblas_dger(CblasRowMajor,red,M,LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.dw[0]+stream*M*red,M);
+    cblas_dger(CblasRowMajor,red,M,BPM_LEARN_RATE,delta_ptr[0]+stream*red,1,KERN.in,1,KERN.dw[0]+stream*M*red,M);
     cblas_daxpy(red*M,1.0,KERN.dw[0]+stream*M*red,1,KERN.hiddens[0].weights+stream*M*red,1);
     cblas_dscal(red*M,alpha,KERN.dw[0]+stream*M*red,1);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.hiddens[0].weights,M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     MPI_Allgather(MPI_IN_PLACE,0,MPI_DATATYPE_NULL,KERN.dw[0],M*red,MPI_DOUBLE,MPI_COMM_WORLD);
     if(rem>0){
-        cblas_dger(CblasRowMajor,rem,M,LEARN_RATE,delta_ptr[0]+n_streams*red,1,KERN.in,1,KERN.dw[0]+n_streams*M*red,M);
+        cblas_dger(CblasRowMajor,rem,M,BPM_LEARN_RATE,delta_ptr[0]+n_streams*red,1,KERN.in,1,KERN.dw[0]+n_streams*M*red,M);
         cblas_daxpy(rem*M,1.0,KERN.dw[0]+n_streams*M*red,1,KERN.hiddens[0].weights+n_streams*M*red,1);
         cblas_dscal(rem*M,alpha,KERN.dw[0]+n_streams*M*red,1);
     }
 #else /*_MPI*/
-    cblas_dger(CblasRowMajor,N,M,LEARN_RATE,delta_ptr[0],1,KERN.in,1,KERN.dw[0],M);
+    cblas_dger(CblasRowMajor,N,M,BPM_LEARN_RATE,delta_ptr[0],1,KERN.in,1,KERN.dw[0],M);
     cblas_daxpy(N*M,1.0,KERN.dw[0],1,KERN.hiddens[0].weights,1);
     cblas_dscal(N*M,alpha,KERN.dw[0],1);
 #endif /*_MPI*/
@@ -2204,7 +2204,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<red;jdx++){
 _HT;
-        cblas_daxpy(M,delta_ptr[0][jdx+stream*red]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+stream*red)*M]),1);
+        cblas_daxpy(M,delta_ptr[0][jdx+stream*red]*BPM_LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+stream*red)*M]),1);
         cblas_daxpy(M,1.0,&(KERN.dw[0][(jdx+stream*red)*M]),1,&(KERN.hiddens[0].weights[(jdx+stream*red)*M]),1);
         cblas_dscal(M,alpha,&(KERN.dw[0][(jdx+stream*red)*M]),1);
     }
@@ -2213,7 +2213,7 @@ _HT;
     if(rem>0){
         for(jdx=0;jdx<rem;jdx++){
 _HT;
-            cblas_daxpy(M,delta_ptr[0][jdx+n_streams*red]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+n_streams*red)*M]),1);
+            cblas_daxpy(M,delta_ptr[0][jdx+n_streams*red]*BPM_LEARN_RATE,KERN.in,1,&(KERN.dw[0][(jdx+n_streams*red)*M]),1);
             cblas_daxpy(M,1.0,&(KERN.dw[0][(jdx+n_streams*red)*M]),1,&(KERN.hiddens[0].weights[(jdx+n_streams*red)*M]),1);
             cblas_dscal(M,alpha,&(KERN.dw[0][(jdx+n_streams*red)*M]),1);
         }
@@ -2222,8 +2222,8 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<N;jdx++){
 _HT;
-        //dw += LEARN_RATE*delta*y
-        cblas_daxpy(M,delta_ptr[0][jdx]*LEARN_RATE,KERN.in,1,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1);
+        //dw += BPM_LEARN_RATE*delta*y
+        cblas_daxpy(M,delta_ptr[0][jdx]*BPM_LEARN_RATE,KERN.in,1,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1);
         //W += dw
         cblas_daxpy(M,1.0,&(KERN.dw[0][_2D_IDX(M,jdx,0)]),1,&(KERN.hiddens[0].weights[_2D_IDX(M,jdx,0)]),1);
         //dw *= alpha
@@ -2235,7 +2235,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
     for(jdx=0;jdx<red;jdx++){
         for(kdx=0;kdx<M;kdx++){
-            KERN.dw[0][(jdx+stream*red)*M+kdx]+=LEARN_RATE*delta_ptr[0][jdx+stream*red]*KERN.in[kdx];
+            KERN.dw[0][(jdx+stream*red)*M+kdx]+=BPM_LEARN_RATE*delta_ptr[0][jdx+stream*red]*KERN.in[kdx];
             KERN.hiddens[0].weights[(jdx+stream*red)*M+kdx]+=KERN.dw[0][(jdx+stream*red)*M+kdx];
             KERN.dw[0][(jdx+stream*red)*M+kdx]*=alpha;
         }
@@ -2246,7 +2246,7 @@ _HT;
 #pragma omp parallel for private(jdx) _NT
         for(jdx=0;jdx<rem;jdx++){
             for(kdx=0;kdx<M;kdx++){
-                KERN.dw[0][(jdx+n_streams*red)*M+kdx]+=LEARN_RATE*delta_ptr[0][jdx+n_streams*red]*KERN.in[kdx];
+                KERN.dw[0][(jdx+n_streams*red)*M+kdx]+=BPM_LEARN_RATE*delta_ptr[0][jdx+n_streams*red]*KERN.in[kdx];
                 KERN.hiddens[0].weights[(jdx+n_streams*red)*M+kdx]+=KERN.dw[0][(jdx+n_streams*red)*M+kdx];
                 KERN.dw[0][(jdx+n_streams*red)*M+kdx]*=alpha;
             }
@@ -2256,7 +2256,7 @@ _HT;
 #pragma omp parallel for private(jdx,kdx) _NT
     for(jdx=0;jdx<N;jdx++){
         for(kdx=0;kdx<M;kdx++){
-            KERN.dw[0][_2D_IDX(M,jdx,kdx)]+=LEARN_RATE*delta_ptr[0][jdx]*KERN.in[kdx];
+            KERN.dw[0][_2D_IDX(M,jdx,kdx)]+=BPM_LEARN_RATE*delta_ptr[0][jdx]*KERN.in[kdx];
             KERN.hiddens[0].weights[_2D_IDX(M,jdx,kdx)]+=KERN.dw[0][_2D_IDX(M,jdx,kdx)];
             KERN.dw[0][_2D_IDX(M,jdx,kdx)]*=alpha;
         }
@@ -2452,7 +2452,7 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
         }
         if(iter>MAX_BPM_ITER) break;/*do at most MAX iterations*/
         is_ok&=(iter>MIN_BPM_ITER);/*do at least MIN iterations*/
-    }while((dEp > delta)||(!(is_ok==TRUE)));
+    }while((dEp > DELTA_BPM)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f",dEp);
     if(is_ok==TRUE) NN_COUT(stdout," SUCCESS!\n");

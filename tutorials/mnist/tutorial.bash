@@ -139,7 +139,7 @@ cat > mnist_ann.conf <<!
 [input] 784
 [hidden] 300
 [output] 10
-[train] BPM
+[train] BP
 [sample_dir] ./samples
 [test_dir] ./tests
 !
@@ -152,7 +152,6 @@ IDX=\`wc -l < raw\`
 if [ "\$IDX" -gt 1 ]; then
   ./tmp.gnuplot
 fi
-let "IDX += 1"
 tail -20 raw | sed -e 's/\([0-9]\+\)\ *\([0-9]*\.[0-9]\)\ *\([0-9]*\.[0-9]\)$/ITER[\1] PASS = \2% OPT = \3%/g'
 NTR=\`grep TRAINING ./log | wc -l\`
 XTR=\`echo "scale=1;100*\$NTR/60000" | bc -l\`
@@ -199,23 +198,19 @@ rm -f log
 touch log
 watch -t -n5 ./tmp.mon &
 WPID=$!
-for IDX in `seq 2 50`
+for IDX in `seq 2 25`
 do
   for JDX in `seq 0 5`
   do
-    sed -e 's/^\[init\].*/[init] kernel.opt/g' -e 's/^\[seed\].*/[seed] '$IDX'/g' -e 's/^\[sample_dir\].*/[sample_dir] .\/s'$JDX'/g' mnist_ann.conf > cont_mnist_ann.conf
-    #do 5 time each
-    for KDX in `seq 1 5`
-    do
-      eval $TRAIN_CMD &> log
-      eval $RUN_CMD &> results
-      NRS=`grep PASS results | wc -l`
-      XRS=`echo "scale=1;100*$NRS/10000" |bc -l`
-      NOK=`grep OK ./log | wc -l`
-      XOK=`echo "scale=1;100*$NOK/10000" |bc -l`
-      echo "$ITER $XRS $XOK" >> raw
-      (( ITER += 1 ))
-    done
+    sed -e 's/^\[init\].*/[init] kernel.opt/g' -e 's/^\[seed\].*/[seed] 0/g' -e 's/^\[sample_dir\].*/[sample_dir] .\/s'$JDX'/g' mnist_ann.conf > cont_mnist_ann.conf
+    eval $TRAIN_CMD &> log
+    eval $RUN_CMD &> results
+    NRS=`grep PASS results | wc -l`
+    XRS=`echo "scale=1;100*$NRS/10000" |bc -l`
+    NOK=`grep OK ./log | wc -l`
+    XOK=`echo "scale=1;100*$NOK/10000" |bc -l`
+    echo "$ITER $XRS $XOK" >> raw
+    (( ITER += 1 ))
   done
 done
 sleep 6
