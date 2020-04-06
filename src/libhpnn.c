@@ -1245,18 +1245,16 @@ BOOL _NN(train,kernel)(nn_def *conf){
             /*check training*/
             switch (_CONF.train){
             case NN_TRAIN_BPM:
-                res=ann_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,
-                    0.2,0.00001);/*TODO: set as parameters*/
-                break;
+              res=ann_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,.2,-1.);
+              break;
             case NN_TRAIN_BP:
-                res=ann_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
-                    0.000001);/*TODO: set as parameter*/
-                break;
+              res=ann_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,-1.);
+              break;
             case NN_TRAIN_SPLX:
             case NN_TRAIN_CG:
             default:
-                res=0.;
-                break;
+              res=0.;
+              break;
             }
             break;
         case NN_TYPE_LNN:
@@ -1264,18 +1262,16 @@ BOOL _NN(train,kernel)(nn_def *conf){
             /*check training*/
             switch (_CONF.train){
             case NN_TRAIN_BPM:
-                res=snn_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,
-                    0.2,0.00001);/*TODO: set as parameters*/
-                break;
+              res=snn_train_BPM((kernel_ann *)_CONF.kernel,tr_in,tr_out,.2,-1.);
+              break;
             case NN_TRAIN_BP:
-                res=snn_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,
-                    0.000001);/*TODO: set as parameter*/
-                break;
+              res=snn_train_BP((kernel_ann *)_CONF.kernel,tr_in,tr_out,-1.);
+              break;
             case NN_TRAIN_SPLX:
             case NN_TRAIN_CG:
             default:
-                res=0.;
-                break;
+              res=0.;
+              break;
             }
             break;
         case NN_TYPE_UKN:

@@ -66,11 +66,11 @@ typedef enum {
 } nn_train;
 #define BP_LEARN_RATE 0.001
 #define MIN_BP_ITER 31
-#define MAX_BP_ITER 10239
+#define MAX_BP_ITER 102399
 #define DELTA_BP 1E-6
 #define BPM_LEARN_RATE 0.0005
 #define MIN_BPM_ITER 15
-#define MAX_BPM_ITER 10239
+#define MAX_BPM_ITER 102399
 #define DELTA_BPM 1E-6
 /*-----------------------------*/
 /*+++ NN definition handler +++*/

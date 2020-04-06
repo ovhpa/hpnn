@@ -121,15 +121,6 @@ fi
 mkdir -p ./mnist/tests
 cd mnist
 eval $PMNIST_CMD
-rm -f ./s0/* ./s1/* ./s2/* ./s3/* ./s4/* ./s5/*
-mkdir -p ./s0 ./s1 ./s2 ./s3 ./s4 ./s5
-cp ./samples/s0* ./s0
-cp ./samples/s60000.txt ./s0
-cp ./samples/s1* ./s1
-cp ./samples/s2* ./s2
-cp ./samples/s3* ./s3
-cp ./samples/s4* ./s4
-cp ./samples/s5* ./s5
 echo "preparing configuration files"
 cat > mnist_ann.conf <<!
 [name] MNIST
@@ -145,8 +136,8 @@ cat > mnist_ann.conf <<!
 !
 sed -e 's/^\[init\].*/[init] kernel.opt/g' -e 's/^\[seed\].*/[seed] 1/g' mnist_ann.conf > cont_mnist_ann.conf
 # prepare monitor
-rm -f tmp.mon*
-cat > tmp.mon0 <<! 
+rm -f tmp.mon
+cat > tmp.mon <<! 
 #!/bin/bash
 IDX=\`wc -l < raw\`
 if [ "\$IDX" -gt 1 ]; then
@@ -164,7 +155,7 @@ fi
 # display
 echo "ITER[\$IDX] [\$MOP](\$XTR%)"
 !
-chmod +x ./tmp.mon0
+chmod +x ./tmp.mon
 # prepare plots
 cat > tmp.gnuplot <<!
 #!/usr/bin/gnuplot
@@ -180,7 +171,7 @@ rm -f raw
 touch raw 
 rm -f log 
 touch log 
-watch -t -n5 ./tmp.mon0 &
+watch -t -n5 ./tmp.mon &
 WPID=$!
 # first pass
 eval $FIRST_TRAIN_CMD &> log
@@ -191,29 +182,18 @@ NOK=`grep OK ./log | wc -l`
 XOK=`echo "scale=1;100*$NOK/60000" |bc -l`
 echo "0 $XRS $XOK" > raw
 ITER=1
-kill $WPID
-sed -e 's/60000/10000/g' tmp.mon0 > tmp.mon
-chmod +x tmp.mon
-rm -f log
-touch log
-watch -t -n5 ./tmp.mon &
-WPID=$!
-for IDX in `seq 2 25`
+for IDX in `seq 1 50`
 do
-  for JDX in `seq 0 5`
-  do
-    sed -e 's/^\[init\].*/[init] kernel.opt/g' -e 's/^\[seed\].*/[seed] 0/g' -e 's/^\[sample_dir\].*/[sample_dir] .\/s'$JDX'/g' mnist_ann.conf > cont_mnist_ann.conf
-    eval $TRAIN_CMD &> log
-    eval $RUN_CMD &> results
-    NRS=`grep PASS results | wc -l`
-    XRS=`echo "scale=1;100*$NRS/10000" |bc -l`
-    NOK=`grep OK ./log | wc -l`
-    XOK=`echo "scale=1;100*$NOK/10000" |bc -l`
-    echo "$ITER $XRS $XOK" >> raw
-    (( ITER += 1 ))
-  done
+  sed -e 's/^\[init\].*/[init] kernel.opt/g' -e 's/^\[seed\].*/[seed] 0/g' mnist_ann.conf > cont_mnist_ann.conf
+  eval $TRAIN_CMD &> log
+  eval $RUN_CMD &> results
+  NRS=`grep PASS results | wc -l`
+  XRS=`echo "scale=1;100*$NRS/60000" |bc -l`
+  NOK=`grep OK ./log | wc -l`
+  XOK=`echo "scale=1;100*$NOK/60000" |bc -l`
+  echo "$ITER $XRS $XOK" >> raw
+  (( ITER += 1 ))
 done
 sleep 6
 kill $WPID
 echo "All DONE!"
-

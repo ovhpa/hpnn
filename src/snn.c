@@ -1454,7 +1454,7 @@ if(cudas->mem_model==CUDA_MEM_CMM){
 #endif /*_CUDA*/
     NN_COUT(stdout," init=%15.10f",dEp);
     iter=0;
-    delta=1E-5;
+    if(delta <= 0.) delta = DELTA_BP;/*default*/
     do{
         iter++;
 #ifdef _CUDA
@@ -1490,9 +1490,9 @@ if(cudas->mem_model!=CUDA_MEM_CMM){
             if(is_ok==TRUE) NN_COUT(stdout," OK");
             else NN_COUT(stdout," NO");
         }
-        if(iter>MAX_BPM_ITER) break;/*do at most MAX iterations*/
-        is_ok&=(iter>MIN_BPM_ITER);/*do at least MIN iterations*/
-    }while((dEp > delta)||(!(is_ok==TRUE)));
+        if(iter>MAX_BP_ITER) break;/*do at most MAX iterations*/
+        is_ok&=(iter>MIN_BP_ITER);/*do at least MIN iterations*/
+    }while((dEp > DELTA_BP)||(!(is_ok==TRUE)));
     NN_COUT(stdout," N_ITER=%8i",iter);
     NN_COUT(stdout," final=%15.10f\n",dEp);
     fflush(stdout);
@@ -1545,7 +1545,7 @@ if(cudas->mem_model==CUDA_MEM_CMM){
 #endif /*_CUDA*/
     NN_COUT(stdout," init=%15.10f",dEp);
     iter=0;
-    delta=0.000001;
+    if(delta <= 0.) delta = DELTA_BPM;/*default*/
     do{
         iter++;
 #ifdef _CUDA
