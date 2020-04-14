@@ -179,7 +179,7 @@ eval $RUN_CMD &> results
 NRS=`grep PASS results | wc -l`
 XRS=`echo "scale=1;100*$NRS/60000" |bc -l`
 NOK=`grep OK ./log | wc -l`
-XOK=`echo "scale=1;100*$NOK/60000" |bc -l`
+XOK=`echo "scale=1;100*$NOK/10000" |bc -l`
 echo "0 $XRS $XOK" > raw
 ITER=1
 for IDX in `seq 1 50`
@@ -190,7 +190,7 @@ do
   NRS=`grep PASS results | wc -l`
   XRS=`echo "scale=1;100*$NRS/60000" |bc -l`
   NOK=`grep OK ./log | wc -l`
-  XOK=`echo "scale=1;100*$NOK/60000" |bc -l`
+  XOK=`echo "scale=1;100*$NOK/10000" |bc -l`
   echo "$ITER $XRS $XOK" >> raw
   (( ITER += 1 ))
 done
